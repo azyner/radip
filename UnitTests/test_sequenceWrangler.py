@@ -44,3 +44,13 @@ class TestSequenceWrangler(TestCase):
         dis = dataWrangler._dis_from_ref_line(data,4)
         self.assertTrue((dis==[-7, -6, -5, -4, -3, -2, -1, 0, 1, 2]).all())
 
+    def test__track_slicer_w_dis(self):
+        a = np.arange(-10, 0)
+        z = np.zeros(len(a))
+        data = np.array([a, z]).transpose()
+        dataWrangler = SequenceWrangler.SequenceWrangler(data, training=1.0, test=0, val=0)
+        template = pd.DataFrame({'label': 'east','origin':'west'},index=[0])
+        data_collection = dataWrangler._track_slicer(data, 4, 0,template,4)
+        self.assertTrue((data_collection['distance'].values == [-4, -3, -2, -1, 0, 1, 2]).all())
+
+

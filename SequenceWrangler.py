@@ -64,14 +64,19 @@ class SequenceWrangler:
         if len(track) < encoder_steps + decoder_steps:
             raise ValueError("length of track is shorter than encoder_steps and decoder_steps.")
 
-        track_collection = []
+        if bbox is not None:
+            dis = self._dis_from_ref_line(track,bbox)
+
+        sample_collection = []
         for i in range(len(track) - (encoder_steps+decoder_steps)+1):
             sample_dataframe = df_template.copy()
+            sample_dataframe["encoder_sample"] = pd.Series([track[i: i + encoder_steps]], dtype=object)
             sample_dataframe["decoder_sample"] = pd.Series([track[i + encoder_steps:i + (encoder_steps + decoder_steps)]],
                                                            dtype=object)
-            sample_dataframe["encoder_sample"] = pd.Series([track[i: i + encoder_steps]], dtype=object)
-            track_collection.append(pd.DataFrame(sample_dataframe))
-        return pd.concat(track_collection)
+            if bbox is not None:
+                sample_dataframe["distance"] = dis[i+encoder_steps-1] #distance for the last element given to encoder
+            sample_collection.append(pd.DataFrame(sample_dataframe))
+        return pd.concat(sample_collection)
 
 
     def split_sequence_collection(self,collection,encoder_steps,decoder_steps,labels):
