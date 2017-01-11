@@ -5,17 +5,15 @@
 
 class SequenceWrangler:
     def __init__(self, data, training=0.8,val=0.1,test=0.1):
-        return
+        return #pool pool pool
 
-    def raw_data_input(self,data):
-        return
 
-    def sequence_splitter(self):
+    def _sequence_splitter(self):
         # Start ripping code from last project.
         # It needs to use pandas, such that for each data sample, there is a wrapper class containing a list of properties
         return
 
-    def generate_pools(self):
+    def _generate_pools(self):
         # The `go' button. This command writes the pool of data. The sequence length requirement is allowed to change during training or test time.
         # Split data track wise - how should this be done, randomly, pseudo random with an optional seed?
         # Call sequence splitter
