@@ -11,8 +11,8 @@ class TestSequenceWrangler(TestCase):
         data = np.arange(10)
         data = data.reshape([5,2])  #Data is now 5 units long, of data vectors of length 2
         dataWrangler = SequenceWrangler.SequenceWrangler(data,training=1.0,test=0,val=0)
-        encoder_data, decoder_data = dataWrangler._track_slicer(data, 5, 0)
-        self.assertEqual(len(encoder_data),1)
+        data_collection = dataWrangler._track_slicer(data, 5, 0,pd.DataFrame())
+        self.assertEqual(len(data_collection),1)
         #self.fail()
 
     #Test the function that creates all possible
@@ -21,8 +21,10 @@ class TestSequenceWrangler(TestCase):
         data = np.arange(10)
         data = data.reshape([5,2])  #Data is now 5 units long, of data vectors of length 2
         dataWrangler = SequenceWrangler.SequenceWrangler(data,training=1.0,test=0,val=0)
-        encoder_data, decoder_data = dataWrangler._track_slicer(data, 4, 0)
-        self.assertEqual(len(encoder_data),2)
+        template = pd.DataFrame({'label': 'east','origin':'west'},index=[0])
+        data_collection = dataWrangler._track_slicer(data, 4, 0,template)
+        self.assertEqual(len(data_collection),2)
+        self.assertEqual(data_collection.iloc[0]['label'], 'east')
         #self.fail()
 
     def test__rnn_data_np_track_too_short(self):
@@ -31,7 +33,7 @@ class TestSequenceWrangler(TestCase):
         data = data.reshape([5, 2])  # Data is now 5 units long, of data vectors of length 2
         dataWrangler = SequenceWrangler.SequenceWrangler(data, training=1.0, test=0, val=0)
         with self.assertRaises(ValueError):
-            encoder_data, decoder_data = dataWrangler._track_slicer(data, 6, 0)
+            encoder_data, decoder_data = dataWrangler._track_slicer(data, 6, 0,pd.DataFrame())
 
 
     def test__dis_from_ref_line(self):

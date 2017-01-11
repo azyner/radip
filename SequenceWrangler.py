@@ -24,6 +24,10 @@ class SequenceWrangler:
         train_pool, train_pool, val_pool = [],[],[]
         return train_pool, train_pool, val_pool
 
+    #This calculates the distance from the reference line for the length of the track. Useful for picking elements later
+    #  or earlier in the sequence, depending on training style
+    #ASSUMPTIONS
+    # For this to work, the first two elements in the feature vector must be the co-ordinates in meters, centre normalized
     def _dis_from_ref_line(self,single_track,ref_line_dis):
         def is_inside_box(timestep_data, bounds):
             return (timestep_data[0] < bounds and
@@ -47,7 +51,7 @@ class SequenceWrangler:
 
     # So track slicer is only handling one track at a time. It should be passed a set of common parameters
     #   For example: destination label, or vehicle type etc.
-    def _track_slicer(self, track, encoder_steps, decoder_steps):
+    def _track_slicer(self, track, encoder_steps, decoder_steps, df_template, bbox=None):
         """
         creates new data frame based on previous observation
           * example:
@@ -60,17 +64,14 @@ class SequenceWrangler:
         if len(track) < encoder_steps + decoder_steps:
             raise ValueError("length of track is shorter than encoder_steps and decoder_steps.")
 
-        rnn_df_encoder = []
-        rnn_df_decoder = []
+        track_collection = []
         for i in range(len(track) - (encoder_steps+decoder_steps)+1):
-            try:
-                rnn_df_decoder.append(track[i + encoder_steps:i + (encoder_steps + decoder_steps)])
-            except AttributeError:
-                rnn_df_decoder.append(track[i + encoder_steps:i + (encoder_steps + decoder_steps)])
-            data_ = track[i: i + encoder_steps]
-            rnn_df_encoder.append(data_ if len(data_.shape) > 1 else [[i] for i in data_])
-        return np.array(rnn_df_encoder), np.array(rnn_df_decoder)
-
+            sample_dataframe = df_template.copy()
+            sample_dataframe["decoder_sample"] = pd.Series([track[i + encoder_steps:i + (encoder_steps + decoder_steps)]],
+                                                           dtype=object)
+            sample_dataframe["encoder_sample"] = pd.Series([track[i: i + encoder_steps]], dtype=object)
+            track_collection.append(pd.DataFrame(sample_dataframe))
+        return pd.concat(track_collection)
 
 
     def split_sequence_collection(self,collection,encoder_steps,decoder_steps,labels):
