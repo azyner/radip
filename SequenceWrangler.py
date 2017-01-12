@@ -68,7 +68,7 @@ class SequenceWrangler:
             single_track = raw_sequences[track_raw_idx]
             df_template = _generate_template(track_raw_idx,raw_classes[track_raw_idx],
                                              dest_raw_classes[track_raw_idx],
-                                             dest_raw_classes[track_raw_idx])
+                                             self.des_classes[track_raw_idx])
             track_pool = self._track_slicer(single_track,
                                             5,#parameters.encoder_steps,
                                             0,#parameters.decoder_steps,
@@ -205,6 +205,8 @@ class SequenceWrangler:
                                                            dtype=object)
             if bbox is not None:
                 sample_dataframe["distance"] = dis[i+encoder_steps-1] #distance for the last element given to encoder
+            sample_dataframe["time_idx"] = i
+
             sample_collection.append(pd.DataFrame(sample_dataframe))
         return pd.concat(sample_collection)
 
