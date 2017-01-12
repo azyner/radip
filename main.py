@@ -15,9 +15,15 @@ import sys
 import copy
 import numpy as np
 import pandas as pd
+import SequenceWrangler
 
 
 input_columns = ['easting', 'northing', 'heading', 'speed']
+#This call copied from the dataset paper. It takes considerable time, so ensure it is run once only
+print "reading data"
 raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(input_columns)
+print "wrangling tracks"
+Wrangler = SequenceWrangler.SequenceWrangler(None,raw_sequences,raw_classes)
 
+cf_pool, test_pool = Wrangler.get_pools()
 print raw_sequences

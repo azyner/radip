@@ -17,8 +17,8 @@ class SequenceWrangler:
                                         "class":track_class,
                                         "destination":destination,
                                         "destination_vec":destination_vec
-                                        })
-        
+                                        },index=[0])
+
         # Okay, so what is the format of data? Its both the raw tracks, and the raw vector classes?
         # The label --> one-hot converter should be in here.
         #This function needs to be persistent accross the n folds of the cross valdiation
@@ -36,13 +36,7 @@ class SequenceWrangler:
         dest_raw_classes = [label[label.find('-') + 1:] for label in raw_classes]
         des_encoder = preprocessing.LabelEncoder()
         des_encoder.fit(dest_raw_classes)
-        des_classes = des_encoder.transform(dest_raw_classes)
-
-        #Write a function to strip the origin, and the destination, in compliamentary arrays. Use these to feed
-        # origin and destination encoders.
-
-        #origin_destintation_classes, \
-        #origin_destintation_dict= self._generate_classes(raw_classes)
+        self.des_classes = des_encoder.transform(dest_raw_classes)
 
         """
         The notionally correct way to validate the algorithm is as follows:
@@ -52,46 +46,60 @@ class SequenceWrangler:
         that both are picked with an even dataset.
         """
 
-
-        X_trainval, X_test, Y_trainval, Y_test = train_test_split(raw_sequences,raw_classes,
+        raw_indicies = range(len(raw_sequences))
+        X_trainval, X_test, \
+        Y_trainval, Y_test, \
+        trainval_idxs, test_idxs = train_test_split(raw_sequences,raw_classes,raw_indicies,
                                                                   test_size=0.1,stratify=origin_destintation_classes)
-
-        '''I'm going to be redundant here. A track in the trainval set will belong to (n-1) train pools, and 1 test pool
-        such that I will be doing n-1 reduntant computtion, where n = num_pools. This is an artefact of how I am doing
-        data processing after crossfold selection. It is this way becase I cross fold on tracks, and then have to
-        process the track.
-
-        I could do a reverse map, i.e. track[4] belongs to train folds 1,2,4,5, os preprocess on a track level, and then
-        copy into the pool.
-        Or the pools have links to an object, not a copy of the object.
-
-        I'd like to do a reverse map, and then do pool1.append(processed_element), pool2.append....
-        i.e. the track splitter gets passed a list of pools to add the final processed data point to.'''
+        crossfold_idx_lookup = np.array(trainval_idxs)
 
         skf = StratifiedKFold(n_splits=n_folds)
-        crossfold_indicies = list(skf.split(X_trainval,Y_trainval))
+        crossfold_indicies = list(skf.split(trainval_idxs,Y_trainval))
         crossfold_pool = [[[],[]] for x in xrange(n_folds)]
+        test_pool = []
 
-
-
-        for track_idx in range(len(raw_sequences)):
-            single_track = raw_sequences[track_idx]
-            df_template = _generate_template(track_idx,raw_classes[track_idx],dest_raw_classes[track_idx],
-                                             dest_raw_classes[track_idx])
+        # For all tracks
+        for track_raw_idx in range(len(raw_sequences)):
+            #if track_raw_idx > 10:
+            #    break
+            #Lookup the index in the original collection
+            #Get data
+            print "Wrangling track: " + str(track_raw_idx)
+            single_track = raw_sequences[track_raw_idx]
+            df_template = _generate_template(track_raw_idx,raw_classes[track_raw_idx],
+                                             dest_raw_classes[track_raw_idx],
+                                             dest_raw_classes[track_raw_idx])
             track_pool = self._track_slicer(single_track,
-                                            parameters.encoder_steps,
-                                            parameters.decoder_steps,
+                                            5,#parameters.encoder_steps,
+                                            0,#parameters.decoder_steps,
                                             df_template,
-                                            parameters.bbox)
-
+                                            20)#parameters.bbox)
+            #Check if it exists in a crossfold pool
             for fold_idx in range(len(crossfold_indicies)):
+                #For each pool, train pool or validation pool
                 for trainorval_pool_idx in range(len(crossfold_indicies[fold_idx])):
-                    if track_idx in crossfold_indicies[fold_idx][trainorval_pool_idx]:
-                        crossfold_pool[fold_idx][trainorval_pool_idx].extend(track_pool)
+                    # If the crossfold_list index of the track matches
+                    if track_raw_idx in crossfold_idx_lookup[crossfold_indicies[fold_idx][trainorval_pool_idx]]:
+                        crossfold_pool[fold_idx][trainorval_pool_idx].append(track_pool)
+                        print "Added track " + str(track_raw_idx) + " to cf pool "+str(fold_idx) + \
+                              (" train" if trainorval_pool_idx is 0 else " test")
+            # else it must exist in the test_pool
+            if track_raw_idx in test_idxs:
+                test_pool.append(track_pool)
+                print "Added track " + str(track_raw_idx) + " to test pool"
 
-        #Returns: training array of length (num_folds), val array of len (num_folds), single test pool
+        print "concatenating pools"
+        for fold_idx in range(len(crossfold_indicies)):
+            for trainorval_pool_idx in range(len(crossfold_indicies[fold_idx])):
+                crossfold_pool[fold_idx][trainorval_pool_idx] = pd.concat(crossfold_pool[fold_idx][trainorval_pool_idx])
 
-        return crossfold_pool, test_pool
+        self.crossfold_pool = crossfold_pool
+        self.test_pool = test_pool
+
+        return
+
+    def get_pools(self):
+        return self.crossfold_pool, self.test_pool
 
     def _generate_classes(self,string_collection):
         # Takes in a list of strings, where the strings are the name of the classes
