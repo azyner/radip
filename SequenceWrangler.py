@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn import preprocessing
 
 #Class to take a list of continuous, contiguous data logs that need to be collated and split for the data feeder
 #Is this different to the batch handler?
@@ -7,9 +9,129 @@ import pandas as pd
 #
 
 class SequenceWrangler:
-    def __init__(self, data, training=0.8,val=0.1,test=0.1):
-        return #pool pool pool
+    def __init__(self,parameters, raw_sequences, raw_classes, n_folds=5, training=0.8,val=0.1,test=0.1):
 
+        #Forces continuity b/w crossfold template and test template
+        def _generate_template(track_idx,track_class,destination,destination_vec):
+            return pd.DataFrame({"track_idx": track_idx,
+                                        "class":track_class,
+                                        "destination":destination,
+                                        "destination_vec":destination_vec
+                                        })
+        
+        # Okay, so what is the format of data? Its both the raw tracks, and the raw vector classes?
+        # The label --> one-hot converter should be in here.
+        #This function needs to be persistent accross the n folds of the cross valdiation
+        # In fact, it needs full persistance over the running program
+
+        # The first thing I have to do is to convert the raw classes that are in format 'origin-destination'
+        # , to something that the crossfold stratifier can digest. Indicies?
+        # I'll want to crossfold against full indicies, so let's do that
+
+        # Convert raw_classes into a list of indicies
+        st_encoder = preprocessing.LabelEncoder()
+        st_encoder.fit(raw_classes)
+        origin_destintation_classes = st_encoder.transform(raw_classes)
+
+        dest_raw_classes = [label[label.find('-') + 1:] for label in raw_classes]
+        des_encoder = preprocessing.LabelEncoder()
+        des_encoder.fit(dest_raw_classes)
+        des_classes = des_encoder.transform(dest_raw_classes)
+
+        #Write a function to strip the origin, and the destination, in compliamentary arrays. Use these to feed
+        # origin and destination encoders.
+
+        #origin_destintation_classes, \
+        #origin_destintation_dict= self._generate_classes(raw_classes)
+
+        """
+        The notionally correct way to validate the algorithm is as follows:
+        --90/10 split for (train/val) and test
+        --Within train/val, do a crossfold search
+        So I'm going to wrap the crossvalidator in another test/train picker, so
+        that both are picked with an even dataset.
+        """
+
+
+        X_trainval, X_test, Y_trainval, Y_test = train_test_split(raw_sequences,raw_classes,
+                                                                  test_size=0.1,stratify=origin_destintation_classes)
+
+        '''I'm going to be redundant here. A track in the trainval set will belong to (n-1) train pools, and 1 test pool
+        such that I will be doing n-1 reduntant computtion, where n = num_pools. This is an artefact of how I am doing
+        data processing after crossfold selection. It is this way becase I cross fold on tracks, and then have to
+        process the track.
+
+        I could do a reverse map, i.e. track[4] belongs to train folds 1,2,4,5, os preprocess on a track level, and then
+        copy into the pool.
+        Or the pools have links to an object, not a copy of the object.
+
+        I'd like to do a reverse map, and then do pool1.append(processed_element), pool2.append....
+        i.e. the track splitter gets passed a list of pools to add the final processed data point to.'''
+
+        skf = StratifiedKFold(n_splits=n_folds)
+        crossfold_indicies = list(skf.split(X_trainval,Y_trainval))
+        crossfold_pool = [[[],[]] for x in xrange(n_folds)]
+
+
+
+        for track_idx in range(len(raw_sequences)):
+            single_track = raw_sequences[track_idx]
+            df_template = _generate_template(track_idx,raw_classes[track_idx],dest_raw_classes[track_idx],
+                                             dest_raw_classes[track_idx])
+            track_pool = self._track_slicer(single_track,
+                                            parameters.encoder_steps,
+                                            parameters.decoder_steps,
+                                            df_template,
+                                            parameters.bbox)
+
+            for fold_idx in range(len(crossfold_indicies)):
+                for trainorval_pool_idx in range(len(crossfold_indicies[fold_idx])):
+                    if track_idx in crossfold_indicies[fold_idx][trainorval_pool_idx]:
+                        crossfold_pool[fold_idx][trainorval_pool_idx].extend(track_pool)
+
+        #Returns: training array of length (num_folds), val array of len (num_folds), single test pool
+
+        return crossfold_pool, test_pool
+
+    def _generate_classes(self,string_collection):
+        # Takes in a list of strings, where the strings are the name of the classes
+        # returns: class_dict - a dictionary to lookup class title to vector index
+        # class_list - a list of one hot vectors for the input data
+
+        class_key_list = []
+        class_dictionary = {}
+        class_one_hot = []
+        class_vector_dictionary = {}
+
+        # loop through all data once, collect all possible labels
+        # add a 'None' class
+        # Loop through list again generating a second list of one-hot vectors (ndarray)
+
+        def get_class_from_str(string):
+            # All classes are in the format 'origin-destination'
+            # I only care about the destination
+            dash_idx = string.find('-')
+            return string[dash_idx + 1:]
+
+
+        for i in range(len(string_collection)):
+            class_dictionary[get_class_from_str(string_collection[i])] = '0'
+
+        for key, value in class_dictionary.iteritems():
+            class_key_list.append(get_class_from_str(key))
+        #class_key_list.append('None')
+
+        for i in range(len(string_collection)):
+            new_vector = np.array([0] * len(class_key_list))
+            new_vector[class_key_list.index(get_class_from_str(string_collection[i]))] = 1
+            class_one_hot.append(new_vector)
+
+        for key in class_key_list:
+            new_vector = np.array([0] * len(class_key_list))
+            new_vector[class_key_list.index(key)] = 1
+            class_vector_dictionary[key] = new_vector
+
+        return class_one_hot, class_vector_dictionary
 
     def _sequence_splitter(self):
         # Start ripping code from last project.
@@ -97,21 +219,6 @@ class SequenceWrangler:
         data_dx, data_dy, data_l = loop_through_collection(collection, encoder_steps, decoder_steps, labels)
 
         return np.array(data_dx), np.array(data_dy), np.array(data_l)
-
-    def generate_sequence(regressor, test_sequence, seed_timesteps, prediction_length=None):
-        if prediction_length > len(test_sequence)-seed_timesteps:
-            raise AssertionError("Prediction length must be less than len(test_sequence)-seed_timesteps")
-        if prediction_length == None:
-            prediction_length = len(test_sequence)-seed_timesteps
-        track = test_sequence[0:seed_timesteps]
-        for i in range(prediction_length):
-            packed =np.array([track])
-            temp = regressor.predict(packed,axis=2)
-            track = np.insert(track,track.shape[0],temp,axis=0) #Insert used (not append) to prevent array of shape (T,1)
-                                                                # collapsing to a 1D array of (T,)
-        return track
-
-
 
     def generate_classes(self, string_collection):
         # Takes in a list of strings, where the strings are the name of the classes
