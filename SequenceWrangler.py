@@ -19,126 +19,177 @@ class SequenceWrangler:
         self.training_split = training
         self.val_split = val
         self.test_split = test
+        self.pool_dir = 'data_pool'
 
         return
 
 
-def get_pool_filename(self):
-    filename = "pool_ckpt_" + \
-                "nf:" + str(self.n_folds) + \
-                "tr:" + str(self.training_split) + \
-                "va:" + str(self.val_split) + \
-                "te:" + str(self.test_split)
-    return filename
+    def get_pool_filename(self):
+        filename = "pool_ckpt.pkl" #_" + \
+                    #"nf:" + str(self.n_folds) + \
+                    #"tr:" + str(self.training_split) + \
+                    #"va:" + str(self.val_split) + \
+                    #"te:" + str(self.test_split)
+        return filename
 
 
-def load_from_checkpoint(self):
-    #Function that returns True if data can be loaded, else false.
+    def load_from_checkpoint(self):
+        #Function that returns True if data can be loaded, else false.
 
-    if not os.path.exists(self.pool_dir):
-        return False
-    file_path = os.path.isfile(os.path.join([self.pool_dir,self.get_pool_filename()]))
-    file_exists = os.path.isfile(file_path)
-    if not file_exists:
-        return False
-    data_pool = pickle.load(file_path)
+        if not os.path.exists(self.pool_dir):
+            return False
+        file_path = os.path.join(self.pool_dir,self.get_pool_filename())
+        file_exists = os.path.isfile(file_path)
+        if not file_exists:
+            return False
+        self.master_pool = pd.read_pickle(file_path)
 
-
-
-
-
-    return True
+        return True
 
 
-def generate_pools(self, raw_sequences,raw_classes):
-    # Forces continuity b/w crossfold template and test template
-    def _generate_template(track_idx, track_class, destination, destination_vec):
-        return pd.DataFrame({"track_idx": track_idx,
-                             "class": track_class,
-                             "destination": destination,
-                             "destination_vec": destination_vec
-                             }, index=[0])
+    def split_into_evaluation_pools(self):
+        #Consolidate with get_pools function?
+        #self.master_pool should exist by now
 
-    # Okay, so what is the format of data? Its both the raw tracks, and the raw vector classes?
-    # The label --> one-hot converter should be in here.
-    # This function needs to be persistent accross the n folds of the cross valdiation
-    # In fact, it needs full persistance over the running program
+        raw_indicies =self.master_pool.track_idx.unique()
 
-    # The first thing I have to do is to convert the raw classes that are in format 'origin-destination'
-    # , to something that the crossfold stratifier can digest. Indicies?
-    # I'll want to crossfold against full indicies, so let's do that
+        #origin_destination_class_list = self.master_pool.track_class.unique()
 
-    # Convert raw_classes into a list of indicies
-    st_encoder = preprocessing.LabelEncoder()
-    st_encoder.fit(raw_classes)
-    origin_destintation_classes = st_encoder.transform(raw_classes)
+        #rebuild track_class vector
+        raw_classes = []
+        for raw_idx in raw_indicies:
+            #Get the first results that matches the track_idx and return its destination class
+            #by construction, this data is consistent across all sample values for that track
+            track_class = self.master_pool[self.master_pool.track_idx==raw_idx]['track_class'].unique()
+            raw_classes.append(track_class[0])
 
-    dest_raw_classes = [label[label.find('-') + 1:] for label in raw_classes]
-    des_encoder = preprocessing.LabelEncoder()
-    des_encoder.fit(dest_raw_classes)
-    self.des_classes = des_encoder.transform(dest_raw_classes)
+        st_encoder = preprocessing.LabelEncoder()
+        st_encoder.fit(raw_classes)
+        origin_destination_enc_classes = st_encoder.transform(raw_classes)
 
-    """
-    The notionally correct way to validate the algorithm is as follows:
-    --90/10 split for (train/val) and test
-    --Within train/val, do a crossfold search
-    So I'm going to wrap the crossvalidator in another test/train picker, so
-    that both are picked with an even dataset.
-    """
+        trainval_idxs, test_idxs = train_test_split(raw_indicies,
+                                                    test_size=self.test_split,
+                                                    stratify=origin_destination_enc_classes)
 
-    raw_indicies = range(len(raw_sequences))
-    X_trainval, X_test, \
-    Y_trainval, Y_test, \
-    trainval_idxs, test_idxs = train_test_split(raw_sequences, raw_classes, raw_indicies,
-                                                test_size=0.1, stratify=origin_destintation_classes)
-    crossfold_idx_lookup = np.array(trainval_idxs)
 
-    skf = StratifiedKFold(n_splits=self.n_folds)
-    crossfold_indicies = list(skf.split(trainval_idxs, Y_trainval))
-    crossfold_pool = [[[], []] for x in xrange(self.n_folds)]
-    test_pool = []
+        crossfold_idx_lookup = np.array(trainval_idxs)
 
-    # For all tracks
-    for track_raw_idx in range(len(raw_sequences)):
-        # if track_raw_idx > 10:
-        #    break
-        # Lookup the index in the original collection
-        # Get data
-        print "Wrangling track: " + str(track_raw_idx)
-        wrangle_time = time.time()
-        single_track = raw_sequences[track_raw_idx]
-        df_template = _generate_template(track_raw_idx, raw_classes[track_raw_idx],
-                                         dest_raw_classes[track_raw_idx],
-                                         self.des_classes[track_raw_idx])
-        track_pool = self._track_slicer(single_track,
-                                        5,  # parameters.encoder_steps,
-                                        0,  # parameters.decoder_steps,
-                                        df_template,
-                                        20)  # parameters.bbox)
-        # Check if it exists in a crossfold pool
+        #Now I need the class of each track in trainval_idx
+        trainval_class = []
+        for trainval_idx in trainval_idxs:
+            track_class = self.master_pool[self.master_pool.track_idx==trainval_idx]['track_class'].unique()
+            trainval_class.append(track_class[0])
+
+
+        skf = StratifiedKFold(n_splits=self.n_folds)
+        crossfold_indicies = list(skf.split(trainval_idxs, trainval_class))
+        crossfold_pool = [[[], []] for x in xrange(self.n_folds)]
+        test_pool = []
+
+        #Now iterate over each track, and dump it into the apropriate crossfold sub-pool or test pool
+        for track_raw_idx in raw_indicies:
+            # For each pool
+            for fold_idx in range(len(crossfold_indicies)):
+                # For train or validate in the pool
+                for trainorval_pool_idx in range(len(crossfold_indicies[fold_idx])):
+                    # If the crossfold_list index of the track matches
+                    if track_raw_idx in crossfold_idx_lookup[crossfold_indicies[fold_idx][trainorval_pool_idx]]:
+
+                        #Here, I want to append all data in the master pool that is from the track
+                        crossfold_pool[fold_idx][trainorval_pool_idx].append(
+                            self.master_pool[self.master_pool['track_idx']==track_raw_idx]
+                        )
+
+
+                        print "Added track " + str(track_raw_idx) + " to cf pool " + str(fold_idx) + \
+                              (" train" if trainorval_pool_idx is 0 else " test")
+            # else it must exist in the test_pool
+            if track_raw_idx in test_idxs:
+                test_pool.append(
+                        self.master_pool[self.master_pool['track_idx'] == track_raw_idx]
+                )
+                print "Added track " + str(track_raw_idx) + " to test pool"
+
+        print "concatenating pools"
         for fold_idx in range(len(crossfold_indicies)):
-            # For each pool, train pool or validation pool
             for trainorval_pool_idx in range(len(crossfold_indicies[fold_idx])):
-                # If the crossfold_list index of the track matches
-                if track_raw_idx in crossfold_idx_lookup[crossfold_indicies[fold_idx][trainorval_pool_idx]]:
-                    crossfold_pool[fold_idx][trainorval_pool_idx].append(track_pool)
-                    print "Added track " + str(track_raw_idx) + " to cf pool " + str(fold_idx) + \
-                          (" train" if trainorval_pool_idx is 0 else " test")
-        # else it must exist in the test_pool
-        if track_raw_idx in test_idxs:
-            test_pool.append(track_pool)
-            print "Added track " + str(track_raw_idx) + " to test pool"
-        print "Wrangling time: " + str(time.time() - wrangle_time)
+                crossfold_pool[fold_idx][trainorval_pool_idx] = pd.concat(crossfold_pool[fold_idx][trainorval_pool_idx])
 
-    print "concatenating pools"
-    for fold_idx in range(len(crossfold_indicies)):
-        for trainorval_pool_idx in range(len(crossfold_indicies[fold_idx])):
-            crossfold_pool[fold_idx][trainorval_pool_idx] = pd.concat(crossfold_pool[fold_idx][trainorval_pool_idx])
+        self.crossfold_pool = crossfold_pool
+        self.test_pool = test_pool
 
-    self.crossfold_pool = crossfold_pool
-    self.test_pool = test_pool
 
-    return
+        return
+
+
+
+    def generate_master_pool(self, raw_sequences, raw_classes):
+        # Forces continuity b/w crossfold template and test template
+        def _generate_template(track_idx, track_class, destination, destination_vec):
+            return pd.DataFrame({"track_idx": track_idx,
+                                 "track_class": track_class,
+                                 "destination": destination,
+                                 "destination_vec": destination_vec
+                                 }, index=[0])
+
+        # Okay, so what is the format of data? Its both the raw tracks, and the raw vector classes?
+        # The label --> one-hot converter should be in here.
+        # This function needs to be persistent accross the n folds of the cross valdiation
+        # In fact, it needs full persistance over the running program
+
+        # The first thing I have to do is to convert the raw classes that are in format 'origin-destination'
+        # , to something that the crossfold stratifier can digest. Indicies?
+        # I'll want to crossfold against full indicies, so let's do that
+
+        # Convert raw_classes into a list of indicies
+        st_encoder = preprocessing.LabelEncoder()
+        st_encoder.fit(raw_classes)
+        origin_destintation_classes = st_encoder.transform(raw_classes)
+
+        dest_raw_classes = [label[label.find('-') + 1:] for label in raw_classes]
+        des_encoder = preprocessing.LabelEncoder()
+        des_encoder.fit(dest_raw_classes)
+        self.des_classes = des_encoder.transform(dest_raw_classes)
+
+        """
+        The notionally correct way to validate the algorithm is as follows:
+        --90/10 split for (train/val) and test
+        --Within train/val, do a crossfold search
+        So I'm going to wrap the crossvalidator in another test/train picker, so
+        that both are picked with an even dataset.
+        """
+
+        master_pool = []
+
+        # For all tracks
+        for track_raw_idx in range(len(raw_sequences)):
+            # if track_raw_idx > 10:
+            #    break
+            # Lookup the index in the original collection
+            # Get data
+            print "Wrangling track: " + str(track_raw_idx)
+            wrangle_time = time.time()
+            single_track = raw_sequences[track_raw_idx]
+            df_template = _generate_template(track_raw_idx, raw_classes[track_raw_idx],
+                                             dest_raw_classes[track_raw_idx],
+                                             self.des_classes[track_raw_idx])
+            track_pool = self._track_slicer(single_track,
+                                            5,  # parameters.encoder_steps,
+                                            0,  # parameters.decoder_steps,
+                                            df_template,
+                                            20)  # parameters.bbox)
+
+            master_pool.append(track_pool)
+
+        self.master_pool = pd.concat(master_pool)
+
+        #TODO save master to pickle
+        if not os.path.exists(self.pool_dir):
+            os.makedirs(self.pool_dir)
+        file_path = os.path.join(self.pool_dir, self.get_pool_filename())
+        self.master_pool.to_pickle(file_path)
+
+        return
 
     def get_pools(self):
         return self.crossfold_pool, self.test_pool
