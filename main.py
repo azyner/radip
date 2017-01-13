@@ -23,7 +23,9 @@ input_columns = ['easting', 'northing', 'heading', 'speed']
 print "reading data"
 raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(input_columns)
 print "wrangling tracks"
-Wrangler = SequenceWrangler.SequenceWrangler(None,raw_sequences,raw_classes)
+
+Wrangler = SequenceWrangler.SequenceWrangler(None)
+Wrangler.generate_pools(raw_sequences,raw_classes)
 
 cf_pool, test_pool = Wrangler.get_pools()
 print raw_sequences
