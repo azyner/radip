@@ -11,6 +11,7 @@ import pickle
 #The SequenceWrangler is aware of the three data pools, training, test and val
 #
 
+
 class SequenceWrangler:
     def __init__(self,parameters, n_folds=5, training=0.8,val=0.1,test=0.1):
         self.n_folds = n_folds
@@ -20,9 +21,7 @@ class SequenceWrangler:
         self.val_split = val
         self.test_split = test
         self.pool_dir = 'data_pool'
-
         return
-
 
     def get_pool_filename(self):
         filename = "pool_ckpt.pkl" #_" + \
@@ -31,7 +30,6 @@ class SequenceWrangler:
                     #"va:" + str(self.val_split) + \
                     #"te:" + str(self.test_split)
         return filename
-
 
     def load_from_checkpoint(self):
         #Function that returns True if data can be loaded, else false.
@@ -46,16 +44,15 @@ class SequenceWrangler:
 
         return True
 
-
     def split_into_evaluation_pools(self):
-        #Consolidate with get_pools function?
-        #self.master_pool should exist by now
+        # Consolidate with get_pools function?
+        # self.master_pool should exist by now
 
         raw_indicies =self.master_pool.track_idx.unique()
 
-        #origin_destination_class_list = self.master_pool.track_class.unique()
+        # origin_destination_class_list = self.master_pool.track_class.unique()
 
-        #rebuild track_class vector
+        # rebuild track_class vector
         raw_classes = []
         for raw_idx in raw_indicies:
             #Get the first results that matches the track_idx and return its destination class
@@ -70,7 +67,6 @@ class SequenceWrangler:
         trainval_idxs, test_idxs = train_test_split(raw_indicies,
                                                     test_size=self.test_split,
                                                     stratify=origin_destination_enc_classes)
-
 
         crossfold_idx_lookup = np.array(trainval_idxs)
 
@@ -121,9 +117,8 @@ class SequenceWrangler:
 
         return
 
+    def generate_master_pool(self, raw_sequences=None, raw_classes=None):
 
-
-    def generate_master_pool(self, raw_sequences, raw_classes):
         # Forces continuity b/w crossfold template and test template
         def _generate_template(track_idx, track_class, destination, destination_vec):
             return pd.DataFrame({"track_idx": track_idx,
@@ -234,19 +229,6 @@ class SequenceWrangler:
 
         return class_one_hot, class_vector_dictionary
 
-    def _sequence_splitter(self):
-        # Start ripping code from last project.
-        # It needs to use pandas, such that for each data sample, there is a wrapper class containing a list of properties
-        return
-
-    def _generate_pools(self):
-        # The `go' button. This command writes the pool of data. The sequence length requirement is allowed to change during training or test time.
-        # Split data track wise - how should this be done, randomly, pseudo random with an optional seed?
-        # Call sequence splitter
-        #
-        train_pool, train_pool, val_pool = [],[],[]
-        return train_pool, train_pool, val_pool
-
     #This calculates the distance from the reference line for the length of the track. Useful for picking elements later
     #  or earlier in the sequence, depending on training style
     #ASSUMPTIONS
@@ -302,7 +284,6 @@ class SequenceWrangler:
 
             sample_collection.append(pd.DataFrame(sample_dataframe))
         return pd.concat(sample_collection)
-
 
     def split_sequence_collection(self,collection,encoder_steps,decoder_steps,labels):
 
@@ -360,7 +341,6 @@ class SequenceWrangler:
             class_vector_dictionary[key] = new_vector
 
         return class_one_hot, class_vector_dictionary
-
 
     # FOR BATCH HANDLER?
     # Trim the seqence to the very start, or if bbox is defined (in meters from intersection centre),
