@@ -119,13 +119,7 @@ class SequenceWrangler:
 
     def generate_master_pool(self, raw_sequences=None, raw_classes=None):
 
-        # Forces continuity b/w crossfold template and test template
-        def _generate_template(track_idx, track_class, destination, destination_vec):
-            return pd.DataFrame({"track_idx": track_idx,
-                                 "track_class": track_class,
-                                 "destination": destination,
-                                 "destination_vec": destination_vec
-                                 }, index=[0])
+
 
         # Okay, so what is the format of data? Its both the raw tracks, and the raw vector classes?
         # The label --> one-hot converter should be in here.
@@ -145,6 +139,19 @@ class SequenceWrangler:
         des_encoder = preprocessing.LabelEncoder()
         des_encoder.fit(dest_raw_classes)
         self.des_classes = des_encoder.transform(dest_raw_classes)
+        dest_1hot_enc = preprocessing.OneHotEncoder()
+        dest_1hot_enc.fit(np.array(self.des_classes).reshape(-1,1))
+
+        # Forces continuity b/w crossfold template and test template
+        def _generate_template(track_idx, track_class, destination, destination_vec):
+            return pd.DataFrame({"track_idx": track_idx,
+                                 "track_class": track_class,
+                                 "destination": destination,
+                                 "destination_vec": destination_vec,
+                                 "dest_1_hot":
+                                     pd.Series([dest_1hot_enc.transform(destination_vec).toarray().astype(np.float32)[0]],
+                                               dtype=object)
+                                 }, index=[0])
 
         """
         The notionally correct way to validate the algorithm is as follows:
