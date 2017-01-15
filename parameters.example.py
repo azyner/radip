@@ -5,4 +5,6 @@
 parameters = {}
 parameters["num_rnn_layers"] = 3
 parameters["learning_rate"] = 0.01
+parameters["observation_steps"] = 5
+parameters["prediction_steps"] = 0
 

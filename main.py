@@ -17,11 +17,13 @@ import numpy as np
 import pandas as pd
 import SequenceWrangler
 import BatchHandler
+import parameters
+
 
 
 print "wrangling tracks"
 
-Wrangler = SequenceWrangler.SequenceWrangler(None)
+Wrangler = SequenceWrangler.SequenceWrangler(parameters)
 
 if not Wrangler.load_from_checkpoint():
     input_columns = ['easting', 'northing', 'heading', 'speed']
@@ -34,5 +36,5 @@ Wrangler.split_into_evaluation_pools()
 cf_pool, test_pool = Wrangler.get_pools()
 
 for train_pool, val_pool in cf_pool:
-    training_batch_handler = BatchHandler.BatchHanlder(train_pool,17)
-    validation_batch_handler = BatchHandler.BatchHandler(val_pool,17)
+    training_batch_handler = BatchHandler.BatchHandler(train_pool,17,True)
+    validation_batch_handler = BatchHandler.BatchHandler(val_pool,17,False)
