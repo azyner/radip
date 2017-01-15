@@ -38,3 +38,5 @@ cf_pool, test_pool = Wrangler.get_pools()
 for train_pool, val_pool in cf_pool:
     training_batch_handler = BatchHandler.BatchHandler(train_pool,17,True)
     validation_batch_handler = BatchHandler.BatchHandler(val_pool,17,False)
+
+    min_batch_data = training_batch_handler.get_minibatch()
