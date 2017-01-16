@@ -11,15 +11,13 @@
 #   instance batch handler
 #
 import intersection_segments
-import sys
-import copy
-import numpy as np
-import pandas as pd
 import SequenceWrangler
 import BatchHandler
 import parameters
+import NetworkManager
 
-
+# I want the logger and the crossfold here
+# This is where the hyperparameter searcher goes
 
 print "wrangling tracks"
 
@@ -36,20 +34,9 @@ Wrangler.split_into_evaluation_pools()
 cf_pool, test_pool = Wrangler.get_pools()
 
 for train_pool, val_pool in cf_pool:
+    netManage = NetworkManager.NetworkManager()
+
     training_batch_handler = BatchHandler.BatchHandler(train_pool,17,True)
     validation_batch_handler = BatchHandler.BatchHandler(val_pool,17,False)
 
     train_x, train_y = training_batch_handler.get_minibatch()
-
-    if len(train_x) != 17:
-        print "error"
-    # Get number of unique tracks in val pool
-    num_val_tracks = len(val_pool['track_idx'].unique())
-    validation_batch_handler.update_minibatch_selection_parameters(d_thresh=22)
-    complete = False
-    pad_array = []
-    while not complete:
-        X, Y, pad, complete = validation_batch_handler.get_minibatch()
-        pad_array.extend(pad)
-    if (len(pad_array)-sum(np.array(pad_array).astype(int))) != num_val_tracks:
-        print "error"
