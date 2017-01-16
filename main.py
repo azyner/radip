@@ -15,6 +15,7 @@ import SequenceWrangler
 import BatchHandler
 import parameters
 import NetworkManager
+import time
 
 # I want the logger and the crossfold here
 # This is where the hyperparameter searcher goes
@@ -32,16 +33,43 @@ if not Wrangler.load_from_checkpoint():
 
 Wrangler.split_into_evaluation_pools()
 cf_pool, test_pool = Wrangler.get_pools()
+cf_fold = -1
+# I should call this outside the crossfold, so it occurs once
+log_file_time = str(time.time())
 
 for train_pool, val_pool in cf_pool:
-    #netManage = NetworkManager.NetworkManager()
+    cf_fold +=1
 
-    training_batch_handler = BatchHandler.BatchHandler(train_pool,17,True)
-    validation_batch_handler = BatchHandler.BatchHandler(val_pool,17,False)
+    log_file_name = log_file_time + str(cf_fold)
 
-    print 'input_size'
-    print training_batch_handler.get_input_size()
-    print "num classes"
-    print training_batch_handler.get_num_classes()
 
-    train_x, train_y = training_batch_handler.get_minibatch()
+    training_batch_handler = BatchHandler.BatchHandler(train_pool,parameters.parameters['batch_size'],True)
+    validation_batch_handler = BatchHandler.BatchHandler(val_pool,parameters.parameters['batch_size'],False)
+
+    #Add input_size, num_classes
+    parameters.parameters['input_size'] = training_batch_handler.get_input_size()
+    parameters.parameters['num_classes'] = training_batch_handler.get_num_classes()
+
+    netManager = NetworkManager.NetworkManager(parameters.parameters,log_file_name)
+    netManager.build_model()
+
+    current_step = 0
+    previous_losses = []
+    step_time, loss = 0.0, 0.0
+    steps_per_checkpoint = 200
+    while True:
+        # The training loop!
+
+        step_start_time = time.time()
+        train_x, train_y, weights = training_batch_handler.get_minibatch()
+        accuracy, step_loss, _ = netManager.step(train_x,train_y,weights,True)
+
+        # Periodically, run without training for the summary logs
+        if current_step % 20 == 0:
+            eval_accuracy, eval_step_loss, _ = netManager.step(train_x,train_y,weights,False,summary_writer=None)
+        step_time += (time.time() - step_start_time) / steps_per_checkpoint
+        print ("global step %d learning rate %.6f step-time %.4f Batch av loss "
+               "%.4f Acc %.3f" % (netManager.model.global_step.eval(), netManager.model.learning_rate.eval(),
+                                  step_time, loss, accuracy))
+        current_step += 1
+

@@ -11,9 +11,11 @@ class Seq2SeqModel(object):
     # TODO the model needs to be aware of the input column data, speed, heading etc
     #       This is good for adding embedding layers
 
-    def __init__(self, feed_future_data, train, num_observation_steps, num_prediction_steps, batch_size,
-                 rnn_size, num_layers, learning_rate, learning_rate_decay_factor, input_size, max_gradient_norm,
-                 dropout_prob,random_bias,subsample,random_rotate,num_mixtures,model_type):
+    def __init__(self, parameters):
+        #feed_future_data, train, num_observation_steps, num_prediction_steps, batch_size,
+        #         rnn_size, num_layers, learning_rate, learning_rate_decay_factor, input_size, max_gradient_norm,
+        #        dropout_prob,random_bias,subsample,random_rotate,num_mixtures,model_type):
+
         # feed_future_data: whether or not to feed the true data into the decoder instead of using a loopback
         #                function. If false, a loopback function is used, feeding the last generated output as the next
         #                decoder input.
@@ -38,34 +40,37 @@ class Seq2SeqModel(object):
 
         #TODO Reorganise code using namespace for better readability
 
-        self.max_gradient_norm = max_gradient_norm
-        self.rnn_size = rnn_size
-        self.num_layers = num_layers
+        self.max_gradient_norm = parameters['max_gradient_norm']
+        self.rnn_size = parameters['rnn_size']
+        self.num_layers = parameters['num_layers']
         dtype = tf.float32
 
-        self.batch_size = batch_size
-        self.input_size = input_size
-        self.observation_steps = num_observation_steps
-        self.prediction_steps = num_prediction_steps
-        self.dropout_prob = dropout_prob
-        self.random_bias = random_bias
-        self.subsample = subsample
-        self.random_rotate = random_rotate
-        self.num_mixtures = num_mixtures
-        self.model_type = model_type
+        self.batch_size = parameters['batch_size']
+        self.input_size = parameters['input_size']
+        self.observation_steps = parameters['observation_steps']
+        self.prediction_steps = parameters['prediction_steps']
+        self.dropout_prob = parameters['dropout_prob']
+        self.random_bias = parameters['random_bias']
+        self.subsample = parameters['subsample']
+        self.random_rotate = parameters['random_rotate']
+        self.num_mixtures = parameters['num_mixtures']
+        self.model_type = parameters['model_type']
+        self.num_classes = parameters['num_classes']
 
-        self.learning_rate = tf.Variable(float(learning_rate), trainable=False)
+        self.learning_rate = tf.Variable(float(parameters['learning_rate']), trainable=False)
         self.learning_rate_decay_op = self.learning_rate.assign(
-        self.learning_rate * learning_rate_decay_factor)
+        self.learning_rate * parameters['learning_rate_decay_factor'])
         self.global_step = tf.Variable(0, trainable=False)
 
-        num_classes = 4
+        # TODO Placeholder until I implement MDN
+        feed_future_data = False
 
-        if model_type == 'classifier' and self.prediction_steps > 1:
+
+        if parameters['model_type'] == 'classifier' and self.prediction_steps > 1:
             raise Exception("Error. Classifier model can only have 1 prediction step")
 
-        if feed_future_data and not train:
-            print "Warning, feeding the model future sequence data (feed_forward) is not recommended when the model is not training."
+        #if feed_future_data and not train:
+        #    print "Warning, feeding the model future sequence data (feed_forward) is not recommended when the model is not training."
 
         # The output of the multiRNN is the size of rnn_size, and it needs to match the input size, or loopback makes
         #  no sense. Here a single layer without activation function is used, but it can be any number of
@@ -73,7 +78,7 @@ class Seq2SeqModel(object):
         if self.model_type == 'MDN':
             n_out = 6*self.num_mixtures
         if self.model_type=='classifier':
-            n_out = num_classes
+            n_out = parameters['num_classes']
 
         with tf.variable_scope('output_proj'):
             o_w = tf.get_variable("proj_w", [self.rnn_size, n_out])
@@ -108,7 +113,7 @@ class Seq2SeqModel(object):
             if output_projection is not None:
                 #Output layer
                 prev = output_function(prev)
-            if model_type == 'MDN':
+            if self.model_type == 'MDN':
                 # Sample to generate output
                 prev = MDN.sample(prev)
 
@@ -134,27 +139,26 @@ class Seq2SeqModel(object):
         targets_sparse = []
 
         for i in xrange(self.observation_steps):  # Last bucket is the biggest one.
-            self.observation_inputs.append(tf.placeholder(tf.float32, shape=[batch_size, self.input_size],
+            self.observation_inputs.append(tf.placeholder(tf.float32, shape=[self.batch_size, self.input_size],
                                                           name="observation{0}".format(i)))
 
         if self.model_type == 'MDN':
             for i in xrange(self.prediction_steps):
-                self.future_inputs.append(tf.placeholder(tf.float32, shape=[batch_size, self.input_size],
+                self.future_inputs.append(tf.placeholder(tf.float32, shape=[self.batch_size, self.input_size],
                                                          name="prediction{0}".format(i)))
             for i in xrange(self.prediction_steps):
-                self.target_weights.append(tf.placeholder(dtype, shape=[batch_size],
+                self.target_weights.append(tf.placeholder(dtype, shape=[self.batch_size],
                                                         name="weight{0}".format(i)))
             #targets are just the future data
             targets = [self.future_inputs[i] for i in xrange(len(self.future_inputs))]
 
         if self.model_type == 'classifier':
-            for i in xrange(self.prediction_steps):
-                targets.append(tf.placeholder(tf.int32, shape=[batch_size, num_classes],
+            # Add a single target. Name is target0 for continuity
+            targets.append(tf.placeholder(tf.int32, shape=[self.batch_size, self.num_classes],
                                                          name="target{0}".format(i)))
             for target in targets:
                 targets_sparse.append(tf.squeeze(tf.argmax(target,1)))
-            for i in xrange(self.prediction_steps):
-                self.target_weights.append(tf.ones([batch_size],name="weight{0}".format(i)))
+            self.target_weights.append(tf.ones([self.batch_size],name="weight{0}".format(i)))
 
         #Hook for the input_feed
         self.target_inputs = targets
@@ -202,13 +206,13 @@ class Seq2SeqModel(object):
         # Mainly, average MSE over the whole track, or just at a horizon time (t+10 or something)
         # There's this corner alg that Social LSTM refernces, but I haven't looked into it.
         # NOTE - there is a good cost function for the MDN (MLE), this is different to the track accuracy metric (above)
-        if model_type == 'MDN':
+        if self.model_type == 'MDN':
             self.losses = tf.nn.seq2seq.sequence_loss(self.MDN_output,targets, self.target_weights,
                                                   #softmax_loss_function=lambda x, y: mse(x,y))
                                                   softmax_loss_function=MDN.lossfunc_wrapper)
-            self.losses = self.losses / batch_size
+            self.losses = self.losses / self.batch_size
             self.accuracy = self.losses #TODO placeholder, use MSE or something visually intuitive
-        if model_type == 'classifier':
+        if self.model_type == 'classifier':
             # Don't forget that sequence loss uses sparse targets
             self.losses = tf.nn.seq2seq.sequence_loss(self.MDN_output, targets_sparse, self.target_weights)
             #squeeze away output to remove a single element list (It would be longer if classifier was allowed 2+ timesteps
@@ -218,18 +222,19 @@ class Seq2SeqModel(object):
 
         # Gradients and SGD update operation for training the model.
         params = tf.trainable_variables()
-        if train:
-            self.gradient_norms = []
-            self.updates = []
-            #opt = tf.train.AdadeltaOptimizer(self.learning_rate)
-            opt = tf.train.RMSPropOptimizer(self.learning_rate)
-            #opt = tf.train.GradientDescentOptimizer(self.learning_rate)
-            gradients = tf.gradients(self.losses, params)
-            clipped_gradients, norm = tf.clip_by_global_norm(gradients, self.max_gradient_norm)
+        #if train:
+        # I don't see the difference here, as during testing the updates are not run
+        self.gradient_norms = []
+        self.updates = []
+        #opt = tf.train.AdadeltaOptimizer(self.learning_rate)
+        opt = tf.train.RMSPropOptimizer(self.learning_rate)
+        #opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+        gradients = tf.gradients(self.losses, params)
+        clipped_gradients, norm = tf.clip_by_global_norm(gradients, self.max_gradient_norm)
 
-            self.gradient_norms.append(norm)
-            self.updates.append(opt.apply_gradients(
-                zip(clipped_gradients, params), global_step=self.global_step))
+        self.gradient_norms.append(norm)
+        self.updates.append(opt.apply_gradients(
+            zip(clipped_gradients, params), global_step=self.global_step))
 
         self.saver = tf.train.Saver(tf.all_variables())
 
