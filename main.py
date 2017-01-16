@@ -39,9 +39,17 @@ for train_pool, val_pool in cf_pool:
     training_batch_handler = BatchHandler.BatchHandler(train_pool,17,True)
     validation_batch_handler = BatchHandler.BatchHandler(val_pool,17,False)
 
-    min_batch_data = training_batch_handler.get_minibatch()
-    while True:
-        X,Y,pad,complete = validation_batch_handler.get_minibatch()
-        if complete:
-            print "Last batch of data"
-            break
+    train_x, train_y = training_batch_handler.get_minibatch()
+
+    if len(train_x) != 17:
+        print "error"
+    # Get number of unique tracks in val pool
+    num_val_tracks = len(val_pool['track_idx'].unique())
+    validation_batch_handler.update_minibatch_selection_parameters(d_thresh=22)
+    complete = False
+    pad_array = []
+    while not complete:
+        X, Y, pad, complete = validation_batch_handler.get_minibatch()
+        pad_array.extend(pad)
+    if (len(pad_array)-sum(np.array(pad_array).astype(int))) != num_val_tracks:
+        print "error"
