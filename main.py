@@ -40,3 +40,8 @@ for train_pool, val_pool in cf_pool:
     validation_batch_handler = BatchHandler.BatchHandler(val_pool,17,False)
 
     min_batch_data = training_batch_handler.get_minibatch()
+    while True:
+        X,Y,pad,complete = validation_batch_handler.get_minibatch()
+        if complete:
+            print "Last batch of data"
+            break
