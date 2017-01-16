@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import SequenceWrangler
 import BatchHandler
-import parameters
+import parameters.parameters as parameters
 
 class TestBatchHandler(TestCase):
     def test_get_minibatch(self):
@@ -14,10 +14,9 @@ class TestBatchHandler(TestCase):
         Wrangler = SequenceWrangler.SequenceWrangler(parameters)
 
         if not Wrangler.load_from_checkpoint():
-            input_columns = ['easting', 'northing', 'heading', 'speed']
             #This call copied from the dataset paper. It takes considerable time, so ensure it is run once only
             print "reading data"
-            raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(input_columns)
+            raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(parameters.parameters['input_columns'])
             Wrangler.generate_master_pool(raw_sequences,raw_classes)
 
         Wrangler.split_into_evaluation_pools()

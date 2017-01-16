@@ -23,7 +23,7 @@ class NetworkManager:
         self.device = tf.device('gpu:0')
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9,allow_growth=True)
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,gpu_options=gpu_options))
-        model = Seq2SeqModel(parameters)
+        model = Seq2SeqModel(self.parameters)
 
 
         return

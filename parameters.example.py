@@ -20,3 +20,4 @@ parameters["subsample"] = 1
 parameters["random_rotate"] = False
 parameters["num_mixtures"] = 6
 parameters["model_type"] = "classifier"
+parameters["input_columns"] = ['easting', 'northing', 'heading', 'speed']
