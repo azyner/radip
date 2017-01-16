@@ -26,6 +26,12 @@ class BatchHandler:
 
         return
 
+    def get_input_size(self):
+        return len(self.data_pool.iloc[0]['encoder_sample'][0])
+
+    def get_num_classes(self):
+        return len(self.data_pool['destination'].unique())
+
     def set_distance_threshold(self, d_thresh=None):
         # TODO a function that changes some of the parameters used to select the mini-batch
         self.d_thresh = d_thresh
