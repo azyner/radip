@@ -26,7 +26,7 @@ class BatchHandler:
 
         return
 
-    def update_minibatch_selection_parameters(self,d_thresh=None, d_inflection=None):
+    def set_distance_threshold(self, d_thresh=None):
         # TODO a function that changes some of the parameters used to select the mini-batch
         self.d_thresh = d_thresh
         # for every track_idx, find the sample that is max(d<thresh)
