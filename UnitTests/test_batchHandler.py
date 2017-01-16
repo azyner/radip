@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import SequenceWrangler
 import BatchHandler
-import parameters.parameters as parameters
+import parameters
 
 class TestBatchHandler(TestCase):
     def test_get_minibatch(self):
@@ -26,7 +26,7 @@ class TestBatchHandler(TestCase):
             training_batch_handler = BatchHandler.BatchHandler(train_pool,17,True)
             validation_batch_handler = BatchHandler.BatchHandler(val_pool,17,False)
 
-            train_x, train_y = training_batch_handler.get_minibatch()
+            train_x, train_y, weights = training_batch_handler.get_minibatch()
 
             if len(train_x) != 17:
                 self.fail()

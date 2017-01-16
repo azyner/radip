@@ -72,7 +72,10 @@ class BatchHandler:
             if self.categorical:
                 Y_data = list(self.data_pool.iloc[batch_idxs].dest_1_hot)
 
-        if not self.training:
+            return X_data, Y_data, np.ones(self.batch_dim,dtype=np.float32)
+
+        #Testing / validating
+        else:
             # Pick sequentially, compute padding vector
             if self.d_thresh is None:
                 data_pool = self.data_pool
@@ -112,4 +115,4 @@ class BatchHandler:
 
             return X_data, Y_data, pad_vector,batch_complete
 
-        return X_data, Y_data
+

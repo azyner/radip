@@ -95,16 +95,14 @@ class SequenceWrangler:
                         crossfold_pool[fold_idx][trainorval_pool_idx].append(
                             self.master_pool[self.master_pool['track_idx']==track_raw_idx]
                         )
-
-
-                        print "Added track " + str(track_raw_idx) + " to cf pool " + str(fold_idx) + \
-                              (" train" if trainorval_pool_idx is 0 else " test")
+                        #print "Added track " + str(track_raw_idx) + " to cf pool " + str(fold_idx) + \
+                        #      (" train" if trainorval_pool_idx is 0 else " test")
             # else it must exist in the test_pool
             if track_raw_idx in test_idxs:
                 test_pool.append(
                         self.master_pool[self.master_pool['track_idx'] == track_raw_idx]
                 )
-                print "Added track " + str(track_raw_idx) + " to test pool"
+                #print "Added track " + str(track_raw_idx) + " to test pool"
 
         print "concatenating pools"
         for fold_idx in range(len(crossfold_indicies)):
@@ -169,7 +167,7 @@ class SequenceWrangler:
             #    break
             # Lookup the index in the original collection
             # Get data
-            print "Wrangling track: " + str(track_raw_idx)
+            # print "Wrangling track: " + str(track_raw_idx)
             wrangle_time = time.time()
             single_track = raw_sequences[track_raw_idx]
             df_template = _generate_template(track_raw_idx, raw_classes[track_raw_idx],
