@@ -260,14 +260,14 @@ class Seq2SeqModel(object):
         input_feed = {}
         for l in xrange(self.observation_steps):
             input_feed[self.observation_inputs[l].name] = observation_inputs[l]
-        for l in xrange(self.prediction_steps):
-            if self.model_type == 'MDN':
-                input_feed[self.future_inputs[l].name] = future_inputs[l]
-            if self.model_type == 'classifier':
-                input_feed[self.target_inputs[l].name] = future_inputs[l]
         if self.model_type == 'MDN':
             for l in xrange(self.prediction_steps):
+                input_feed[self.future_inputs[l].name] = future_inputs[l]
                 input_feed[self.target_weights[l].name] = target_weights[l]
+        if self.model_type == 'classifier':
+                input_feed[self.target_inputs[0].name] = future_inputs[0]
+                input_feed[self.target_weights[0].name] = target_weights[0]
+
 
         # Output feed: depends on whether we do a backward step or not.
         if train_model:

@@ -9,9 +9,10 @@ import numpy as np
 from sklearn import preprocessing
 
 class BatchHandler:
-    def __init__(self, data_pool, batch_dim, training):
+    def __init__(self, data_pool, parameters, training):
         self.data_pool = data_pool
-        self.batch_dim = batch_dim
+        self.parameters = parameters
+        self.batch_size = parameters['batch_size']
         self.training = training
         # Training is defined as the boolean flag of whether the data is for training or test
         # During training, the data is sampled from a pool
@@ -53,16 +54,47 @@ class BatchHandler:
 
         return
 
+    #Function that gets the data as a list of sequences, (which are time length lists of features)
+    # i.e. a list of length batch size, containing [time, input_size] elements
+    # and converts it to a list of length time, containing [batch input_size] elements
+
+    def format_minibatch_data(self, X, Y, pad_vector):
+        batch_observation_inputs, batch_future_inputs, batch_weights, batch_labels = [], [], [], []
+
+        # Batch encoder inputs are just re-indexed encoder_inputs.
+        # Need to re-index to make an encoder_steps long list of shape [batch input_size]
+        # currently it is a list of length batch containing shape [timesteps input_size]
+        for length_idx in xrange(self.parameters['observation_steps']):
+            batch_observation_inputs.append(
+                    np.array([X[batch_idx][length_idx]
+                    for batch_idx in xrange(self.batch_size)], dtype=np.float32))
+
+        for length_idx in xrange(self.parameters['prediction_steps']):
+            batch_future_inputs.append(
+                    np.array([Y[batch_idx][length_idx]
+                    for batch_idx in xrange(self.batch_size)], dtype=np.float32))
+            # TODO wrangle pad_vector here
+            batch_weight = np.ones(self.batch_size, dtype=np.float32)
+            batch_weights.append(batch_weight)
+
+        # Encapsulate the label data in a list of size 1 to mimic a decoder seq of len 1
+        if self.parameters['prediction_steps'] == 0:
+            batch_labels = [Y]
+            batch_weights = [np.logical_not(pad_vector)*np.ones(self.batch_size, dtype=np.float32)]
+
+        # Batch_observation_inputs is now list of len encoder_steps, shape batch, input_size.
+        #  Similarly with batch_future_inputs
+        return batch_observation_inputs, batch_future_inputs, batch_weights, batch_labels
+
     # This function collects the mini-batch for training
     # If the network is under test, it will sequentially feed the testing data in size minibatch
     # The last mini-batch for the dataset is padded with junk data (taken from the start of the sequence)
     # The batch_complete flag signals the last mini-batch for the batch, so the system should collate results
     # pad_vector is TRUE if the data is junk (padding data)
     def get_minibatch(self):
-        #TODO Now, don't forget, the format tensorflow wants the data in is a list of
+        # TODO Now, don't forget, the format tensorflow wants the data in is a list of
         #  length steps, of batch_size*input_size
         #   copy the code from seq2seq.get_batch
-
 
         # TODO Research
         # Bias sampling, importance sampling, weighted sampling
@@ -71,15 +103,18 @@ class BatchHandler:
             # TODO I can set a vector p of probabilities of each pick. Can use this for the biased sampler
             # Do I want this stratified?
 
-            batch_idxs = np.random.choice(range(len(self.data_pool)),self.batch_dim,replace=False)
+            batch_idxs = np.random.choice(range(len(self.data_pool)), self.batch_size, replace=False)
 
             X_data = list(self.data_pool.iloc[batch_idxs].encoder_sample)
             if self.categorical:
                 Y_data = list(self.data_pool.iloc[batch_idxs].dest_1_hot)
 
-            return X_data, Y_data, np.ones(self.batch_dim,dtype=np.float32)
+                # Nothing is padding, so np-zeros for pad vector
+                batch_X, _, batch_weights, batch_Y = self.format_minibatch_data(X_data, Y_data, np.zeros(self.batch_size, dtype=bool))
 
-        #Testing / validating
+            return batch_X, batch_Y, batch_weights
+
+        # Testing / validating
         else:
             # Pick sequentially, compute padding vector
             if self.d_thresh is None:
@@ -89,35 +124,36 @@ class BatchHandler:
             # if d_thresh is not none, I would reduce the dataset some way
 
             # We are in a validation step, not a graph generation
-            if (self.val_minibatch_idx+self.batch_dim) > len(data_pool):
+            if (self.val_minibatch_idx+self.batch_size) > len(data_pool):
                 # Collect the remaining data
                 X_data = list(data_pool.iloc[self.val_minibatch_idx:].encoder_sample)
                 Y_data = list(data_pool.iloc[self.val_minibatch_idx:].dest_1_hot)
 
-                pad_length = self.batch_dim - (len(data_pool) - self.val_minibatch_idx)
+                pad_length = self.batch_size - (len(data_pool) - self.val_minibatch_idx)
 
                 X_data.extend(list(data_pool.iloc[:pad_length].encoder_sample))
                 Y_data.extend(list(data_pool.iloc[:pad_length].dest_1_hot))
 
-                pad_vector = np.ones(self.batch_dim,dtype=bool)
-                pad_vector[:self.batch_dim-pad_length] = False
+                pad_vector = np.ones(self.batch_size, dtype=bool)
+                pad_vector[:self.batch_size - pad_length] = False
 
                 batch_complete = True
                 self.val_minibatch_idx = 0
             else:
-                X_data = list(data_pool.iloc[self.val_minibatch_idx:self.val_minibatch_idx+self.batch_dim].encoder_sample)
-                Y_data = list(data_pool.iloc[self.val_minibatch_idx:self.val_minibatch_idx+self.batch_dim].dest_1_hot)
+                X_data = list(data_pool.iloc[self.val_minibatch_idx:self.val_minibatch_idx+self.batch_size].encoder_sample)
+                Y_data = list(data_pool.iloc[self.val_minibatch_idx:self.val_minibatch_idx+self.batch_size].dest_1_hot)
 
-                self.val_minibatch_idx += self.batch_dim
-                pad_vector = np.zeros(self.batch_dim, dtype=bool)
+                self.val_minibatch_idx += self.batch_size
+                pad_vector = np.zeros(self.batch_size, dtype=bool)
 
-                #Did we get lucky and have no remainder?
+                # Did we get lucky and have no remainder?
                 if self.val_minibatch_idx == len(data_pool):
                     batch_complete = True
                     self.val_minibatch_idx = 0
                 else:
                     batch_complete = False
 
-            return X_data, Y_data, pad_vector,batch_complete
+            batch_X, _, batch_weights, batch_Y = self.format_minibatch_data(X_data, Y_data, pad_vector)
+            return batch_X, batch_Y, batch_weights, pad_vector, batch_complete
 
 

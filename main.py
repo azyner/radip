@@ -1,5 +1,5 @@
-#Main, the highest level instance.
-# In here, hyperparam selection, the cross fold section, and the final testing loops should be declared and run
+# Main, the highest level instance.
+# In here, hyperparameter selection, the cross fold section, and the final testing loops should be declared and run
 
 # This file should hold the tf.session, inside the cross folder?
 
@@ -26,10 +26,10 @@ Wrangler = SequenceWrangler.SequenceWrangler(parameters)
 
 if not Wrangler.load_from_checkpoint():
 
-    #This call copied from the dataset paper. It takes considerable time, so ensure it is run once only
+    # This call copied from the dataset paper. It takes considerable time, so ensure it is run once only
     print "reading data"
     raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(parameters.parameters['input_columns'])
-    Wrangler.generate_master_pool(raw_sequences,raw_classes)
+    Wrangler.generate_master_pool(raw_sequences, raw_classes)
 
 Wrangler.split_into_evaluation_pools()
 cf_pool, test_pool = Wrangler.get_pools()
@@ -38,38 +38,52 @@ cf_fold = -1
 log_file_time = str(time.time())
 
 for train_pool, val_pool in cf_pool:
-    cf_fold +=1
-
+    cf_fold += 1
     log_file_name = log_file_time + str(cf_fold)
 
+    training_batch_handler = BatchHandler.BatchHandler(train_pool, parameters.parameters, True)
+    validation_batch_handler = BatchHandler.BatchHandler(val_pool, parameters.parameters, False)
 
-    training_batch_handler = BatchHandler.BatchHandler(train_pool,parameters.parameters['batch_size'],True)
-    validation_batch_handler = BatchHandler.BatchHandler(val_pool,parameters.parameters['batch_size'],False)
-
-    #Add input_size, num_classes
+    # Add input_size, num_classes
     parameters.parameters['input_size'] = training_batch_handler.get_input_size()
     parameters.parameters['num_classes'] = training_batch_handler.get_num_classes()
 
-    netManager = NetworkManager.NetworkManager(parameters.parameters,log_file_name)
+    netManager = NetworkManager.NetworkManager(parameters.parameters, log_file_name)
     netManager.build_model()
 
     current_step = 0
     previous_losses = []
     step_time, loss = 0.0, 0.0
-    steps_per_checkpoint = 200
+    steps_per_checkpoint = 2
     while True:
         # The training loop!
 
         step_start_time = time.time()
         train_x, train_y, weights = training_batch_handler.get_minibatch()
-        accuracy, step_loss, _ = netManager.step(train_x,train_y,weights,True)
+        accuracy, step_loss, _ = netManager.step(train_x, train_y, weights, True)
 
         # Periodically, run without training for the summary logs
         if current_step % 20 == 0:
-            eval_accuracy, eval_step_loss, _ = netManager.step(train_x,train_y,weights,False,summary_writer=None)
+            eval_accuracy, eval_step_loss, _ = netManager.step(train_x, train_y, weights, False, summary_writer=None)
         step_time += (time.time() - step_start_time) / steps_per_checkpoint
-        print ("global step %d learning rate %.6f step-time %.4f Batch av loss "
-               "%.4f Acc %.3f" % (netManager.model.global_step.eval(), netManager.model.learning_rate.eval(),
-                                  step_time, loss, accuracy))
+        step_time += (time.time() - step_start_time) / steps_per_checkpoint
+        loss += step_loss / steps_per_checkpoint
         current_step += 1
+        if current_step % steps_per_checkpoint == 0:
 
+            print ("global step %d learning rate %.6f step-time %.4f Batch av loss "
+               "%.4f Acc %.3f" % (netManager.model.global_step.eval(session=netManager.sess),
+                                  netManager.model.learning_rate.eval(session=netManager.sess),
+                                  step_time, loss, accuracy))
+
+            previous_losses.append(loss)
+            step_time, loss = 0.0, 0.0
+            now = time.time()
+            # if (((perplexity < 0.0001 or model.learning_rate.eval() < 0.00001) and FLAGS.early_stop is 0) or
+            #     (FLAGS.early_stop is not 0) and (now - start_time > 60 * FLAGS.early_stop)):
+            #     #cross_train_accuracy.append(eval_accuracy)
+            #     #cross_train_loss.append(eval_step_loss)
+            #
+            #     # log_result_to_csv(model.global_step.eval(), perplexity, model.learning_rate.eval(),step_time)
+            #
+            #     break
