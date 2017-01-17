@@ -215,6 +215,7 @@ class Seq2SeqModel(object):
         if self.model_type == 'classifier':
             # Don't forget that sequence loss uses sparse targets
             self.losses = tf.nn.seq2seq.sequence_loss(self.MDN_output, targets_sparse, self.target_weights)
+            #TODO I have to take into account padding here
             #squeeze away output to remove a single element list (It would be longer if classifier was allowed 2+ timesteps
             correct_prediction = tf.equal(tf.argmax(tf.squeeze(self.MDN_output), 1), targets_sparse)
             self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
