@@ -109,8 +109,8 @@ class BatchHandler:
             if self.categorical:
                 Y_data = list(self.data_pool.iloc[batch_idxs].dest_1_hot)
 
-                # Nothing is padding, so np-zeros for pad vector
-                batch_X, _, batch_weights, batch_Y = self.format_minibatch_data(X_data, Y_data, np.zeros(self.batch_size, dtype=bool))
+            # Nothing is padding, so np-zeros for pad vector
+            batch_X, _, batch_weights, batch_Y = self.format_minibatch_data(X_data, Y_data, np.zeros(self.batch_size, dtype=bool))
 
             return batch_X, batch_Y, batch_weights
 
@@ -129,13 +129,15 @@ class BatchHandler:
                 X_data = list(data_pool.iloc[self.val_minibatch_idx:].encoder_sample)
                 Y_data = list(data_pool.iloc[self.val_minibatch_idx:].dest_1_hot)
 
-                pad_length = self.batch_size - (len(data_pool) - self.val_minibatch_idx)
+                cum_padding = 0
+                while len(X_data) < self.batch_size:
+                    pad_length = self.batch_size - (len(X_data))
 
-                X_data.extend(list(data_pool.iloc[:pad_length].encoder_sample))
-                Y_data.extend(list(data_pool.iloc[:pad_length].dest_1_hot))
+                    X_data.extend(list(data_pool.iloc[:pad_length].encoder_sample))
+                    Y_data.extend(list(data_pool.iloc[:pad_length].dest_1_hot))
 
                 pad_vector = np.ones(self.batch_size, dtype=bool)
-                pad_vector[:self.batch_size - pad_length] = False
+                pad_vector[0:len(data_pool)] = False
 
                 batch_complete = True
                 self.val_minibatch_idx = 0

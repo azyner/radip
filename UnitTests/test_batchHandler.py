@@ -23,12 +23,12 @@ class TestBatchHandler(TestCase):
         cf_pool, test_pool = Wrangler.get_pools()
 
         for train_pool, val_pool in cf_pool:
-            training_batch_handler = BatchHandler.BatchHandler(train_pool,17,True)
-            validation_batch_handler = BatchHandler.BatchHandler(val_pool,17,False)
+            training_batch_handler = BatchHandler.BatchHandler(train_pool,parameters.parameters,True)
+            validation_batch_handler = BatchHandler.BatchHandler(val_pool,parameters.parameters,False)
 
             train_x, train_y, weights = training_batch_handler.get_minibatch()
 
-            if len(train_x) != 17:
+            if len(train_x[0]) != parameters.parameters['batch_size']:
                 self.fail()
             # Get number of unique tracks in val pool
             num_val_tracks = len(val_pool['track_idx'].unique())
@@ -36,9 +36,9 @@ class TestBatchHandler(TestCase):
             complete = False
             pad_array = []
             while not complete:
-                X,Y,pad,complete =validation_batch_handler.get_minibatch()
+                X,Y,weights,pad,complete =validation_batch_handler.get_minibatch()
                 pad_array.extend(pad)
-            if (len(pad_array) - sum(np.array(pad_array).astype(int))) != num_val_tracks:
+            if (sum(np.array(weights[0]).astype(int))) != num_val_tracks:
                 self.fail()
 
 
