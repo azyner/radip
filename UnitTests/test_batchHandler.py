@@ -32,7 +32,9 @@ class TestBatchHandler(TestCase):
 
             if len(train_x[0]) != parameters.parameters['batch_size']:
                 self.fail()
-            if cf_fold ==0:
+
+            # TEST padding condition when d_thresh is set
+            if cf_fold == 0:
                 # Get number of unique tracks in val pool
                 num_val_tracks = len(val_pool['track_idx'].unique())
                 validation_batch_handler.set_distance_threshold(d_thresh=22)
@@ -43,7 +45,9 @@ class TestBatchHandler(TestCase):
                     pad_array.extend(pad)
                 if (sum(np.array(weights[0]).astype(int))) != num_val_tracks:
                     self.fail()
-            if cf_fold ==1:
+
+            # TEST padding when d_thresh not set
+            if cf_fold == 1:
                 # Get number of unique tracks in val pool
                 num_samples = len(val_pool)
                 complete = False

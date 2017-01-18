@@ -123,21 +123,23 @@ class BatchHandler:
                 data_pool = self.reduced_pool
             # if d_thresh is not none, I would reduce the dataset some way
 
-            # We are in a validation step, not a graph generation
+            # If we do not have enough data remaining to fill a batch
             if (self.val_minibatch_idx+self.batch_size) > len(data_pool):
                 # Collect the remaining data
                 X_data = list(data_pool.iloc[self.val_minibatch_idx:].encoder_sample)
                 Y_data = list(data_pool.iloc[self.val_minibatch_idx:].dest_1_hot)
 
-                cum_padding = 0
+                total_padding = self.batch_size - (len(X_data))
+                pad_vector = np.zeros(self.batch_size, dtype=bool)
+                #The last n are garbage
+                pad_vector[-total_padding:] = True
+
                 while len(X_data) < self.batch_size:
+                    # Add garbage to the end, repeat if necessary
                     pad_length = self.batch_size - (len(X_data))
-
-                    X_data.extend(list(data_pool.iloc[:pad_length].encoder_sample))
-                    Y_data.extend(list(data_pool.iloc[:pad_length].dest_1_hot))
-
-                pad_vector = np.ones(self.batch_size, dtype=bool)
-                pad_vector[0:len(data_pool)] = False
+                    # This works because if pad_length > len(data_pool), it just returns the whole pool
+                    X_data.extend(list(data_pool.iloc[0:pad_length].encoder_sample))
+                    Y_data.extend(list(data_pool.iloc[0:pad_length].dest_1_hot))
 
                 batch_complete = True
                 self.val_minibatch_idx = 0
