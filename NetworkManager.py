@@ -10,6 +10,7 @@ import tensorflow as tf
 from seq2seq_model import Seq2SeqModel
 import os
 import numpy as np
+import pandas as pd
 
 class NetworkManager:
     def __init__(self, parameters, log_file_name=None):
@@ -45,7 +46,25 @@ class NetworkManager:
     def run_training_step(self, X, Y, weights, train_model, summary_writer=None):
          return self.model.step(self.sess, X, Y, weights, train_model, summary_writer=summary_writer)
 
+    # def collect_data_for_graph(self, batch_handler):
+    #     output_dataframe = pd.DataFrame()
+    #     bbox_range_plot = np.arange(-35,60,1).tolist()
+    #     for d in range(bbox_range_plot):
+    #         batch_handler.set_distance_threshold(d)
+    #         output_dataframe = pd.DataFrame({'track_index': indices,
+    #                                          'prediction':map(tuple,output_prediction[0]),
+    #                                          'gt_label':map(tuple,label_sequences[0]),
+    #                                          'range':np.repeat(bbox,len(indices)),
+    #                                          'iteration':np.repeat(x,len(indices)),
+    #                                          'cross-fold':np.repeat(cross_fold,len(indices)),
+    #                                          'destination':[x[x.find('-')+1:] for x in np.array(raw_classes)[indices]],
+    #                                          'origin':[x[:x.find('-')] for x in np.array(raw_classes)[indices]]})
+    #                     iteration_output_list.append(output_dataframe)
+    #     return
+
     def generate_graph(self):
+
+
         return
 
     # Function that passes the entire validation dataset through the network once and only once.
@@ -56,7 +75,7 @@ class NetworkManager:
         total_correct = 0
         total_valid = 0
         while not batch_complete:
-            val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_minibatch()
+            val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_sequential_minibatch()
             valid_data = np.logical_not(pad_vector)
             acc, loss, outputs = self.model.step(self.sess, val_x, val_y, val_weights, False, summary_writer=summary_writer)
 
