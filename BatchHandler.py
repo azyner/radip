@@ -92,10 +92,6 @@ class BatchHandler:
     # The batch_complete flag signals the last mini-batch for the batch, so the system should collate results
     # pad_vector is TRUE if the data is junk (padding data)
     def get_minibatch(self):
-        # TODO Now, don't forget, the format tensorflow wants the data in is a list of
-        #  length steps, of batch_size*input_size
-        #   copy the code from seq2seq.get_batch
-
         # TODO Research
         # Bias sampling, importance sampling, weighted sampling
 

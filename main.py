@@ -33,6 +33,9 @@ if not Wrangler.load_from_checkpoint():
 
 Wrangler.split_into_evaluation_pools()
 cf_pool, test_pool = Wrangler.get_pools()
+
+# Here is where I want to spin off into another function, as the hyperparameter search should sit above
+
 cf_fold = -1
 # I should call this outside the crossfold, so it occurs once
 log_file_time = str(time.time())
@@ -58,13 +61,6 @@ for train_pool, val_pool in cf_pool:
     while True:
         # The training loop!
 
-        # TODO:
-        # The val_acc should not be jumping around this much.
-        # As d_thresh has not been set, there should be significant validation samples, more than the 1024 batch size
-        # This means I require a validation loop in the network manager, one that can exhaust all the validation samples
-        # in a loop fashion, and report the overall acc. s.t. it is a one line call here. Step_val?
-        # I will also need a function that does the evaluation at each d_thresh
-
         step_start_time = time.time()
         train_x, train_y, weights = training_batch_handler.get_minibatch()
         accuracy, step_loss, _ = netManager.run_training_step(train_x, train_y, weights, True)
@@ -72,19 +68,21 @@ for train_pool, val_pool in cf_pool:
         # Periodically, run without training for the summary logs
         if current_step % 200 == 0:
             eval_accuracy, eval_step_loss, _ = netManager.run_training_step(train_x, train_y, weights, False, summary_writer=None)
+            # FIXME I feel this may break as it should be run once only for each global step for summary writer
             eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler, summary_writer=None)
         step_time += (time.time() - step_start_time) / steps_per_checkpoint
         step_time += (time.time() - step_start_time) / steps_per_checkpoint
         loss += step_loss / steps_per_checkpoint
         current_step += 1
+
         if current_step % steps_per_checkpoint == 0:
 
             eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler, summary_writer=None)
 
             print ("g_step %d lr %.6f step-time %.4f Batch av tr loss %.4f Acc %.3f val acc %.3f"
                    % (netManager.model.global_step.eval(session=netManager.sess),
-                                  netManager.model.learning_rate.eval(session=netManager.sess),
-                                  step_time, loss, accuracy, eval_accuracy))
+                      netManager.model.learning_rate.eval(session=netManager.sess),
+                      step_time, loss, accuracy, eval_accuracy))
 
             previous_losses.append(loss)
             step_time, loss = 0.0, 0.0
