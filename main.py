@@ -54,7 +54,7 @@ for train_pool, val_pool in cf_pool:
     current_step = 0
     previous_losses = []
     step_time, loss = 0.0, 0.0
-    steps_per_checkpoint = 2
+    steps_per_checkpoint = 200
     while True:
         # The training loop!
 
@@ -67,20 +67,19 @@ for train_pool, val_pool in cf_pool:
 
         step_start_time = time.time()
         train_x, train_y, weights = training_batch_handler.get_minibatch()
-        val_x, val_y, val_weights, pad_vector, batch_complete = validation_batch_handler.get_minibatch()
-        accuracy, step_loss, _ = netManager.step(train_x, train_y, weights, True)
+        accuracy, step_loss, _ = netManager.run_training_step(train_x, train_y, weights, True)
 
         # Periodically, run without training for the summary logs
-        if current_step % 20 == 0:
-            eval_accuracy, eval_step_loss, _ = netManager.step(train_x, train_y, weights, False, summary_writer=None)
-            eval_accuracy, eval_step_loss, _ = netManager.step(val_x, val_y, weights, False, summary_writer=None)
+        if current_step % 200 == 0:
+            eval_accuracy, eval_step_loss, _ = netManager.run_training_step(train_x, train_y, weights, False, summary_writer=None)
+            eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler, summary_writer=None)
         step_time += (time.time() - step_start_time) / steps_per_checkpoint
         step_time += (time.time() - step_start_time) / steps_per_checkpoint
         loss += step_loss / steps_per_checkpoint
         current_step += 1
         if current_step % steps_per_checkpoint == 0:
 
-            eval_accuracy, eval_step_loss, _ = netManager.step(val_x, val_y, weights, False, summary_writer=None)
+            eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler, summary_writer=None)
 
             print ("g_step %d lr %.6f step-time %.4f Batch av tr loss %.4f Acc %.3f val acc %.3f"
                    % (netManager.model.global_step.eval(session=netManager.sess),

@@ -9,6 +9,7 @@
 import tensorflow as tf
 from seq2seq_model import Seq2SeqModel
 import os
+import numpy as np
 
 class NetworkManager:
     def __init__(self, parameters, log_file_name=None):
@@ -41,8 +42,33 @@ class NetworkManager:
 
         return
 
-    def step(self,X,Y,weights,train_model,summary_writer=None):
+    def run_training_step(self, X, Y, weights, train_model, summary_writer=None):
          return self.model.step(self.sess, X, Y, weights, train_model, summary_writer=summary_writer)
 
     def generate_graph(self):
         return
+
+    # Function that passes the entire validation dataset through the network once and only once.
+    # Return cumulative accuracy, loss
+    def run_validation(self, batch_handler, summary_writer=None):
+        batch_complete = False
+        batch_losses = []
+        total_correct = 0
+        total_valid = 0
+        while not batch_complete:
+            val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_minibatch()
+            valid_data = np.logical_not(pad_vector)
+            acc, loss, outputs = self.model.step(self.sess, val_x, val_y, val_weights, False, summary_writer=summary_writer)
+
+            output_idxs = np.argmax(outputs[0][valid_data], axis=1)
+            y_idxs = np.argmax(np.array(val_y)[0][valid_data], axis=1)
+            num_correct = np.sum(np.equal(output_idxs,y_idxs)*1)
+            num_valid = np.sum(valid_data*1)
+            total_correct += num_correct
+            total_valid += num_valid
+            batch_losses.append(loss)
+
+        batch_acc = np.float32(total_correct) / np.float32(total_valid)
+
+        return batch_acc, np.average(batch_losses), None
+

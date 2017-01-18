@@ -278,11 +278,11 @@ class Seq2SeqModel(object):
                            [self.accuracy])  # Loss for this batch.
         else:
             output_feed = [self.accuracy, self.losses]# Loss for this batch.
-            for l in xrange(self.prediction_steps):  # Output logits.
-                if self.model_type == 'MDN':
+            if self.model_type == 'MDN':
+                for l in xrange(self.prediction_steps):  # Output logits.
                     output_feed.append(self.MDN_sample[l])
-                if self.model_type == 'classifier':
-                    output_feed.append(self.MDN_output[l])
+            if self.model_type == 'classifier':
+                output_feed.append(self.MDN_output[0])
 
         outputs = session.run(output_feed, input_feed)
         if summary_writer is not None:
