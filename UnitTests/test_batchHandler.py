@@ -28,7 +28,10 @@ class TestBatchHandler(TestCase):
             training_batch_handler = BatchHandler.BatchHandler(train_pool,parameters.parameters,True)
             validation_batch_handler = BatchHandler.BatchHandler(val_pool,parameters.parameters,False)
 
-            train_x, train_y, weights = training_batch_handler.get_minibatch()
+            batch_frame = training_batch_handler.get_minibatch()
+            train_x, _, weights, train_y = training_batch_handler.format_minibatch_data(batch_frame['encoder_sample'],
+                                                                                     batch_frame['dest_1_hot'],
+                                                                                     batch_frame['padding'])
 
             if len(train_x[0]) != parameters.parameters['batch_size']:
                 self.fail()
@@ -41,8 +44,12 @@ class TestBatchHandler(TestCase):
                 complete = False
                 pad_array = []
                 while not complete:
-                    X,Y,weights,pad,complete =validation_batch_handler.get_minibatch()
-                    pad_array.extend(pad)
+                    batch_frame, complete = validation_batch_handler.get_sequential_minibatch()
+                    train_x, _, weights, train_y = training_batch_handler.format_minibatch_data(
+                        batch_frame['encoder_sample'],
+                        batch_frame['dest_1_hot'],
+                        batch_frame['padding'])
+                    pad_array.extend(batch_frame['padding'])
                 if (sum(np.array(weights[0]).astype(int))) != num_val_tracks:
                     self.fail()
 
@@ -54,9 +61,13 @@ class TestBatchHandler(TestCase):
                 pad_array = []
                 total_valid = 0
                 while not complete:
-                    X, Y, weights, pad, complete = validation_batch_handler.get_minibatch()
-                    total_valid += np.sum(np.logical_not(pad)*1)
-                    pad_array.extend(pad)
+                    batch_frame, complete = validation_batch_handler.get_sequential_minibatch()
+                    train_x, _, weights, train_y = training_batch_handler.format_minibatch_data(
+                        batch_frame['encoder_sample'],
+                        batch_frame['dest_1_hot'],
+                        batch_frame['padding'])
+                    total_valid += np.sum(np.logical_not(batch_frame['padding'])*1)
+                    pad_array.extend(batch_frame['padding'])
                 if total_valid != num_samples:
                     self.fail()
 

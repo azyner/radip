@@ -75,8 +75,13 @@ class NetworkManager:
         total_correct = 0
         total_valid = 0
         while not batch_complete:
-            val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_sequential_minibatch()
-            valid_data = np.logical_not(pad_vector)
+
+            #val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_sequential_minibatch()
+            batch_frame,batch_complete = batch_handler.get_sequential_minibatch()
+            val_x, _, val_weights, val_y = batch_handler.format_minibatch_data(batch_frame['encoder_sample'],
+                                                                                        batch_frame['dest_1_hot'],
+                                                                                        batch_frame['padding'])
+            valid_data = np.logical_not(batch_frame['padding'])
             acc, loss, outputs = self.model.step(self.sess, val_x, val_y, val_weights, False, summary_writer=summary_writer)
 
             output_idxs = np.argmax(outputs[0][valid_data], axis=1)

@@ -62,7 +62,10 @@ for train_pool, val_pool in cf_pool:
         # The training loop!
 
         step_start_time = time.time()
-        train_x, train_y, weights = training_batch_handler.get_minibatch()
+        batch_frame = training_batch_handler.get_minibatch()
+        train_x, _, weights, train_y = training_batch_handler.format_minibatch_data(batch_frame['encoder_sample'],
+                                                                                    batch_frame['dest_1_hot'],
+                                                                                    batch_frame['padding'])
         accuracy, step_loss, _ = netManager.run_training_step(train_x, train_y, weights, True)
 
         # Periodically, run without training for the summary logs

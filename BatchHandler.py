@@ -59,6 +59,13 @@ class BatchHandler:
     # and converts it to a list of length time, containing [batch input_size] elements
 
     def format_minibatch_data(self, X, Y, pad_vector):
+        if type(X) is not list:
+            X = list(X)
+        if type(Y) is not list:
+            Y = list(Y)
+        if type(pad_vector) is not list:
+            pad_vector = list(pad_vector)
+
         batch_observation_inputs, batch_future_inputs, batch_weights, batch_labels = [], [], [], []
 
         # Batch encoder inputs are just re-indexed encoder_inputs.
@@ -104,10 +111,14 @@ class BatchHandler:
         if self.categorical:
             Y_data = list(self.data_pool.iloc[batch_idxs].dest_1_hot)
 
+        # frame_x, _, frame_weights, frame_Y = self.format_minibatch_data(list(batch_frame.encoder_sample),
+        #                                                                 list(batch_frame.dest_1_hot),
+        #                                                                 list(batch_frame.padding))
         # Nothing is padding, so np-zeros for pad vector
         batch_X, _, batch_weights, batch_Y = self.format_minibatch_data(X_data, Y_data, np.zeros(self.batch_size, dtype=bool))
-
-        return batch_X, batch_Y, batch_weights
+        batch_frame = self.data_pool.iloc[batch_idxs].copy()
+        batch_frame = batch_frame.assign(padding=np.zeros(len(batch_frame), dtype=bool))
+        return batch_frame # batch_X, batch_Y, batch_weights
 
         # Testing / validating
     def get_sequential_minibatch(self):
@@ -141,7 +152,6 @@ class BatchHandler:
                     padding_frame = padding_frame.assign(padding=np.ones(len(padding_frame), dtype=bool))
                     batch_frame = pd.concat([batch_frame, padding_frame])
 
-
                 batch_complete = True
                 self.val_minibatch_idx = 0
             else:
@@ -166,7 +176,7 @@ class BatchHandler:
 
             # FIXME frame_ and batch_ are now identical. I can now return the dataframe, which allows
             # the graph generator to pick out destination labels and group them
-            
-            return batch_X, batch_Y, batch_weights, pad_vector, batch_complete
+
+            return batch_frame, batch_complete
 
 
