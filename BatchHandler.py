@@ -107,15 +107,6 @@ class BatchHandler:
 
         batch_idxs = np.random.choice(range(len(self.data_pool)), self.batch_size, replace=False)
 
-        X_data = list(self.data_pool.iloc[batch_idxs].encoder_sample)
-        if self.categorical:
-            Y_data = list(self.data_pool.iloc[batch_idxs].dest_1_hot)
-
-        # frame_x, _, frame_weights, frame_Y = self.format_minibatch_data(list(batch_frame.encoder_sample),
-        #                                                                 list(batch_frame.dest_1_hot),
-        #                                                                 list(batch_frame.padding))
-        # Nothing is padding, so np-zeros for pad vector
-        batch_X, _, batch_weights, batch_Y = self.format_minibatch_data(X_data, Y_data, np.zeros(self.batch_size, dtype=bool))
         batch_frame = self.data_pool.iloc[batch_idxs].copy()
         batch_frame = batch_frame.assign(padding=np.zeros(len(batch_frame), dtype=bool))
         return batch_frame # batch_X, batch_Y, batch_weights
@@ -132,22 +123,18 @@ class BatchHandler:
             # If we do not have enough data remaining to fill a batch
             if (self.val_minibatch_idx+self.batch_size) > len(data_pool):
                 # Collect the remaining data
-                X_data = list(data_pool.iloc[self.val_minibatch_idx:].encoder_sample)
-                Y_data = list(data_pool.iloc[self.val_minibatch_idx:].dest_1_hot)
                 batch_frame = data_pool.iloc[self.val_minibatch_idx:].copy()
                 batch_frame = batch_frame.assign(padding=np.zeros(len(batch_frame), dtype=bool))
 
-                total_padding = self.batch_size - (len(X_data))
+                total_padding = self.batch_size - (len(batch_frame))
                 pad_vector = np.zeros(self.batch_size, dtype=bool)
                 #The last n are garbage
                 pad_vector[-total_padding:] = True
 
-                while len(X_data) < self.batch_size:
+                while len(batch_frame) < self.batch_size:
                     # Add garbage to the end, repeat if necessary
-                    pad_length = self.batch_size - (len(X_data))
+                    pad_length = self.batch_size - (len(batch_frame))
                     # This works because if pad_length > len(data_pool), it just returns the whole pool
-                    X_data.extend(list(data_pool.iloc[0:pad_length].encoder_sample))
-                    Y_data.extend(list(data_pool.iloc[0:pad_length].dest_1_hot))
                     padding_frame = data_pool.iloc[0:pad_length].copy()
                     padding_frame = padding_frame.assign(padding=np.ones(len(padding_frame), dtype=bool))
                     batch_frame = pd.concat([batch_frame, padding_frame])
@@ -155,12 +142,9 @@ class BatchHandler:
                 batch_complete = True
                 self.val_minibatch_idx = 0
             else:
-                X_data = list(data_pool.iloc[self.val_minibatch_idx:self.val_minibatch_idx+self.batch_size].encoder_sample)
-                Y_data = list(data_pool.iloc[self.val_minibatch_idx:self.val_minibatch_idx+self.batch_size].dest_1_hot)
                 batch_frame = data_pool.iloc[self.val_minibatch_idx:self.val_minibatch_idx + self.batch_size].copy()
                 batch_frame = batch_frame.assign(padding=np.zeros(len(batch_frame), dtype=bool))
                 self.val_minibatch_idx += self.batch_size
-                pad_vector = np.zeros(self.batch_size, dtype=bool)
 
                 # Did we get lucky and have no remainder?
                 if self.val_minibatch_idx == len(data_pool):
@@ -168,14 +152,6 @@ class BatchHandler:
                     self.val_minibatch_idx = 0
                 else:
                     batch_complete = False
-
-            frame_x, _, frame_weights, frame_Y = self.format_minibatch_data(list(batch_frame.encoder_sample),
-                                                                            list(batch_frame.dest_1_hot),
-                                                                            list(batch_frame.padding))
-            batch_X, _, batch_weights, batch_Y = self.format_minibatch_data(X_data, Y_data, pad_vector)
-
-            # FIXME frame_ and batch_ are now identical. I can now return the dataframe, which allows
-            # the graph generator to pick out destination labels and group them
 
             return batch_frame, batch_complete
 
