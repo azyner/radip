@@ -41,7 +41,7 @@ class BatchHandler:
         rp = []
         for track_idx in self.data_pool['track_idx'].unique():
             pool = self.data_pool[self.data_pool['track_idx']==track_idx]
-            tp = pool[pool['distance']>d_thresh] # thresholded pool
+            tp = pool[pool['distance']<d_thresh] # thresholded pool - everything that came before d_thresh
             # Sort by distance, pick closest
             record = tp.sort_values('distance',ascending=False).iloc[[0]] #
             # Double list as it will return a Series of type object otherwise, ruining all labels, breaking the data

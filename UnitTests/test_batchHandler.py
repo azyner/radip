@@ -40,7 +40,7 @@ class TestBatchHandler(TestCase):
             if cf_fold == 0:
                 # Get number of unique tracks in val pool
                 num_val_tracks = len(val_pool['track_idx'].unique())
-                validation_batch_handler.set_distance_threshold(d_thresh=22)
+                validation_batch_handler.set_distance_threshold(d_thresh=-20)
                 complete = False
                 pad_array = []
                 while not complete:
