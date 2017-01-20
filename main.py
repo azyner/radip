@@ -70,7 +70,8 @@ for train_pool, val_pool in cf_pool:
 
         # Periodically, run without training for the summary logs
         if current_step % 20 == 0:
-            eval_accuracy, eval_step_loss, _ = netManager.run_training_step(train_x, train_y, weights, False, summary_writer=None)
+            eval_accuracy, eval_step_loss, _ = netManager.run_training_step(train_x, train_y, weights, False,
+                                                                            summary_writer=netManager.train_writer)
             # FIXME I feel this may break as it should be run once only for each global step for summary writer
             #eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler, summary_writer=None)
         step_time += (time.time() - step_start_time) / steps_per_checkpoint
@@ -81,8 +82,8 @@ for train_pool, val_pool in cf_pool:
         if current_step % steps_per_checkpoint == 0:
 
             eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler, summary_writer=None)
-            graph_results = netManager.collect_graph_data(validation_batch_handler)
-            netManager.draw_graphs(graph_results)
+            #graph_results = netManager.collect_graph_data(validation_batch_handler)
+            #netManager.draw_graphs(graph_results)
 
             print ("g_step %d lr %.6f step-time %.4f Batch av tr loss %.4f Acc %.3f val acc %.3f"
                    % (netManager.model.global_step.eval(session=netManager.sess),

@@ -80,20 +80,23 @@ class Seq2SeqModel(object):
         if self.model_type=='classifier':
             n_out = parameters['num_classes']
 
+        ############## LAYERS
+
         with tf.variable_scope('output_proj'):
             o_w = tf.get_variable("proj_w", [self.rnn_size, n_out])
             o_b = tf.get_variable("proj_b", [n_out])
             output_projection = (o_w, o_b)
-            #tf.histogram_summary("output_w",w)
-            #tf.histogram_summary("output_b",b)
+            tf.histogram_summary("output_w",o_w)
+            tf.histogram_summary("output_b",o_b)
+
         with tf.variable_scope('input_layer'):
             i_w = tf.get_variable("in_w", [self.input_size, self.input_size])
             i_b = tf.get_variable("in_b", [self.input_size])
+            tf.histogram_summary("input_w",i_w)
+            tf.histogram_summary("input_b",i_b)
             input_layer = (i_w, i_b)
 
-        # define layers here
-        # input, linear RNN RNN linear etc
-
+        # TODO Add internal cell states to summary writer
         single_cell = tf.nn.rnn_cell.LSTMCell(self.rnn_size,state_is_tuple=True,use_peepholes=True)
         cell = single_cell
         if self.num_layers > 1:
@@ -288,7 +291,7 @@ class Seq2SeqModel(object):
         if summary_writer is not None:
             summary_op = tf.merge_all_summaries()
             summary_str = session.run(summary_op,input_feed)
-            summary_writer.add_summary(summary_str, self.global_step.eval())
+            summary_writer.add_summary(summary_str, self.global_step.eval(session=session))
         if train_model:
             return outputs[3], outputs[2], None  # accuracy, loss, no outputs.
         else:

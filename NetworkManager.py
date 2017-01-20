@@ -24,6 +24,10 @@ class NetworkManager:
         self.plot_directory = 'plots'
         self.network_name_string = "temp123456"
 
+        self.summaries_dir = 'logs'
+        self.train_writer = None
+        self.val_writer = None
+
         return
 
     def build_model(self):
@@ -42,6 +46,11 @@ class NetworkManager:
         else:
             print("Created model with fresh parameters.")
             self.sess.run(tf.initialize_all_variables())
+
+        self.train_writer = tf.train.SummaryWriter(os.path.join(self.summaries_dir,self.log_file_name+'train'),
+                                                   graph=self.sess.graph)
+        self.val_writer = tf.train.SummaryWriter(os.path.join(self.summaries_dir,self.log_file_name+'val'),
+                                                 graph=self.sess.graph)
 
         return
 
