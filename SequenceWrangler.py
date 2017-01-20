@@ -117,8 +117,6 @@ class SequenceWrangler:
 
     def generate_master_pool(self, raw_sequences=None, raw_classes=None):
 
-
-
         # Okay, so what is the format of data? Its both the raw tracks, and the raw vector classes?
         # The label --> one-hot converter should be in here.
         # This function needs to be persistent accross the n folds of the cross valdiation
@@ -134,6 +132,7 @@ class SequenceWrangler:
         origin_destintation_classes = st_encoder.transform(raw_classes)
 
         dest_raw_classes = [label[label.find('-') + 1:] for label in raw_classes]
+        origin = [label[:label.find('-')] for label in raw_classes]
         des_encoder = preprocessing.LabelEncoder()
         des_encoder.fit(dest_raw_classes)
         self.des_classes = des_encoder.transform(dest_raw_classes)
@@ -141,9 +140,10 @@ class SequenceWrangler:
         dest_1hot_enc.fit(np.array(self.des_classes).reshape(-1,1))
 
         # Forces continuity b/w crossfold template and test template
-        def _generate_template(track_idx, track_class, destination, destination_vec):
+        def _generate_template(track_idx, track_class,origin, destination, destination_vec):
             return pd.DataFrame({"track_idx": track_idx,
                                  "track_class": track_class,
+                                 "origin":origin,
                                  "destination": destination,
                                  "destination_vec": destination_vec,
                                  "dest_1_hot":
@@ -171,6 +171,7 @@ class SequenceWrangler:
             wrangle_time = time.time()
             single_track = raw_sequences[track_raw_idx]
             df_template = _generate_template(track_raw_idx, raw_classes[track_raw_idx],
+                                             origin[track_raw_idx],
                                              dest_raw_classes[track_raw_idx],
                                              self.des_classes[track_raw_idx])
             track_pool = self._track_slicer(single_track,

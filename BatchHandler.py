@@ -38,6 +38,10 @@ class BatchHandler:
         self.d_thresh = d_thresh
         # for every track_idx, find the sample that is max(d<thresh)
 
+        if d_thresh is None:
+            self.reduced_pool = None
+            return
+
         rp = []
         for track_idx in self.data_pool['track_idx'].unique():
             pool = self.data_pool[self.data_pool['track_idx']==track_idx]
