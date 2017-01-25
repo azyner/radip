@@ -4,6 +4,7 @@ import random
 import MDN
 from tensorflow.python.ops import nn_ops
 from TF_mods import basic_rnn_seq2seq_with_loop_function
+from tensorflow.python.ops import seq2seq
 
 class Seq2SeqModel(object):
 
@@ -106,7 +107,7 @@ class Seq2SeqModel(object):
         cell = tf.nn.rnn_cell.DropoutWrapper(cell,output_keep_prob=keep_prob)
 
         def output_function(output):
-            return nn_ops.xw_plus_b(output, output_projection[0], output_projection[1])
+            return nn_ops.xw_plus_b(output, output_projection[0], output_projection[1],name="output_projection")
 
         #The loopback function needs to be a sampling function, it does not generate loss.
         def simple_loop_function(prev, _):
@@ -121,7 +122,7 @@ class Seq2SeqModel(object):
                 prev = MDN.sample(prev)
 
             # Apply input layer
-            prev = nn_ops.xw_plus_b(prev, input_layer[0], input_layer[1])
+            prev = nn_ops.xw_plus_b(prev, input_layer[0], input_layer[1],name="Loopback_Input")
 
             return prev
 
@@ -131,8 +132,10 @@ class Seq2SeqModel(object):
                 loopback_function = simple_loop_function
             else:
                 loopback_function = None #feed correct input
-            return basic_rnn_seq2seq_with_loop_function(encoder_inputs,decoder_inputs,cell,
-                                                                      loop_function=loopback_function,dtype=dtype)
+            #return basic_rnn_seq2seq_with_loop_function(encoder_inputs,decoder_inputs,cell,
+            #                                                         loop_function=loopback_function,dtype=dtype)
+            return seq2seq.tied_rnn_seq2seq(encoder_inputs,decoder_inputs,cell,
+                                            loop_function=loopback_function,dtype=dtype)
 
         # Feeds for inputs.
         self.observation_inputs = []
@@ -168,11 +171,11 @@ class Seq2SeqModel(object):
 
         #Leave the last observation as the first input to the decoder
         #self.encoder_inputs = self.observation_inputs[0:-1]
-        self.encoder_inputs = [nn_ops.xw_plus_b(input_timestep, input_layer[0], input_layer[1]) for
+        self.encoder_inputs = [nn_ops.xw_plus_b(input_timestep, input_layer[0], input_layer[1], name="Encoder_input_acts") for
                                input_timestep in self.observation_inputs[0:-1]]
 
         #decoder inputs are the last observation and all but the last future
-        self.decoder_inputs = [nn_ops.xw_plus_b(self.observation_inputs[-1], input_layer[0], input_layer[1])]
+        self.decoder_inputs = [nn_ops.xw_plus_b(self.observation_inputs[-1], input_layer[0], input_layer[1], name="Decoder_input_acts")]
         # Todo should this have the input layer applied?
         self.decoder_inputs.extend([self.future_inputs[i] for i in xrange(len(self.future_inputs) - 1)])
         #for tensor in self.encoder_inputs:
@@ -181,7 +184,8 @@ class Seq2SeqModel(object):
         #    tf.histogram_summary(tensor.name,tensor)
 
         #if train: #Training
-        self.LSTM_output_to_MDN, self.internal_states = seq2seq_f(self.encoder_inputs, self.decoder_inputs, feed_future_data)
+        with tf.variable_scope('seq_rnn'):
+            self.LSTM_output_to_MDN, self.internal_states = seq2seq_f(self.encoder_inputs, self.decoder_inputs, feed_future_data)
         #for tensor in self.LSTM_output_to_MDN:
         #    tf.histogram_summary(tensor.name,tensor)
 
