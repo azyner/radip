@@ -31,6 +31,7 @@ class NetworkManager:
         return
 
     def build_model(self):
+        tf.reset_default_graph()
         self.device = tf.device('gpu:0')
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9,allow_growth=True)
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,gpu_options=gpu_options))
@@ -189,7 +190,14 @@ class NetworkManager:
         while not batch_complete:
 
             #val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_sequential_minibatch()
-            mini_batch_frame,batch_complete = batch_handler.get_sequential_minibatch()
+            if 'QUICK_VALBATCH' in os.environ:
+                # Run one regular batch. Debug mode takes longer, and there are ~30,000 val samples
+                mini_batch_frame = batch_handler.get_minibatch()
+                batch_complete = True
+                print "Debug active, valdating with random sample, not whole batch"
+            else:
+                mini_batch_frame,batch_complete = batch_handler.get_sequential_minibatch()
+
             val_x, _, val_weights, val_y = batch_handler.format_minibatch_data(mini_batch_frame['encoder_sample'],
                                                                                mini_batch_frame['dest_1_hot'],
                                                                                mini_batch_frame['padding'])
