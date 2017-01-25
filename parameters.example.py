@@ -22,3 +22,5 @@ parameters["num_mixtures"] = 6
 parameters["model_type"] = "classifier"
 parameters["input_columns"] = ['easting', 'northing', 'heading', 'speed']
 parameters['train_dir'] = 'train'
+parameters['early_stop_cf'] = 0.1 # Time in minutes for training one crossfold
+parameters['hyper_search_time'] = 1.0/60 # Time in hours for hyper searching
