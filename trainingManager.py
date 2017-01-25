@@ -10,6 +10,7 @@ class trainingManager:
         self.cf_pool = cf_pool
         self.test_pool = test_pool
         self.parameter_dict = parameter_dict
+        self.hyper_results_logfile = "hyper.csv"
 
         return
 
@@ -71,6 +72,7 @@ class trainingManager:
         fold_results['final_learning_rate'] = netManager.model.learning_rate.eval(session=netManager.sess)
         fold_results['training_accuracy'] = accuracy
         fold_results['training_loss'] = loss
+        fold_results['network_chkpt_dir'] = netManager.log_file_name
 
         return fold_results
 
@@ -131,8 +133,12 @@ class trainingManager:
             hyperparam_results['final_learning_rate'] = np.min(cf_df['final_learning_rate'])
             hyperparam_results['training_accuracy'] = np.min(cf_df['training_accuracy'])
             hyperparam_results['training_loss'] = np.average(cf_df['training_loss'])
-            hyperparam_results['crossfold_number'] = 0
+            hyperparam_results['crossfold_number'] = -1
+            hyperparam_results['network_chkpt_dir'] = (
+                cf_df.sort_values('eval_accuracy',ascending=False).iloc[[0]]['network_chkpt_dir'])
+            hyperparam_results['cf_summary'] = True
             hyperparam_results_list.append(pd.DataFrame(hyperparam_results, index=[0]))
+            hyperparam_results_list.append(cf_df)
             #Write results and hyperparams to hyperparameter_results_dataframe
 
             #Once cross folding has completed, select new hyperparameters, and re-run
@@ -143,8 +149,9 @@ class trainingManager:
             else:
                 break
 
-        hyper_df = pd.concat(hyperparam_results_list)
-        best_params = hyper_df.sort_values('eval_accuracy',ascending=False).iloc[[0]].to_dict('index')[0]
+        hyper_df = pd.concat(hyperparam_results_list,ignore_index=True)
+        hyper_df.to_csv("temp.csv")
+        best_params = hyper_df.sort_values('eval_accuracy',ascending=False).iloc[0].to_dict()
 
         return best_params
 
