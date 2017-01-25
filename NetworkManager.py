@@ -1,4 +1,5 @@
-# Class that handles the network itself. Defines the training / testing state,
+# Class that handles a single instance of a network.
+# Defines the training / testing state,
 #  manages tensorboard handles.
 
 # Step function should go here, that means it needs to be passed a BatchHandler,
@@ -22,9 +23,9 @@ class NetworkManager:
         self.log_file_name = log_file_name
         self.model = None
         self.plot_directory = 'plots'
-        self.network_name_string = "temp123456"
+        self.network_name_string = "temp123456" # The unique network name descriptor.
 
-        self.summaries_dir = 'logs'
+        self.summaries_dir = 'tensorboard_logs'
         self.train_writer = None
         self.val_writer = None
 
