@@ -22,7 +22,7 @@ import pandas as pd
 # This is where the hyperparameter searcher goes
 
 print "wrangling tracks"
-Wrangler = SequenceWrangler.SequenceWrangler(parameters)
+Wrangler = SequenceWrangler.SequenceWrangler(parameters,n_folds=parameters.parameters['n_folds'])
 if not Wrangler.load_from_checkpoint():
     print "reading data and splitting into data pool, this will take some time (10? minutes). Grab a coffee"
     raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(parameters.parameters['input_columns'])

@@ -3,6 +3,7 @@
 # changes to git, they should all exist in a log file anyway
 
 parameters = {}
+parameters["n_folds"] = 3
 parameters["num_rnn_layers"] = 3
 parameters["learning_rate"] = 0.01
 parameters["observation_steps"] = 5

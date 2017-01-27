@@ -13,7 +13,7 @@ import pickle
 
 
 class SequenceWrangler:
-    def __init__(self,parameters, n_folds=5, training=0.8,val=0.1,test=0.1):
+    def __init__(self,parameters, n_folds=5, training=0.55,val=0.2,test=0.25):
         self.n_folds = n_folds
         self.parameters = parameters.parameters
         #TODO Normalize the below splits
@@ -27,6 +27,7 @@ class SequenceWrangler:
         filename = "pool_ckpt_" +\
                     "obs-" + str(self.parameters["observation_steps"]) + \
                     "_pred-" + str(self.parameters["prediction_steps"]) + \
+                    "_nfolds-" + str(self.n_folds) + \
                    ".pkl"
 
         return filename
