@@ -62,7 +62,7 @@ class NetworkManager:
 
     def draw_html_graphs(self, graph_results):
         if True:  # Plot HTML bokeh
-            from bokeh.plotting import figure, output_file, show, gridplot
+            from bokeh.plotting import figure, output_file, show, gridplot, save
             from bokeh.models.widgets import Button
             from bokeh.layouts import widgetbox
             from bokeh.layouts import layout
@@ -115,7 +115,7 @@ class NetworkManager:
             # plots.append(p1)
             p = gridplot([plots])
             l = layout([plots, [widgetbox(button_1, width=300)]])
-            #show(l)
+            save(l)
             # show(widgetbox(button_1, width=300))
         # if False:  # Use matplotlib to plot PNG
         #     if not os.path.exists(FLAGS.plot_dir):

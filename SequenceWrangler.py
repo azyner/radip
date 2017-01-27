@@ -110,7 +110,7 @@ class SequenceWrangler:
                 crossfold_pool[fold_idx][trainorval_pool_idx] = pd.concat(crossfold_pool[fold_idx][trainorval_pool_idx])
 
         self.crossfold_pool = crossfold_pool
-        self.test_pool = test_pool
+        self.test_pool = pd.concat(test_pool)
 
 
         return

@@ -56,17 +56,19 @@ class trainingManager:
 
                 previous_losses.append(loss)
                 step_time, loss = 0.0, 0.0
+
+                decrement_timestep = self.parameter_dict['decrement_steps']
+                if len(previous_losses) > decrement_timestep-1 and loss > 0.99*(max(previous_losses[-decrement_timestep:])): #0.95 is float fudge factor
+                  netManager.sess.run(netManager.model.learning_rate_decay_op)
+
+                # Training stop conditions:
+                # Out of time
+                # Out of learning rate
                 now = time.time()
-                if now - fold_time > 60 * self.parameter_dict['early_stop_cf']:
+                if ((netManager.model.learning_rate.eval(netManager.sess) < 1e-10) or
+                    now - fold_time > 60 * self.parameter_dict['early_stop_cf']):
                     break
-                    # if (((perplexity < 0.0001 or model.learning_rate.eval() < 0.00001) and FLAGS.early_stop is 0) or
-                    #     (FLAGS.early_stop is not 0) and (now - start_time > 60 * FLAGS.early_stop)):
-                    #     #cross_train_accuracy.append(eval_accuracy)
-                    #     #cross_train_loss.append(eval_step_loss)
-                    #
-                    #     # log_result_to_csv(model.global_step.eval(), perplexity, model.learning_rate.eval(),step_time)
-                    #
-                    #     break
+
         fold_results = copy.copy(self.parameter_dict)
         fold_results['input_columns'] = ",".join(fold_results['input_columns'])
         fold_results['eval_accuracy'] = eval_accuracy
@@ -85,10 +87,14 @@ class trainingManager:
 
             #Select new hyperparameters
             learning_rate_range = [0.03, 0.01, 0.001, 0.003, 0.0001]
-
             rnn_size_range = np.arange(16,513,8)
+            timestep_range = range(3,7,1)
+
             self.parameter_dict["rnn_size"] = random.choice(rnn_size_range)
             self.parameter_dict["learning_rate"] = random.choice(learning_rate_range)
+
+            # TODO obs steps needs to load a new dataset every time, as the dataset has a fixed step size
+            #self.parameter_dict["observation_steps"] = random.choice(timestep_range)
 
             cf_fold = -1
             # I should call this outside the crossfold, so it occurs once
@@ -121,7 +127,6 @@ class trainingManager:
 
                 #######
                 # Here we have a fully trained model, but we are still in the cross fold.
-                # So I would like to add the results into a cross-fold collection
 
                 # TODO Add other evaluation metrics here
                 # We still have the model in scope here, so I can probe it for whatever I want
@@ -132,7 +137,6 @@ class trainingManager:
             # Condense results from cross fold (Average, best, worst, whatever selection method)
             hyperparam_results = copy.copy(self.parameter_dict)
             hyperparam_results['input_columns'] = ",".join(hyperparam_results['input_columns'])
-            # HACK save the condensed results under crossfold_number 0
             hyperparam_results['eval_accuracy'] = np.min(cf_df['eval_accuracy'])
             hyperparam_results['final_learning_rate'] = np.min(cf_df['final_learning_rate'])
             hyperparam_results['training_accuracy'] = np.min(cf_df['training_accuracy'])
@@ -147,10 +151,7 @@ class trainingManager:
 
             #Once cross folding has completed, select new hyperparameters, and re-run
             now = time.time()
-            #if now - hyper_time > 60 * 60 * parameters.parameters['hyper_search_time']: # Stop the hyperparameter search after a set time
-            if first:
-                first = False
-            else:
+            if now - hyper_time > 60 * 60 * self.parameter_dict['hyper_search_time']: # Stop the hyperparameter search after a set time
                 break
 
         hyper_df = pd.concat(hyperparam_results_list,ignore_index=True)
@@ -159,11 +160,32 @@ class trainingManager:
 
         return best_params
 
-    def test_network(self):
+    def test_network(self, params, train_pool, val_pool):
+        self.parameter_dict = params
+        # TODO change this to a much longer time. Perhaps change the loss function agressiveness as well.
+        self.parameter_dict['early_stop_cf'] = self.parameter_dict['early_stop_cf']
+
+        log_file_name = "best-" + str(time.time())
+
+        training_batch_handler = BatchHandler.BatchHandler(train_pool, self.parameter_dict, True)
+        validation_batch_handler = BatchHandler.BatchHandler(val_pool, self.parameter_dict, False)
+
+        # Add input_size, num_classes
+        self.parameter_dict['input_size'] = training_batch_handler.get_input_size()
+        self.parameter_dict['num_classes'] = training_batch_handler.get_num_classes()
+
+        netManager = NetworkManager.NetworkManager(self.parameter_dict, log_file_name)
+        netManager.build_model()
+
+        best_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)
+
+        print "Drawing html graph"
+        netManager.draw_html_graphs(netManager.collect_graph_data(validation_batch_handler))
+
+        best_results = pd.DataFrame(best_results,index=[0])
+        best_results.to_csv(os.path.join(self.parameter_dict['master_dir'],"best.csv"))
         # Do it all again, but this time train with all data OR TODO return from best checkpoint
         # and test against that last test set
         # I guess this is where the HTML plots would be generated
 
-        results = None
-
-        return results
+        return best_results

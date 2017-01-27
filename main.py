@@ -16,6 +16,7 @@ import trainingManager
 import parameters
 import datetime
 import os
+import pandas as pd
 
 # I want the logger and the crossfold here
 # This is where the hyperparameter searcher goes
@@ -29,6 +30,7 @@ if not Wrangler.load_from_checkpoint():
 
 Wrangler.split_into_evaluation_pools()
 cf_pool, test_pool = Wrangler.get_pools()
+full_cf_pool = pd.concat([cf_pool[0][0], cf_pool[0][1]])
 
 results_dir = 'results'
 if not os.path.exists(results_dir):
@@ -40,6 +42,8 @@ if not os.path.exists(parameters.parameters['master_dir']):
 trainingManager = trainingManager.trainingManager(cf_pool,test_pool,parameters.parameters)
 best_params = trainingManager.run_hyperparamter_search()
 
+full_cf_pool = pd.concat([cf_pool[0][0], cf_pool[0][1]])
+trainingManager.test_network(best_params,full_cf_pool,test_pool)
 #Dumb statement for breakpoint before system finishes
 ideas = None
 
