@@ -27,7 +27,6 @@ class SequenceWrangler:
         filename = "pool_ckpt_" +\
                     "obs-" + str(self.parameters["observation_steps"]) + \
                     "_pred-" + str(self.parameters["prediction_steps"]) + \
-                    "_nfolds-" + str(self.n_folds) + \
                    ".pkl"
 
         return filename
