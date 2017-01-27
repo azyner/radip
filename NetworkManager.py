@@ -22,12 +22,13 @@ class NetworkManager:
         self.device = None
         self.log_file_name = log_file_name
         self.model = None
-        self.plot_directory = 'plots'
+        self.plot_directory = os.path.join(self.parameters['master_dir'],'plots')
         self.network_name_string = "temp123456" # The unique network name descriptor.
-
-        self.summaries_dir = 'tensorboard_logs'
+        self.train_chkpt_dir = os.path.join(self.parameters['master_dir'], self.parameters['train_dir'])
+        self.summaries_dir = os.path.join(self.parameters['master_dir'],'tensorboard_logs')
         self.train_writer = None
         self.val_writer = None
+
 
         return
 
@@ -37,11 +38,11 @@ class NetworkManager:
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9,allow_growth=True)
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,gpu_options=gpu_options))
         self.model = Seq2SeqModel(self.parameters)
-        if not os.path.exists(self.parameters['train_dir']):
-            os.makedirs(self.parameters['train_dir'])
-        if not os.path.exists(os.path.join(self.parameters['train_dir'], self.log_file_name)):
-            os.makedirs(os.path.join(self.parameters['train_dir'], self.log_file_name))
-        ckpt = tf.train.get_checkpoint_state(os.path.join(self.parameters['train_dir'], self.log_file_name))
+        if not os.path.exists(self.train_chkpt_dir):
+            os.makedirs(self.train_chkpt_dir)
+        if not os.path.exists(os.path.join(self.train_chkpt_dir, self.log_file_name)):
+            os.makedirs(os.path.join(self.train_chkpt_dir, self.log_file_name))
+        ckpt = tf.train.get_checkpoint_state(os.path.join(self.train_chkpt_dir, self.log_file_name))
         if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path):
             print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
             self.model.saver.restore(self.sess, ckpt.model_checkpoint_path)
@@ -59,7 +60,7 @@ class NetworkManager:
     def run_training_step(self, X, Y, weights, train_model, summary_writer=None):
          return self.model.step(self.sess, X, Y, weights, train_model, summary_writer=summary_writer)
 
-    def draw_graphs(self,graph_results):
+    def draw_html_graphs(self, graph_results):
         if True:  # Plot HTML bokeh
             from bokeh.plotting import figure, output_file, show, gridplot
             from bokeh.models.widgets import Button
@@ -69,7 +70,7 @@ class NetworkManager:
             plots = []
             if not os.path.exists(self.plot_directory):
                 os.makedirs(self.plot_directory)
-            plt_path = os.path.join(self.plot_directory, self.network_name_string + '.html')
+            plt_path = os.path.join(self.plot_directory, self.log_file_name + '.html')
             output_file(plt_path)
             for origin in plot_titles:
 
@@ -105,7 +106,7 @@ class NetworkManager:
                 p1.legend.location = "bottom_right"
                 plots.append(p1)
 
-            button_1 = Button(label='Log: ' + self.network_name_string)
+            button_1 = Button(label=str(self.parameters))
 
             # put the results in a row
 
@@ -114,7 +115,7 @@ class NetworkManager:
             # plots.append(p1)
             p = gridplot([plots])
             l = layout([plots, [widgetbox(button_1, width=300)]])
-            show(l)
+            #show(l)
             # show(widgetbox(button_1, width=300))
         # if False:  # Use matplotlib to plot PNG
         #     if not os.path.exists(FLAGS.plot_dir):

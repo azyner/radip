@@ -4,6 +4,7 @@ import BatchHandler
 import NetworkManager
 import numpy as np
 import pandas as pd
+import os
 
 class trainingManager:
     def __init__(self, cf_pool, test_pool, parameter_dict):
@@ -97,7 +98,7 @@ class trainingManager:
 
             for train_pool, val_pool in self.cf_pool:
                 cf_fold += 1
-                log_file_name = log_file_time + str(cf_fold)
+                log_file_name = log_file_time + "-cf-" + str(cf_fold)
 
                 print "Starting crossfold"
                 training_batch_handler = BatchHandler.BatchHandler(train_pool, self.parameter_dict, True)
@@ -112,8 +113,11 @@ class trainingManager:
 
                 cf_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)
                 cf_results['crossfold_number'] = cf_fold
-
                 cf_results_list.append(pd.DataFrame(cf_results, index=[0]))
+
+                #plot
+                print "Drawing html graph"
+                netManager.draw_html_graphs(netManager.collect_graph_data(validation_batch_handler))
 
                 #######
                 # Here we have a fully trained model, but we are still in the cross fold.
@@ -150,7 +154,7 @@ class trainingManager:
                 break
 
         hyper_df = pd.concat(hyperparam_results_list,ignore_index=True)
-        hyper_df.to_csv("temp.csv")
+        hyper_df.to_csv(os.path.join(self.parameter_dict['master_dir'],self.hyper_results_logfile))
         best_params = hyper_df.sort_values('eval_accuracy',ascending=False).iloc[0].to_dict()
 
         return best_params

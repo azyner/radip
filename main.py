@@ -13,34 +13,34 @@
 import intersection_segments
 import SequenceWrangler
 import trainingManager
-
 import parameters
-
+import datetime
+import os
 
 # I want the logger and the crossfold here
 # This is where the hyperparameter searcher goes
 
 print "wrangling tracks"
-
 Wrangler = SequenceWrangler.SequenceWrangler(parameters)
-
 if not Wrangler.load_from_checkpoint():
-
-    # This call copied from the dataset paper. It takes considerable time, so ensure it is run once only
-    print "reading data"
+    print "reading data and splitting into data pool, this will take some time (10? minutes). Grab a coffee"
     raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(parameters.parameters['input_columns'])
     Wrangler.generate_master_pool(raw_sequences, raw_classes)
 
 Wrangler.split_into_evaluation_pools()
 cf_pool, test_pool = Wrangler.get_pools()
 
-# Here is where I want to spin off into another function, as the hyperparameter search should sit above
-#HYPER SEARCH
-
+results_dir = 'results'
+if not os.path.exists(results_dir):
+    os.makedirs(results_dir)
+parameters.parameters['master_dir'] = os.path.join(results_dir,datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+if not os.path.exists(parameters.parameters['master_dir']):
+    os.makedirs(parameters.parameters['master_dir'])
 
 trainingManager = trainingManager.trainingManager(cf_pool,test_pool,parameters.parameters)
 best_params = trainingManager.run_hyperparamter_search()
 
+#Dumb statement for breakpoint before system finishes
 ideas = None
 
 
