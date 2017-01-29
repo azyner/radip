@@ -20,7 +20,7 @@ class trainingManager:
         current_step = 0
         previous_losses = []
         step_time, loss = 0.0, 0.0
-        steps_per_checkpoint = 40
+        steps_per_checkpoint = 200
         while True:
             # The training loop!
 
