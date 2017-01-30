@@ -46,17 +46,16 @@ class trainingManager:
             if current_step % steps_per_checkpoint == 0:
 
                 eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler,
-                                                                             summary_writer=None)
+                                                                             summary_writer=None,quick=True)
                 # graph_results = netManager.collect_graph_data(validation_batch_handler)
                 # netManager.draw_graphs(graph_results)
-
-                print ("g_step %d lr %.6f step-time %.4f Batch av tr loss %.4f Acc %.3f val acc %.3f"
+                # FIXME This will break if classes != 3
+                perfect_classification_distance = netManager.evaluate_metric(validation_batch_handler)
+                print ("g_step %d lr %.6f step %.4fs av tr loss %.4f Acc %.3f v_acc %.3f p_dis %.1f, %.1f, %.1f"
                        % (netManager.model.global_step.eval(session=netManager.sess),
                           netManager.model.learning_rate.eval(session=netManager.sess),
-                          step_time, loss, accuracy, eval_accuracy))
-
-                metric = netManager.evaluate_metric(validation_batch_handler)
-                print "Perfect dist is: " + str(metric)
+                          step_time, loss, accuracy, eval_accuracy, perfect_classification_distance[0],
+                          perfect_classification_distance[1],perfect_classification_distance[2]))
 
                 previous_losses.append(loss)
                 step_time, loss = 0.0, 0.0
@@ -80,6 +79,11 @@ class trainingManager:
         fold_results['training_accuracy'] = accuracy
         fold_results['training_loss'] = loss
         fold_results['network_chkpt_dir'] = netManager.log_file_name
+        for class_idx in range(len(perfect_classification_distance)):
+            key_str = 'perfect_distance_' + str(class_idx)
+            fold_results[key_str] = perfect_classification_distance[class_idx]
+
+        fold_results['perfect_distance'] = np.max(perfect_classification_distance) #worst distance
 
         return fold_results
 
@@ -160,7 +164,8 @@ class trainingManager:
 
         hyper_df = pd.concat(hyperparam_results_list,ignore_index=True)
         hyper_df.to_csv(os.path.join(self.parameter_dict['master_dir'],self.hyper_results_logfile))
-        best_params = hyper_df.sort_values('eval_accuracy',ascending=False).iloc[0].to_dict()
+        #Distance at which the classifier can make a sound judgement, lower is better
+        best_params = hyper_df.sort_values('perfect_distance',ascending=True).iloc[0].to_dict()
 
         return best_params
 

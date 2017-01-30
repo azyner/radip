@@ -23,7 +23,7 @@ class NetworkManager:
         self.log_file_name = log_file_name
         self.model = None
         self.plot_directory = os.path.join(self.parameters['master_dir'],'plots')
-        self.network_name_string = "temp123456" # The unique network name descriptor.
+        #self.network_name_string = "temp123456" # The unique network name descriptor.
         self.train_chkpt_dir = os.path.join(self.parameters['master_dir'], self.parameters['train_dir'])
         self.summaries_dir = os.path.join(self.parameters['master_dir'],'tensorboard_logs')
         self.train_writer = None
@@ -147,7 +147,7 @@ class NetworkManager:
         if plot:
             bbox_range_plot = np.arange(-35,60,1).tolist()
         else:
-            bbox_range_plot = np.arange(-35, 60, 1).tolist()
+            bbox_range_plot = np.arange(-35, 60, 0.5).tolist()
 
         graph_results = []
         # This could be optimized.
@@ -187,28 +187,27 @@ class NetworkManager:
     def evaluate_metric(self,batch_handler):
 
         results = self.compute_result_per_dis(batch_handler, plot=False)
+        d_array = []
+        for dest in results['destination_vec'].unique():
+            # Generate the set of all distances that are not 100% accurate (i.e. they have a incorrect classification)
+            # Remove from the set of all distances, creating only a set of distances with a perfect score
+            # Return lowest number (the earliest result)
+            dis_unique = results['d_thresh'].unique()
+            reduced_df = results[results['output_idxs']==dest]
+            perfect_dist = np.setdiff1d(dis_unique,
+                                        reduced_df[
+                                            reduced_df['destination_vec']!=reduced_df['output_idxs']
+                                        ].d_thresh.unique())
+            if len(perfect_dist) == 0:
+                d_array.append(60)
+            else:
+                d_array.append(np.min(perfect_dist))
 
-        # Generate the set of all distances that are not 100% accurate (i.e. they have a incorrect classification)
-        # Remove from the set of all distances, creating only a set of distances with a perfect score
-        # Return lowest number (the earliest result)
-        dis_unique = results['d_thresh'].unique()
-        perfect_dist = np.setdiff1d(dis_unique,
-                                    results[
-                                        results['destination_vec']!=results['output_idxs']
-                                    ].d_thresh.unique())
-        if len(perfect_dist) == 0:
-            return None
-        else:
-            return np.min(perfect_dist)
-
-
-
-
-        return
+        return d_array
 
     # Function that passes the entire validation dataset through the network once and only once.
     # Return cumulative accuracy, loss
-    def run_validation(self, batch_handler, summary_writer=None):
+    def run_validation(self, batch_handler, summary_writer=None,quick=False):
         batch_complete = False
         batch_losses = []
         total_correct = 0
@@ -216,7 +215,7 @@ class NetworkManager:
         while not batch_complete:
 
             #val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_sequential_minibatch()
-            if 'QUICK_VALBATCH' in os.environ:
+            if 'QUICK_VALBATCH' in os.environ or quick:
                 # Run one regular batch. Debug mode takes longer, and there are ~30,000 val samples
                 mini_batch_frame = batch_handler.get_minibatch()
                 batch_complete = True
