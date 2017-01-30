@@ -123,7 +123,7 @@ class trainingManager:
 
                 #plot
                 print "Drawing html graph"
-                netManager.draw_html_graphs(netManager.collect_graph_data(validation_batch_handler))
+                netManager.draw_html_graphs(netManager.compute_result_per_dis(validation_batch_handler))
 
                 #######
                 # Here we have a fully trained model, but we are still in the cross fold.
@@ -180,7 +180,7 @@ class trainingManager:
         best_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)
 
         print "Drawing html graph"
-        netManager.draw_html_graphs(netManager.collect_graph_data(validation_batch_handler))
+        netManager.draw_html_graphs(netManager.compute_result_per_dis(validation_batch_handler))
 
         best_results = pd.DataFrame(best_results,index=[0])
         best_results.to_csv(os.path.join(self.parameter_dict['master_dir'],"best.csv"))

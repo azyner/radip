@@ -143,30 +143,29 @@ class NetworkManager:
         return
 
     # This function needs the validation batch (or test batch)
-    def collect_graph_data(self, batch_handler):
-        bbox_range_plot = np.arange(-35,60,1).tolist()
+    def compute_result_per_dis(self, batch_handler, plot=True):
+        if plot:
+            bbox_range_plot = np.arange(-35,60,1).tolist()
+        else:
+            bbox_range_plot = np.arange(-35, 60, 0.1).tolist()
 
         graph_results = []
         for d in bbox_range_plot:
-            junk = 1
-            #
             # Set d_thresh
             # Do it in a loop in case batch_size < num_val_tracks
-
-
+            batch_handler.set_distance_threshold(d)
             batch_complete = False
             while not batch_complete:
-                        batch_handler.set_distance_threshold(d)
 
                         mini_batch_frame,batch_complete = batch_handler.get_sequential_minibatch()
-                        #FIXME Assumption. format minibatch data preserves ordering. Is this correct?
-                        val_x, _, val_weights, val_y = batch_handler.format_minibatch_data(mini_batch_frame['encoder_sample'],
-                                                                                           mini_batch_frame['dest_1_hot'],
-                                                                                           mini_batch_frame['padding'])
+                        val_x, _, val_weights, val_y = \
+                            batch_handler.format_minibatch_data(mini_batch_frame['encoder_sample'],
+                                                                mini_batch_frame['dest_1_hot'],
+                                                                mini_batch_frame['padding'])
                         valid_data = np.logical_not(mini_batch_frame['padding'].values)
-                        acc, loss, outputs = self.model.step(self.sess, val_x, val_y, val_weights, False, summary_writer=None)
+                        acc, loss, outputs = self.model.step(self.sess, val_x, val_y,
+                                                             val_weights, False, summary_writer=None)
                         output_idxs = np.argmax(outputs[0][valid_data], axis=1)
-                        #y_idxs = np.argmax(np.array(val_y)[0][valid_data], axis=1)
 
                         mini_batch_frame = mini_batch_frame[mini_batch_frame['padding'] == False]
                         mini_batch_frame = mini_batch_frame.assign(output_idxs=output_idxs)
