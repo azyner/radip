@@ -147,9 +147,12 @@ class NetworkManager:
         if plot:
             bbox_range_plot = np.arange(-35,60,1).tolist()
         else:
-            bbox_range_plot = np.arange(-35, 60, 0.1).tolist()
+            bbox_range_plot = np.arange(-35, 60, 1).tolist()
 
         graph_results = []
+        # This could be optimized.
+        # If the batch size is larger than twice a sequential minibatch
+        # I could run two distances per step.
         for d in bbox_range_plot:
             # Set d_thresh
             # Do it in a loop in case batch_size < num_val_tracks
@@ -180,6 +183,28 @@ class NetworkManager:
         batch_handler.set_distance_threshold(None)
 
         return graph_results_frame
+
+    def evaluate_metric(self,batch_handler):
+
+        results = self.compute_result_per_dis(batch_handler, plot=False)
+
+        # Generate the set of all distances that are not 100% accurate (i.e. they have a incorrect classification)
+        # Remove from the set of all distances, creating only a set of distances with a perfect score
+        # Return lowest number (the earliest result)
+        dis_unique = results['d_thresh'].unique()
+        perfect_dist = np.setdiff1d(dis_unique,
+                                    results[
+                                        results['destination_vec']!=results['output_idxs']
+                                    ].d_thresh.unique())
+        if len(perfect_dist) == 0:
+            return None
+        else:
+            return np.min(perfect_dist)
+
+
+
+
+        return
 
     # Function that passes the entire validation dataset through the network once and only once.
     # Return cumulative accuracy, loss

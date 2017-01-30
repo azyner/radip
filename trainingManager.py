@@ -37,6 +37,7 @@ class trainingManager:
                                                                                 summary_writer=netManager.train_writer)
                 # FIXME I feel this may break as it should be run once only for each global step for summary writer
                 # eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler, summary_writer=None)
+
             step_time += (time.time() - step_start_time) / steps_per_checkpoint
             step_time += (time.time() - step_start_time) / steps_per_checkpoint
             loss += step_loss / steps_per_checkpoint
@@ -53,6 +54,9 @@ class trainingManager:
                        % (netManager.model.global_step.eval(session=netManager.sess),
                           netManager.model.learning_rate.eval(session=netManager.sess),
                           step_time, loss, accuracy, eval_accuracy))
+
+                metric = netManager.evaluate_metric(validation_batch_handler)
+                print "Perfect dist is: " + str(metric)
 
                 previous_losses.append(loss)
                 step_time, loss = 0.0, 0.0
