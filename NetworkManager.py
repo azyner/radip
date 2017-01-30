@@ -185,23 +185,31 @@ class NetworkManager:
         return graph_results_frame
 
     def evaluate_metric(self,batch_handler):
-
         results = self.compute_result_per_dis(batch_handler, plot=False)
         d_array = []
-        for dest in results['destination_vec'].unique():
+        for origin in results['origin'].unique():
             # Generate the set of all distances that are not 100% accurate (i.e. they have a incorrect classification)
             # Remove from the set of all distances, creating only a set of distances with a perfect score
             # Return lowest number (the earliest result)
             dis_unique = results['d_thresh'].unique()
-            reduced_df = results[results['output_idxs']==dest]
+            dist_delta = dis_unique[1] - dis_unique[0]
+            reduced_df = results[results['origin']==origin]
             perfect_dist = np.setdiff1d(dis_unique,
                                         reduced_df[
                                             reduced_df['destination_vec']!=reduced_df['output_idxs']
                                         ].d_thresh.unique())
-            if len(perfect_dist) == 0:
-                d_array.append(60)
+            #If we got none right OR the final value is incorrect (rare case)
+            if (len(perfect_dist) == 0) or\
+                    (perfect_dist[-1] != dis_unique[-1]):
+                d_array.append(np.max(dis_unique))
             else:
-                d_array.append(np.min(perfect_dist))
+                # Find the end of the continuous sequence at the end of the graph
+                # Return this point
+                for i in reversed(range(1,len(perfect_dist))):
+                    if perfect_dist[i] - perfect_dist[i-1] != dist_delta:
+                        break
+                perfect_dist_threshold = perfect_dist[i]
+                d_array.append(np.min(perfect_dist_threshold))
 
         return d_array
 
@@ -219,7 +227,7 @@ class NetworkManager:
                 # Run one regular batch. Debug mode takes longer, and there are ~30,000 val samples
                 mini_batch_frame = batch_handler.get_minibatch()
                 batch_complete = True
-                print "Debug active, valdating with random sample, not whole batch"
+                #print "Debug active, valdating with random sample, not whole batch"
             else:
                 mini_batch_frame,batch_complete = batch_handler.get_sequential_minibatch()
 
