@@ -79,7 +79,8 @@ class NetworkManager:
                 QDA_mean = QDA_data[0] / 100
                 QDA_meanpstd = QDA_data[1] / 100
                 QDA_meanmstd = QDA_data[2] / 100
-                QDA_range = range(-40, 71)
+                QDA_range = np.array(range(len(QDA_mean)))
+                QDA_range -= 40
 
                 plt_title = 'Accuracy as measured relative to 20m mark. Averaged over all tracks'
                 # plot 1
@@ -117,28 +118,49 @@ class NetworkManager:
             l = layout([plots, [widgetbox(button_1, width=300)]])
             save(l)
             # show(widgetbox(button_1, width=300))
-        # if False:  # Use matplotlib to plot PNG
-        #     if not os.path.exists(FLAGS.plot_dir):
-        #         os.makedirs(FLAGS.plot_dir)
-        #     legend_str = []
-        #     import matplotlib.pyplot as plt
-        #     plt.figure(figsize=(20, 10))
-        #     plt.plot(input_plot[:, 0], input_plot[:, 1])
-        #     legend_str.append(['Input'])
-        #     plt.plot(true_output_plot[:, 0], true_output_plot[:, 1])
-        #     legend_str.append(['True Output'])
-        #     plt.plot(output_gen_plt[:, 0], output_gen_plt[:, 1])
-        #     legend_str.append(['Generated Output'])
-        #     plt.legend(legend_str, loc='upper left')
-        #     fig_num = 0
-        #     while True:
-        #         fig_path = os.path.join(FLAGS.plot_dir, get_title_from_params() +
-        #                                 '-' + str(fig_num).zfill(3) + '.png')
-        #         if not os.path.exists(fig_path):
-        #             break
-        #         fig_num += 1
-        #     plt.savefig(fig_path, bbox_inches='tight')
-        #     # plt.show()
+
+        return
+
+    def draw_png_graphs(self, graph_results):
+        fig_dir = self.plot_directory + "_img"
+        if not os.path.exists(fig_dir):
+            os.makedirs(fig_dir)
+
+        plot_titles = graph_results['destination'].unique()
+        for origin in plot_titles:
+            if os.path.exists("QDA/" + origin + ".npy"):
+                QDA_data = np.load("QDA/" + origin + ".npy")
+            QDA_mean = QDA_data[0] / 100
+            QDA_meanpstd = QDA_data[1] / 100
+            QDA_meanmstd = QDA_data[2] / 100
+            QDA_range = np.array(range(len(QDA_mean)))
+            QDA_range -= 40
+            dataset = graph_results[graph_results['origin'] == origin]
+            x_data = []
+            y_data = []
+            for range_val in np.unique(dataset['d_thresh']):
+                # If I group by track number here, I can get a collection of accuracy scores
+                # and therefore a std dev
+                data_at_range = dataset[dataset['d_thresh'] == range_val]
+                acc = np.average(np.equal(data_at_range['output_idxs'],
+                                          data_at_range['destination_vec']))
+                x_data.append(range_val)
+                y_data.append(acc)
+
+            legend_str = []
+            import matplotlib.pyplot as plt
+            plt.figure(figsize=(10, 10))
+            plt.plot(x_data, y_data,'g-')
+            legend_str.append(['Acc. RNN'])
+            plt.plot(QDA_range, QDA_mean,'r-')
+            legend_str.append(['Acc. QDA'])
+            plt.legend(legend_str, loc='upper left')
+            plt.title('Origin: ' + origin)
+            plt.xlabel('Distance from Ref Line (m)')
+            plt.ylabel('Accuracy')
+
+            fig_path = os.path.join(self.plot_directory + "_img", self.log_file_name + '-' + origin+ '.png')
+            plt.savefig(fig_path, bbox_inches='tight')
 
         return
 

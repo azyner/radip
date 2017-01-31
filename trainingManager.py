@@ -57,6 +57,10 @@ class trainingManager:
                           step_time, loss, accuracy, eval_accuracy, perfect_classification_distance[0],
                           perfect_classification_distance[1],perfect_classification_distance[2]))
 
+                # FIXME pull compute_results_per_dis() out of evaluate_metric()
+                graph_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
+                netManager.draw_png_graphs(graph_results)
+
                 previous_losses.append(loss)
                 step_time, loss = 0.0, 0.0
 
