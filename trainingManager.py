@@ -58,7 +58,9 @@ class trainingManager:
                           step_time, loss, accuracy, eval_accuracy, perfect_classification_distance[0],
                           perfect_classification_distance[1],perfect_classification_distance[2]))
 
-                netManager.draw_png_graphs(dist_results)
+                graphs = netManager.draw_png_graphs(dist_results)
+
+
 
                 previous_losses.append(loss)
                 step_time, loss = 0.0, 0.0

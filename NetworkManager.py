@@ -57,6 +57,12 @@ class NetworkManager:
 
         return
 
+    def get_global_step(self):
+        return self.model.global_step.eval(session=self.sess)
+
+    def get_learning_rate(self):
+        return self.model.learning_rate.eval(session=self.sess)
+
     def run_training_step(self, X, Y, weights, train_model, summary_writer=None):
          return self.model.step(self.sess, X, Y, weights, train_model, summary_writer=summary_writer)
 
@@ -126,6 +132,8 @@ class NetworkManager:
         if not os.path.exists(fig_dir):
             os.makedirs(fig_dir)
 
+        graph_list = []
+
         plot_titles = graph_results['destination'].unique()
         for origin in plot_titles:
             if os.path.exists("QDA/" + origin + ".npy"):
@@ -148,9 +156,10 @@ class NetworkManager:
                 y_data.append(acc)
 
             legend_str = []
+            #matplotlib.use('agg')
             import matplotlib.pyplot as plt
-            plt.figure(figsize=(10, 10))
-            plt.plot(x_data, y_data,'g-')
+            fig = plt.figure(figsize=(10, 10))
+            plt.plot(x_data, y_data,'g-',label=origin)
             legend_str.append(['Acc. RNN'])
             plt.plot(QDA_range, QDA_mean,'r-')
             legend_str.append(['Acc. QDA'])
@@ -159,11 +168,18 @@ class NetworkManager:
             plt.xlabel('Distance from Ref Line (m)')
             plt.ylabel('Accuracy')
 
-            fig_path = os.path.join(self.plot_directory + "_img", self.log_file_name + '-' + origin+ '.png')
+            fig_path = os.path.join(self.plot_directory + "_img", self.log_file_name + '-' +
+                                    str(self.get_global_step()) + '-' + origin+ '.png')
             plt.savefig(fig_path, bbox_inches='tight')
+
+            fig.canvas.draw()
+            fig_s = fig.canvas.tostring_rgb()
+            fig_data = np.fromstring(fig_s,np.uint8)
+            fig_data = fig_data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            graph_list.append(fig_data)
             plt.close()
 
-        return
+        return graph_list
 
     # This function needs the validation batch (or test batch)
     def compute_result_per_dis(self, batch_handler, plot=True):
