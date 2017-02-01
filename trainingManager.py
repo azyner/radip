@@ -20,7 +20,9 @@ class trainingManager:
         current_step = 0
         previous_losses = []
         step_time, loss = 0.0, 0.0
-        steps_per_checkpoint = 200
+        steps_per_checkpoint = self.parameter_dict['steps_per_checkpoint']
+        print "Starting Network training for:"
+        print str(self.parameter_dict)
         while True:
             # The training loop!
 

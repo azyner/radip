@@ -27,3 +27,4 @@ parameters['early_stop_cf'] = 0.1 # Time in minutes for training one crossfold
 parameters['hyper_search_time'] = 5.0/60 # Time in hours for hyper searching
 parameters['decrement_steps'] = 15
 parameters['d_thresh_top_n'] = 5    #How many samples to take that exist immediately before d_thresh
+parameters['steps_per_checkpoint'] = 200
