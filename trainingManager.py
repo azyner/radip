@@ -32,7 +32,7 @@ class trainingManager:
             accuracy, step_loss, _ = netManager.run_training_step(train_x, train_y, weights, True)
 
             # Periodically, run without training for the summary logs
-            if current_step % 20 == 0:
+            if current_step % (steps_per_checkpoint/10) == 0:
                 eval_accuracy, eval_step_loss, _ = netManager.run_training_step(train_x, train_y, weights, False,
                                                                                 summary_writer=netManager.train_writer)
                 # FIXME I feel this may break as it should be run once only for each global step for summary writer
@@ -61,6 +61,7 @@ class trainingManager:
                 graphs = netManager.draw_png_graphs(dist_results)
 
                 netManager.log_graphs_to_tensorboard(graphs)
+                netManager.log_metric_to_tensorboard(perfect_classification_distance)
 
                 previous_losses.append(loss)
                 step_time, loss = 0.0, 0.0
