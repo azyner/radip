@@ -62,6 +62,7 @@ class Seq2SeqModel(object):
         self.learning_rate_decay_op = self.learning_rate.assign(
         self.learning_rate * parameters['learning_rate_decay_factor'])
         self.global_step = tf.Variable(0, trainable=False)
+        self.network_summaries = []
 
         # TODO Placeholder until I implement MDN
         feed_future_data = False
@@ -87,14 +88,14 @@ class Seq2SeqModel(object):
             o_w = tf.get_variable("proj_w", [self.rnn_size, n_out])
             o_b = tf.get_variable("proj_b", [n_out])
             output_projection = (o_w, o_b)
-            tf.histogram_summary("output_w",o_w)
-            tf.histogram_summary("output_b",o_b)
+            self.network_summaries.append(tf.histogram_summary("output_w",o_w))
+            self.network_summaries.append(tf.histogram_summary("output_b",o_b))
 
         with tf.variable_scope('input_layer'):
             i_w = tf.get_variable("in_w", [self.input_size, self.input_size])
             i_b = tf.get_variable("in_b", [self.input_size])
-            tf.histogram_summary("input_w",i_w)
-            tf.histogram_summary("input_b",i_b)
+            self.network_summaries.append(tf.histogram_summary("input_w",i_w))
+            self.network_summaries.append(tf.histogram_summary("input_b",i_b))
             input_layer = (i_w, i_b)
 
         # TODO Add internal cell states to summary writer
@@ -293,7 +294,7 @@ class Seq2SeqModel(object):
 
         outputs = session.run(output_feed, input_feed)
         if summary_writer is not None:
-            summary_op = tf.merge_all_summaries()
+            summary_op = tf.merge_summary(self.network_summaries)
             summary_str = session.run(summary_op,input_feed)
             summary_writer.add_summary(summary_str, self.global_step.eval(session=session))
         if train_model:

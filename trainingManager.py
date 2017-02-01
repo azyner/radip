@@ -60,7 +60,7 @@ class trainingManager:
 
                 graphs = netManager.draw_png_graphs(dist_results)
 
-
+                netManager.log_graphs_to_tensorboard(graphs)
 
                 previous_losses.append(loss)
                 step_time, loss = 0.0, 0.0

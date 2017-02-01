@@ -28,6 +28,10 @@ class NetworkManager:
         self.summaries_dir = os.path.join(self.parameters['master_dir'],'tensorboard_logs')
         self.train_writer = None
         self.val_writer = None
+        self.graph_writer = None
+        self.tensorboard_graph_summaries= []
+        self.plot_feeds = None
+        self.plot_output = None
 
 
         return
@@ -54,7 +58,39 @@ class NetworkManager:
                                                    graph=self.sess.graph)
         self.val_writer = tf.train.SummaryWriter(os.path.join(self.summaries_dir,self.log_file_name+'val'),
                                                  graph=self.sess.graph)
+        # FIXME Magic number!
+        self.build_image_logger(3)
 
+        return
+
+    def build_image_logger(self,num_classes):
+        plot_feeds = []
+        outputs = []
+        with tf.variable_scope('result_plots'):
+            for label_num in range(num_classes):
+                plot_feed = tf.placeholder(tf.uint8,name=str(label_num))
+                self.tensorboard_graph_summaries.append(tf.image_summary(plot_feed.name,plot_feed,max_images=1))
+                max = tf.arg_max(plot_feed,0)
+                plot_feeds.append(plot_feed)
+                outputs.append(max)
+        self.graph_writer = tf.train.SummaryWriter(os.path.join(self.summaries_dir,self.log_file_name+'graph'),
+                                                 graph=self.sess.graph)
+        self.plot_feeds = plot_feeds
+        self.plot_output = outputs
+        return
+
+    def log_graphs_to_tensorboard(self,graphs):
+        summary_op = tf.merge_summary(self.tensorboard_graph_summaries)
+
+        input_feed = {}
+        output_feed = []
+        for i in range(len(self.plot_feeds)):
+            input_feed[self.plot_feeds[i].name] = [graphs[i]] #Wrapped to be a batch size of 1
+            output_feed.append([self.plot_output[i].name])  # Wrapped to be a batch size of 1
+
+        junk = self.sess.run(output_feed,input_feed)
+        summary_str = self.sess.run(summary_op,input_feed)
+        self.graph_writer.add_summary(summary_str, self.model.global_step.eval(session=self.sess))
         return
 
     def get_global_step(self):
