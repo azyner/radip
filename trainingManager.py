@@ -50,16 +50,15 @@ class trainingManager:
                 # graph_results = netManager.collect_graph_data(validation_batch_handler)
                 # netManager.draw_graphs(graph_results)
                 # FIXME This will break if classes != 3
-                perfect_classification_distance = netManager.evaluate_metric(validation_batch_handler)
+                dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
+                perfect_classification_distance = netManager.evaluate_metric(dist_results)
                 print ("g_step %d lr %.6f step %.4fs av tr loss %.4f Acc %.3f v_acc %.3f p_dis %.1f, %.1f, %.1f"
                        % (netManager.model.global_step.eval(session=netManager.sess),
                           netManager.model.learning_rate.eval(session=netManager.sess),
                           step_time, loss, accuracy, eval_accuracy, perfect_classification_distance[0],
                           perfect_classification_distance[1],perfect_classification_distance[2]))
 
-                # FIXME pull compute_results_per_dis() out of evaluate_metric()
-                graph_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
-                netManager.draw_png_graphs(graph_results)
+                netManager.draw_png_graphs(dist_results)
 
                 previous_losses.append(loss)
                 step_time, loss = 0.0, 0.0

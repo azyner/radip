@@ -161,6 +161,7 @@ class NetworkManager:
 
             fig_path = os.path.join(self.plot_directory + "_img", self.log_file_name + '-' + origin+ '.png')
             plt.savefig(fig_path, bbox_inches='tight')
+            plt.close()
 
         return
 
@@ -206,8 +207,8 @@ class NetworkManager:
 
         return graph_results_frame
 
-    def evaluate_metric(self,batch_handler):
-        results = self.compute_result_per_dis(batch_handler, plot=False)
+    def evaluate_metric(self,results):
+
         d_array = []
         for origin in results['origin'].unique():
             # Generate the set of all distances that are not 100% accurate (i.e. they have a incorrect classification)
