@@ -249,6 +249,7 @@ class Seq2SeqModel(object):
         self.saver = tf.train.Saver(tf.all_variables())
 
         self.network_summaries.append(tf.scalar_summary('Loss',self.losses))
+        self.network_summaries.append(tf.scalar_summary('Learning Rate', self.learning_rate))
 
         return
 
