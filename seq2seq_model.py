@@ -5,12 +5,11 @@ import MDN
 from tensorflow.python.ops import nn_ops
 from TF_mods import basic_rnn_seq2seq_with_loop_function
 from tensorflow.python.ops import seq2seq
+from tensorflow.python.framework import ops
+from tensorflow.python.ops import clip_ops
+
 
 class Seq2SeqModel(object):
-
-    # TODO move these into parameters
-    # TODO the model needs to be aware of the input column data, speed, heading etc
-    #       This is good for adding embedding layers
 
     def __init__(self, parameters):
         #feed_future_data, train, num_observation_steps, num_prediction_steps, batch_size,
@@ -88,24 +87,22 @@ class Seq2SeqModel(object):
             o_w = tf.get_variable("proj_w", [self.rnn_size, n_out])
             o_b = tf.get_variable("proj_b", [n_out])
             output_projection = (o_w, o_b)
-            self.network_summaries.append(tf.histogram_summary("output_w",o_w))
-            self.network_summaries.append(tf.histogram_summary("output_b",o_b))
 
         with tf.variable_scope('input_layer'):
             i_w = tf.get_variable("in_w", [self.input_size, self.input_size])
             i_b = tf.get_variable("in_b", [self.input_size])
-            self.network_summaries.append(tf.histogram_summary("input_w",i_w))
-            self.network_summaries.append(tf.histogram_summary("input_b",i_b))
             input_layer = (i_w, i_b)
 
-        # TODO Add internal cell states to summary writer
         single_cell = tf.nn.rnn_cell.LSTMCell(self.rnn_size,state_is_tuple=True,use_peepholes=True)
-        cell = single_cell
+        RNN_layers = single_cell
         if self.num_layers > 1:
-            cell = tf.nn.rnn_cell.MultiRNNCell([single_cell] * self.num_layers,state_is_tuple=True)
+            RNN_layers = tf.nn.rnn_cell.MultiRNNCell([single_cell] * self.num_layers,state_is_tuple=True)
 
         keep_prob = 1-self.dropout_prob
-        cell = tf.nn.rnn_cell.DropoutWrapper(cell,output_keep_prob=keep_prob)
+        RNN_layers = tf.nn.rnn_cell.DropoutWrapper(RNN_layers,output_keep_prob=keep_prob)
+
+        for RNN_cell_idx in range(len(RNN_layers._cell._cells)):
+            i = RNN_cell_idx
 
         def output_function(output):
             return nn_ops.xw_plus_b(output, output_projection[0], output_projection[1],name="output_projection")
@@ -135,7 +132,7 @@ class Seq2SeqModel(object):
                 loopback_function = None #feed correct input
             #return basic_rnn_seq2seq_with_loop_function(encoder_inputs,decoder_inputs,cell,
             #                                                         loop_function=loopback_function,dtype=dtype)
-            return seq2seq.tied_rnn_seq2seq(encoder_inputs,decoder_inputs,cell,
+            return seq2seq.tied_rnn_seq2seq(encoder_inputs,decoder_inputs,RNN_layers,
                                             loop_function=loopback_function,dtype=dtype)
 
         # Feeds for inputs.
@@ -181,17 +178,9 @@ class Seq2SeqModel(object):
             self.decoder_inputs = [nn_ops.xw_plus_b(self.observation_inputs[-1], input_layer[0], input_layer[1], name="Decoder_input_acts")]
         # Todo should this have the input layer applied?
             self.decoder_inputs.extend([self.future_inputs[i] for i in xrange(len(self.future_inputs) - 1)])
-        for tensor in self.encoder_inputs:
-            tf.histogram_summary(tensor.name, tensor)
-        for tensor in self.decoder_inputs:
-            tf.histogram_summary(tensor.name,tensor)
 
-        #if train: #Training
         with tf.variable_scope('seq_rnn'):
             self.LSTM_output, self.internal_states = seq2seq_f(self.encoder_inputs, self.decoder_inputs, feed_future_data)
-
-        #for tensor in self.LSTM_output_to_MDN:
-        #    tf.histogram_summary(tensor.name,tensor)
 
         # self.outputs is a list of len(prediction_steps) containing [size batch x rnn_size]
         # The output projection below reduces this to:
@@ -203,8 +192,6 @@ class Seq2SeqModel(object):
             self.MDN_output = [output_function(output) for output in self.LSTM_output]
             if self.model_type == 'MDN':
                 self.MDN_sample = [MDN.sample(x) for x in self.MDN_output]
-            for tensor in self.MDN_output:
-               self.network_summaries.append(tf.histogram_summary("MDN_output" + tensor.name, tensor))
         else:
             self.MDN_output = self.LSTM_output
 
@@ -231,7 +218,7 @@ class Seq2SeqModel(object):
 
 
         # Gradients and SGD update operation for training the model.
-        params = tf.trainable_variables()
+        tvars = tf.trainable_variables()
         #if train:
         # I don't see the difference here, as during testing the updates are not run
         self.gradient_norms = []
@@ -239,12 +226,30 @@ class Seq2SeqModel(object):
         #opt = tf.train.AdadeltaOptimizer(self.learning_rate)
         opt = tf.train.RMSPropOptimizer(self.learning_rate)
         #opt = tf.train.GradientDescentOptimizer(self.learning_rate)
-        gradients = tf.gradients(self.losses, params)
+        gradients = tf.gradients(self.losses, tvars)
         clipped_gradients, norm = tf.clip_by_global_norm(gradients, self.max_gradient_norm)
 
         self.gradient_norms.append(norm)
+
+        gradients = zip(clipped_gradients, tvars)
         self.updates.append(opt.apply_gradients(
-            zip(clipped_gradients, params), global_step=self.global_step))
+            gradients, global_step=self.global_step))
+
+        for gradient, variable in gradients:  #plot the gradient of each trainable variable
+            if variable.name.find("seq_rnn/combined_tied_rnn_seq2seq/tied_rnn_seq2seq/MultiRNNCell") == 0:
+                var_log_name = variable.name[64:] #Make the thing readable in Tensorboard
+            else:
+                var_log_name = variable.name
+            if isinstance(gradient, ops.IndexedSlices):
+                grad_values = gradient.values
+            else:
+                grad_values = gradient
+            self.network_summaries.append(
+                tf.histogram_summary(var_log_name, variable))
+            self.network_summaries.append(
+                tf.histogram_summary(var_log_name + "/gradients", grad_values))
+            self.network_summaries.append(
+                tf.histogram_summary(var_log_name + "/gradient_norm", clip_ops.global_norm([grad_values])))
 
         self.saver = tf.train.Saver(tf.all_variables())
 

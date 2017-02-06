@@ -49,7 +49,7 @@ class TrainingManager:
             if current_step % steps_per_checkpoint == 0:
 
                 eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler,
-                                                                             summary_writer=None,quick=True)
+                                                                             summary_writer=netManager.val_writer,quick=True)
                 # graph_results = netManager.collect_graph_data(validation_batch_handler)
                 # netManager.draw_graphs(graph_results)
                 # FIXME This will break if classes != 3
