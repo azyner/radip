@@ -77,8 +77,11 @@ class TrainingManager:
                 # Out of time
                 # Out of learning rate
                 now = time.time()
-                if ((netManager.model.learning_rate.eval(netManager.sess) < 1e-10) or
-                    now - fold_time > 60 * self.parameter_dict['early_stop_cf']):
+                if ((netManager.model.learning_rate.eval(netManager.sess)
+                         <
+                             self.parameter_dict['loss_decay_cutoff'] * self.parameter_dict['learning_rate'])
+                    or
+                    now - fold_time > 60 * self.parameter_dict['training_early_stop']):
                     break
 
         fold_results = copy.copy(self.parameter_dict)
@@ -99,7 +102,7 @@ class TrainingManager:
     def run_hyperparameter_search(self):
         hyperparam_results_list = []
         hyper_time = time.time()
-        first = True
+        self.parameter_dict['training_early_stop'] = self.parameter_dict['early_stop_cf']
         while True:
 
             #Select new hyperparameters
@@ -145,10 +148,6 @@ class TrainingManager:
                 #######
                 # Here we have a fully trained model, but we are still in the cross fold.
 
-                # TODO Add other evaluation metrics here
-                # We still have the model in scope here, so I can probe it for whatever I want
-                # eg
-                #cf_results['d_100'] = netManager.run_d_thresh_metric(...)
 
             cf_df = pd.concat(cf_results_list)
             # Condense results from cross fold (Average, best, worst, whatever selection method)
@@ -180,8 +179,9 @@ class TrainingManager:
 
     def test_network(self, params, train_pool, val_pool):
         self.parameter_dict = params
-        # TODO change this to a much longer time. Perhaps change the loss function agressiveness as well.
-        self.parameter_dict['early_stop_cf'] = self.parameter_dict['early_stop_cf']
+
+        # Run for many minutes, or until loss decays significantly.
+        self.parameter_dict['training_early_stop'] = 1000
 
         log_file_name = "best-" + str(time.time())
 
