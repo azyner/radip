@@ -10,9 +10,9 @@
 # start cross fold loops
 #   instance batch handler
 #
+import trainingManager
 import intersection_segments
 import SequenceWrangler
-import trainingManager
 import parameters
 import datetime
 import os

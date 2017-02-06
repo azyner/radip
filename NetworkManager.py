@@ -7,11 +7,20 @@
 # This should also have the different test types, such as the accuracy graph
 # Should it handle the entirety of crossfolding?
 # I don't think so, that should go into another class maybe
+import matplotlib
+
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
 import tensorflow as tf
 from seq2seq_model import Seq2SeqModel
 import os
 import numpy as np
 import pandas as pd
+from bokeh.plotting import figure, output_file, show, gridplot, save
+from bokeh.models.widgets import Button
+from bokeh.layouts import widgetbox
+from bokeh.layouts import layout
 
 class NetworkManager:
     def __init__(self, parameters, log_file_name=None):
@@ -140,10 +149,6 @@ class NetworkManager:
 
     def draw_html_graphs(self, graph_results):
         if True:  # Plot HTML bokeh
-            from bokeh.plotting import figure, output_file, show, gridplot, save
-            from bokeh.models.widgets import Button
-            from bokeh.layouts import widgetbox
-            from bokeh.layouts import layout
             plot_titles = graph_results['destination'].unique()
             plots = []
             if not os.path.exists(self.plot_directory):
@@ -228,8 +233,6 @@ class NetworkManager:
                 y_data.append(acc)
 
             legend_str = []
-            #matplotlib.use('agg')
-            import matplotlib.pyplot as plt
             fig = plt.figure(figsize=(10, 10))
             plt.plot(x_data, y_data,'g-',label=origin)
             legend_str.append(['Acc. RNN'])

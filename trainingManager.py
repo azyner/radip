@@ -1,7 +1,7 @@
 # Class that manages the training loop. This class will also deal with logging
+import NetworkManager
 import time, copy, random # TODO change to numpy random
 import BatchHandler
-import NetworkManager
 import numpy as np
 import pandas as pd
 import os
@@ -106,8 +106,8 @@ class trainingManager:
             rnn_size_range = np.arange(16,513,8)
             timestep_range = range(3,7,1)
 
-            self.parameter_dict["rnn_size"] = random.choice(rnn_size_range)
-            self.parameter_dict["learning_rate"] = random.choice(learning_rate_range)
+            #self.parameter_dict["rnn_size"] = random.choice(rnn_size_range)
+            #self.parameter_dict["learning_rate"] = random.choice(learning_rate_range)
 
             # TODO obs steps needs to load a new dataset every time, as the dataset has a fixed step size
             #self.parameter_dict["observation_steps"] = random.choice(timestep_range)
