@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 import os
 
-class trainingManager:
+
+class TrainingManager:
     def __init__(self, cf_pool, test_pool, parameter_dict):
         self.cf_pool = cf_pool
         self.test_pool = test_pool
@@ -95,7 +96,7 @@ class trainingManager:
 
         return fold_results
 
-    def run_hyperparamter_search(self):
+    def run_hyperparameter_search(self):
         hyperparam_results_list = []
         hyper_time = time.time()
         first = True

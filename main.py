@@ -10,7 +10,7 @@
 # start cross fold loops
 #   instance batch handler
 #
-import trainingManager
+import TrainingManager
 import intersection_segments
 import SequenceWrangler
 import parameters
@@ -39,8 +39,8 @@ parameters.parameters['master_dir'] = os.path.join(results_dir,datetime.datetime
 if not os.path.exists(parameters.parameters['master_dir']):
     os.makedirs(parameters.parameters['master_dir'])
 
-trainingManager = trainingManager.trainingManager(cf_pool,test_pool,parameters.parameters)
-best_params = trainingManager.run_hyperparamter_search()
+trainingManager = TrainingManager.TrainingManager(cf_pool, test_pool, parameters.parameters)
+best_params = trainingManager.run_hyperparameter_search()
 
 full_cf_pool = pd.concat([cf_pool[0][0], cf_pool[0][1]])
 trainingManager.test_network(best_params,full_cf_pool,test_pool)
