@@ -318,7 +318,7 @@ class NetworkManager:
                                             reduced_df['destination_vec']!=reduced_df['output_idxs']
                                         ].d_thresh.unique())
             #If we got none right OR the final value is incorrect (rare case)
-            if (len(perfect_dist) == 0) or\
+            if (len(perfect_dist) < 2) or\
                     (perfect_dist[-1] != dis_unique[-1]):
                 d_array.append(np.max(dis_unique))
             else:
