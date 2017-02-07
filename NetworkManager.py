@@ -47,6 +47,11 @@ class NetworkManager:
         self.metric_feeds = None
         self.metric_output = None
 
+        # Silence illegal summary names INFO warning.
+        # It warns that ':' is illegal. However, its in the variable.name, so I can't avoid it without
+        # overly verbose code.
+        tf.logging.set_verbosity(tf.logging.ERROR)
+
         return
 
     def build_model(self):
@@ -65,11 +70,11 @@ class NetworkManager:
             self.model.saver.restore(self.sess, ckpt.model_checkpoint_path)
         else:
             print("Created model with fresh parameters.")
-            self.sess.run(tf.initialize_all_variables())
+            self.sess.run(tf.global_variables_initializer())
 
-        self.train_writer = tf.train.SummaryWriter(os.path.join(self.summaries_dir,self.log_file_name+'train'),
+        self.train_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'train'),
                                                    graph=self.sess.graph)
-        self.val_writer = tf.train.SummaryWriter(os.path.join(self.summaries_dir,self.log_file_name+'val'),
+        self.val_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'val'),
                                                  graph=self.sess.graph)
         self.build_image_logger()
         self.build_metric_logger()
@@ -82,19 +87,19 @@ class NetworkManager:
         with tf.variable_scope('result_plots'):
             for label_num in range(self.parameters['num_classes']):
                 plot_feed = tf.placeholder(tf.uint8,name=str(label_num))
-                self.tensorboard_graph_summaries.append(tf.image_summary(plot_feed.name,plot_feed,max_images=1))
+                self.tensorboard_graph_summaries.append(tf.summary.image(plot_feed.name,plot_feed))
                 max = tf.arg_max(plot_feed,0)
                 plot_feeds.append(plot_feed)
                 outputs.append(max)
         if self.graph_writer is None:
-            self.graph_writer = tf.train.SummaryWriter(os.path.join(self.summaries_dir,self.log_file_name+'graph'),
+            self.graph_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'graph'),
                                                  graph=self.sess.graph)
         self.plot_feeds = plot_feeds
         self.plot_output = outputs
         return
 
     def log_graphs_to_tensorboard(self,graphs):
-        summary_op = tf.merge_summary(self.tensorboard_graph_summaries)
+        summary_op = tf.summary.merge(self.tensorboard_graph_summaries)
 
         input_feed = {}
         output_feed = []
@@ -113,19 +118,19 @@ class NetworkManager:
         with tf.variable_scope('metric_scalars'):
             for label_num in range(self.parameters['num_classes']):
                 metric_feed = tf.placeholder(tf.float32, name="class"+str(label_num))
-                self.tensorboard_metric_summaries.append(tf.scalar_summary(metric_feed.name, metric_feed))
+                self.tensorboard_metric_summaries.append(tf.summary.scalar(metric_feed.name, metric_feed))
                 #max = tf.arg_max(metric_feed, 0)
                 metric_feeds.append(metric_feed)
                 outputs.append(metric_feed)
         if self.graph_writer is None:
-            self.graph_writer = tf.train.SummaryWriter(os.path.join(self.summaries_dir, self.log_file_name + 'graph'),
+            self.graph_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name + 'graph'),
                                                    graph=self.sess.graph)
         self.metric_feeds = metric_feeds
         self.metric_output = outputs
         return
 
     def log_metric_to_tensorboard(self,metrics):
-        summary_op = tf.merge_summary(self.tensorboard_metric_summaries)
+        summary_op = tf.summary.merge(self.tensorboard_metric_summaries)
 
         input_feed = {}
         output_feed = []
