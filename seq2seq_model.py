@@ -47,6 +47,7 @@ class Seq2SeqModel(object):
 
         self.batch_size = parameters['batch_size']
         self.input_size = parameters['input_size']
+        self.embedding_size = parameters['embedding_size']
         self.observation_steps = parameters['observation_steps']
         self.prediction_steps = parameters['prediction_steps']
         self.dropout_prob = parameters['dropout_prob']
@@ -83,14 +84,21 @@ class Seq2SeqModel(object):
 
         ############## LAYERS
 
+        # Layer is linear, just to re-scale the LSTM outputs [-1,1] to [-9999,9999]
+        # If there is a regularizer, these weights should be excluded?
+
         with tf.variable_scope('output_proj'):
-            o_w = tf.get_variable("proj_w", [self.rnn_size, n_out])
-            o_b = tf.get_variable("proj_b", [n_out])
+            o_w = tf.get_variable("proj_w", [self.rnn_size, n_out],
+                                  initializer=tf.truncated_normal_initializer(stddev=1.0 / np.sqrt(self.embedding_size)))
+            o_b = tf.get_variable("proj_b", [n_out],
+                                  initializer=tf.constant_initializer(0.1))
             output_projection = (o_w, o_b)
 
-        with tf.variable_scope('input_layer'):
-            i_w = tf.get_variable("in_w", [self.input_size, self.input_size])
-            i_b = tf.get_variable("in_b", [self.input_size])
+        with tf.variable_scope('input_embedding_layer'):
+            i_w = tf.get_variable("in_w", [self.input_size, self.embedding_size],
+                                  initializer=tf.truncated_normal_initializer(stddev=1.0/np.sqrt(self.embedding_size)))
+            i_b = tf.get_variable("in_b", [self.embedding_size],
+                                  initializer=tf.constant_initializer(0.1))
             input_layer = (i_w, i_b)
 
         single_cell = tf.nn.rnn_cell.LSTMCell(self.rnn_size,state_is_tuple=True,use_peepholes=True)
@@ -120,7 +128,7 @@ class Seq2SeqModel(object):
                 prev = MDN.sample(prev)
 
             # Apply input layer
-            prev = nn_ops.xw_plus_b(prev, input_layer[0], input_layer[1],name="Loopback_Input")
+            prev = tf.nn.relu(nn_ops.xw_plus_b(prev, input_layer[0], input_layer[1]),name="Loopback_Input")
 
             return prev
 
@@ -170,12 +178,17 @@ class Seq2SeqModel(object):
         #Leave the last observation as the first input to the decoder
         #self.encoder_inputs = self.observation_inputs[0:-1]
         with tf.variable_scope('encoder_inputs'):
-            self.encoder_inputs = [nn_ops.xw_plus_b(input_timestep, input_layer[0], input_layer[1], name="Encoder_input_acts") for
+            self.encoder_inputs = [tf.nn.relu(
+                                    nn_ops.xw_plus_b(
+                                        input_timestep, input_layer[0], input_layer[1]))
+                                   for
                                    input_timestep in self.observation_inputs[0:-1]]
 
         #decoder inputs are the last observation and all but the last future
         with tf.variable_scope('decoder_inputs'):
-            self.decoder_inputs = [nn_ops.xw_plus_b(self.observation_inputs[-1], input_layer[0], input_layer[1], name="Decoder_input_acts")]
+            self.decoder_inputs = [tf.nn.relu(
+                                    nn_ops.xw_plus_b(
+                                        self.observation_inputs[-1], input_layer[0], input_layer[1]))]
         # Todo should this have the input layer applied?
             self.decoder_inputs.extend([self.future_inputs[i] for i in xrange(len(self.future_inputs) - 1)])
 

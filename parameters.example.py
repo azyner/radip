@@ -11,6 +11,7 @@ parameters["prediction_steps"] = 0
 parameters["feed_future_data"] = False
 parameters["batch_size"] = 17
 parameters["rnn_size"] = 128
+parameters['embedding_size'] = 256  # 64 for each input
 parameters["num_layers"] = 3
 parameters["learning_rate"] = 0.01
 parameters["learning_rate_decay_factor"] = 0.1
