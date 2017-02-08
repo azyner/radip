@@ -70,8 +70,11 @@ class TrainingManager:
                 step_time, loss = 0.0, 0.0
 
                 decrement_timestep = self.parameter_dict['decrement_steps']
-                if len(previous_losses) > decrement_timestep-1 and loss > 0.99*(max(previous_losses[-decrement_timestep:])): #0.95 is float fudge factor
-                  netManager.sess.run(netManager.model.learning_rate_decay_op)
+                if (len(previous_losses) > decrement_timestep-1
+                        and
+                        loss > 0.99*(max(previous_losses[-decrement_timestep:]))): #0.95 is float fudge factor
+                    netManager.sess.run(netManager.model.learning_rate_decay_op)
+                    previous_losses = []
 
                 # Training stop conditions:
                 # Out of time
