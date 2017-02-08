@@ -52,19 +52,22 @@ class TrainingManager:
                                                                              summary_writer=netManager.val_writer,quick=True)
                 # graph_results = netManager.collect_graph_data(validation_batch_handler)
                 # netManager.draw_graphs(graph_results)
-                # FIXME This will break if classes != 3
+
                 dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
-                perfect_classification_distance = netManager.evaluate_metric(dist_results)
-                print ("g_step %d lr %.6f step %.4fs av tr loss %.4f Acc %.3f v_acc %.3f p_dis %.1f, %.1f, %.1f"
+                metric_results = netManager.evaluate_metric(dist_results)
+                metric_string = ""
+                for value in metric_results:
+                    metric_string += " %0.1f" % value
+
+                print ("g_step %d lr %.6f step %.4fs av tr loss %.4f Acc %.3f v_acc %.3f p_dis"
                        % (netManager.model.global_step.eval(session=netManager.sess),
                           netManager.model.learning_rate.eval(session=netManager.sess),
-                          step_time, loss, accuracy, eval_accuracy, perfect_classification_distance[0],
-                          perfect_classification_distance[1],perfect_classification_distance[2]))
+                          step_time, loss, accuracy, eval_accuracy) + metric_string)
 
                 graphs = netManager.draw_png_graphs(dist_results)
 
                 netManager.log_graphs_to_tensorboard(graphs)
-                netManager.log_metric_to_tensorboard(perfect_classification_distance)
+                netManager.log_metric_to_tensorboard(metric_results)
 
                 previous_losses.append(loss)
                 step_time, loss = 0.0, 0.0
@@ -94,11 +97,11 @@ class TrainingManager:
         fold_results['training_accuracy'] = accuracy
         fold_results['training_loss'] = loss
         fold_results['network_chkpt_dir'] = netManager.log_file_name
-        for class_idx in range(len(perfect_classification_distance)):
+        for class_idx in range(len(metric_results)):
             key_str = 'perfect_distance_' + str(class_idx)
-            fold_results[key_str] = perfect_classification_distance[class_idx]
+            fold_results[key_str] = metric_results[class_idx]
 
-        fold_results['perfect_distance'] = np.max(perfect_classification_distance) #worst distance
+        fold_results['perfect_distance'] = np.max(metric_results) #worst distance
 
         return fold_results
 
