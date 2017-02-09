@@ -69,15 +69,18 @@ class TrainingManager:
                 netManager.log_graphs_to_tensorboard(graphs)
                 netManager.log_metric_to_tensorboard(metric_results)
 
-                previous_losses.append(loss)
-                step_time, loss = 0.0, 0.0
-
                 decrement_timestep = self.parameter_dict['decrement_steps']
                 if (len(previous_losses) > decrement_timestep-1
                         and
                         loss > 0.99*(max(previous_losses[-decrement_timestep:]))): #0.95 is float fudge factor
                     netManager.sess.run(netManager.model.learning_rate_decay_op)
                     previous_losses = []
+
+                # TODO Save checkpoint here
+                # checkpoint_path = os.path.join(os.path.join(FLAGS.train_dir,get_title_from_params()), "TFseq2seqSinusoid.ckpt")
+                # model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+                previous_losses.append(loss)
+                step_time, loss = 0.0, 0.0
 
                 # Training stop conditions:
                 # Out of time
