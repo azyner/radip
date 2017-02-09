@@ -17,6 +17,7 @@ import parameters
 import datetime
 import os
 import pandas as pd
+import shutil
 
 # I want the logger and the crossfold here
 # This is where the hyperparameter searcher goes
@@ -38,6 +39,7 @@ if not os.path.exists(results_dir):
 parameters.parameters['master_dir'] = os.path.join(results_dir,datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 if not os.path.exists(parameters.parameters['master_dir']):
     os.makedirs(parameters.parameters['master_dir'])
+shutil.copy("parameters.py",os.path.join(parameters.parameters['master_dir'],"parameters.py"))
 
 trainingManager = TrainingManager.TrainingManager(cf_pool, test_pool, parameters.parameters)
 best_params = trainingManager.run_hyperparameter_search()
