@@ -56,7 +56,7 @@ class NetworkManager:
 
     def build_model(self):
         tf.reset_default_graph()
-        self.device = tf.device('gpu:0')
+        self.device = tf.device(self.parameters['device'])
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9,allow_growth=True)
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,gpu_options=gpu_options))
         self.model = Seq2SeqModel(self.parameters)
