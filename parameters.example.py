@@ -19,6 +19,7 @@ parameters["learning_rate"] = 0.01
 parameters["learning_rate_decay_factor"] = 0.1
 parameters["max_gradient_norm"] = 10.0
 parameters["dropout_prob"] = 0.5
+parameters["embedding_dropout"] = 0.5
 parameters["random_bias"] = 0
 parameters["subsample"] = 1
 parameters["random_rotate"] = False

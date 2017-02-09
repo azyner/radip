@@ -128,7 +128,9 @@ class Seq2SeqModel(object):
                 prev = MDN.sample(prev)
 
             # Apply input layer
-            prev = tf.nn.relu(nn_ops.xw_plus_b(prev, input_layer[0], input_layer[1]),name="Loopback_Input")
+            prev = tf.nn.dropout(
+                tf.nn.relu(nn_ops.xw_plus_b(prev, input_layer[0], input_layer[1]),name="Loopback_Input"),
+                                 1-parameters['embedding_dropout'])
 
             return prev
 
@@ -178,17 +180,22 @@ class Seq2SeqModel(object):
         #Leave the last observation as the first input to the decoder
         #self.encoder_inputs = self.observation_inputs[0:-1]
         with tf.variable_scope('encoder_inputs'):
-            self.encoder_inputs = [tf.nn.relu(
-                                    nn_ops.xw_plus_b(
-                                        input_timestep, input_layer[0], input_layer[1]))
+            self.encoder_inputs = [tf.nn.dropout(
+                                        tf.nn.relu(
+                                            nn_ops.xw_plus_b(
+                                                input_timestep, input_layer[0], input_layer[1])),
+                                        parameters['embedding_dropout'])
                                    for
                                    input_timestep in self.observation_inputs[0:-1]]
 
         #decoder inputs are the last observation and all but the last future
         with tf.variable_scope('decoder_inputs'):
-            self.decoder_inputs = [tf.nn.relu(
-                                    nn_ops.xw_plus_b(
-                                        self.observation_inputs[-1], input_layer[0], input_layer[1]))]
+            self.decoder_inputs = [tf.nn.dropout(
+                                        tf.nn.relu(
+                                            nn_ops.xw_plus_b(
+                                                self.observation_inputs[-1], input_layer[0], input_layer[1])),
+                                        parameters['embedding_dropout'])]
+
         # Todo should this have the input layer applied?
             self.decoder_inputs.extend([self.future_inputs[i] for i in xrange(len(self.future_inputs) - 1)])
 
