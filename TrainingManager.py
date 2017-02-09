@@ -179,15 +179,16 @@ class TrainingManager:
         hyper_df = pd.concat(hyperparam_results_list,ignore_index=True)
         hyper_df.to_csv(os.path.join(self.parameter_dict['master_dir'],self.hyper_results_logfile))
         #Distance at which the classifier can make a sound judgement, lower is better
-        best_params = hyper_df.sort_values('perfect_distance',ascending=True).iloc[0].to_dict()
+        summary_df = hyper_df[hyper_df['cf_summary']==True]
+        best_params = summary_df.sort_values('perfect_distance',ascending=True).iloc[0].to_dict()
 
         return best_params
 
-    def test_network(self, params, train_pool, val_pool):
+    def long_test_network(self, params, train_pool, val_pool):
         self.parameter_dict = params
 
         # Run for many minutes, or until loss decays significantly.
-        self.parameter_dict['training_early_stop'] = 1000
+        self.parameter_dict['training_early_stop'] = self.parameter_dict['long_training_time']
 
         log_file_name = "best-" + str(time.time())
 

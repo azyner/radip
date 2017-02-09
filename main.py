@@ -42,8 +42,10 @@ if not os.path.exists(parameters.parameters['master_dir']):
 trainingManager = TrainingManager.TrainingManager(cf_pool, test_pool, parameters.parameters)
 best_params = trainingManager.run_hyperparameter_search()
 
+print "Crossfolding finished, now training with the best parameters"
+
 full_cf_pool = pd.concat([cf_pool[0][0], cf_pool[0][1]])
-trainingManager.test_network(best_params,full_cf_pool,test_pool)
+trainingManager.long_test_network(best_params, full_cf_pool, test_pool)
 #Dumb statement for breakpoint before system finishes
 ideas = None
 
