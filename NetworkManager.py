@@ -21,6 +21,7 @@ from bokeh.plotting import figure, output_file, show, gridplot, save
 from bokeh.models.widgets import Button
 from bokeh.layouts import widgetbox
 from bokeh.layouts import layout
+import StringIO
 
 class NetworkManager:
     def __init__(self, parameters, log_file_name=None):
@@ -46,6 +47,7 @@ class NetworkManager:
         self.plot_output = None
         self.metric_feeds = None
         self.metric_output = None
+        self.plt_size = (10,10) #Odd format, this is multiplied by 80 to get pixel size (blame matplotlib)
 
         # Silence illegal summary names INFO warning.
         # It warns that ':' is illegal. However, its in the variable.name, so I can't avoid it without
@@ -76,70 +78,29 @@ class NetworkManager:
                                                    graph=self.sess.graph)
         self.val_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'val'),
                                                  graph=self.sess.graph)
-        self.build_image_logger()
-        self.build_metric_logger()
+        self.graph_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name + 'graph'),
+                                                  graph=self.sess.graph)
 
-        return
-
-    def build_image_logger(self):
-        plot_feeds = []
-        outputs = []
-        with tf.variable_scope('result_plots'):
-            for label_num in range(self.parameters['num_classes']):
-                plot_feed = tf.placeholder(tf.uint8,name=str(label_num))
-                self.tensorboard_graph_summaries.append(tf.summary.image(plot_feed.name,plot_feed))
-                max = tf.arg_max(plot_feed,0)
-                plot_feeds.append(plot_feed)
-                outputs.append(max)
-        if self.graph_writer is None:
-            self.graph_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'graph'),
-                                                 graph=self.sess.graph)
-        self.plot_feeds = plot_feeds
-        self.plot_output = outputs
         return
 
     def log_graphs_to_tensorboard(self,graphs):
-        summary_op = tf.summary.merge(self.tensorboard_graph_summaries)
+        img_values = []
+        for i in range(len(graphs)):
+            img_summary = tf.Summary.Image(encoded_image_string=graphs[i],height=self.plt_size[1],width=self.plt_size[0])
+            summary_value = tf.Summary.Value(tag=str(i),image=img_summary)
+            img_values.append(summary_value)
 
-        input_feed = {}
-        output_feed = []
-        for i in range(len(self.plot_feeds)):
-            input_feed[self.plot_feeds[i].name] = [graphs[i]] #Wrapped to be a batch size of 1
-            output_feed.append([self.plot_output[i].name])  # Wrapped to be a batch size of 1
+        summary_str = tf.Summary(value=img_values)
 
-        junk = self.sess.run(output_feed,input_feed)
-        summary_str = self.sess.run(summary_op,input_feed)
         self.graph_writer.add_summary(summary_str, self.model.global_step.eval(session=self.sess))
         return
 
-    def build_metric_logger(self):
-        metric_feeds = []
-        outputs = []
-        with tf.variable_scope('metric_scalars'):
-            for label_num in range(self.parameters['num_classes']):
-                metric_feed = tf.placeholder(tf.float32, name="class"+str(label_num))
-                self.tensorboard_metric_summaries.append(tf.summary.scalar(metric_feed.name, metric_feed))
-                #max = tf.arg_max(metric_feed, 0)
-                metric_feeds.append(metric_feed)
-                outputs.append(metric_feed)
-        if self.graph_writer is None:
-            self.graph_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name + 'graph'),
-                                                   graph=self.sess.graph)
-        self.metric_feeds = metric_feeds
-        self.metric_output = outputs
-        return
-
     def log_metric_to_tensorboard(self,metrics):
-        summary_op = tf.summary.merge(self.tensorboard_metric_summaries)
-
-        input_feed = {}
-        output_feed = []
-        for i in range(len(self.metric_feeds)):
-            input_feed[self.metric_feeds[i].name] = metrics[i]  # Wrapped to be a batch size of 1
-            output_feed.append([self.metric_output[i].name])  # Wrapped to be a batch size of 1
-
-        junk = self.sess.run(output_feed, input_feed)
-        summary_str = self.sess.run(summary_op, input_feed)
+        m_values = []
+        for i in range(len(metrics)):
+            summary_value = tf.Summary.Value(tag="metric_"+str(i),simple_value=metrics[i])
+            m_values.append(summary_value)
+        summary_str = tf.Summary(value=m_values)
         self.graph_writer.add_summary(summary_str, self.model.global_step.eval(session=self.sess))
         return
 
@@ -238,7 +199,7 @@ class NetworkManager:
                 y_data.append(acc)
 
             legend_str = []
-            fig = plt.figure(figsize=(10, 10))
+            fig = plt.figure(figsize=self.plt_size)
             plt.plot(x_data, y_data,'g-',label=origin)
             legend_str.append(['Acc. RNN'])
             plt.plot(QDA_range, QDA_mean,'r-')
@@ -256,6 +217,9 @@ class NetworkManager:
             fig_s = fig.canvas.tostring_rgb()
             fig_data = np.fromstring(fig_s,np.uint8)
             fig_data = fig_data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            s = StringIO.StringIO()
+            plt.imsave(s, fig_data,format='png')
+            fig_data = s.getvalue()
             graph_list.append(fig_data)
             plt.close()
 
