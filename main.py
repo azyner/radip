@@ -42,7 +42,10 @@ if not os.path.exists(parameters.parameters['master_dir']):
 shutil.copy("parameters.py",os.path.join(parameters.parameters['master_dir'],"parameters.py"))
 
 trainingManager = TrainingManager.TrainingManager(cf_pool, test_pool, parameters.parameters)
-best_params = trainingManager.run_hyperparameter_search()
+if parameters.parameters['hyper_search_time'] > 0.001:
+    best_params = trainingManager.run_hyperparameter_search()
+else:
+    best_params = parameters.parameters
 
 print "Crossfolding finished, now training with the best parameters"
 
