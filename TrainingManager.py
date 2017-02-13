@@ -116,12 +116,10 @@ class TrainingManager:
         while True:
 
             #Select new hyperparameters
-            learning_rate_range = [0.03, 0.01, 0.001, 0.003, 0.0001]
-            rnn_size_range = np.arange(16,513,8)
-            timestep_range = range(3,7,1)
-
-            #self.parameter_dict["rnn_size"] = random.choice(rnn_size_range)
-            #self.parameter_dict["learning_rate"] = random.choice(learning_rate_range)
+            if self.parameter_dict['learning_rate_range'] is not None:
+                self.parameter_dict['learning_rate'] = random.choice(self.parameter_dict['learning_rate_range'])
+            if self.parameter_dict['rnn_size_range'] is not None:
+                self.parameter_dict['rnn_size'] = random.choice(self.parameter_dict['rnn_size_range'])
 
             # TODO obs steps needs to load a new dataset every time, as the dataset has a fixed step size
             #self.parameter_dict["observation_steps"] = random.choice(timestep_range)
