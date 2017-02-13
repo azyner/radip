@@ -147,6 +147,11 @@ class TrainingManager:
 
                 cf_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)
                 cf_results['crossfold_number'] = cf_fold
+                # As pandas does not like lists when adding a list to a row of a dataframe, set to None (the lists are
+                # a large amount of redundant data)
+                for key, value in cf_results.iteritems():
+                    if type(value) is list:
+                        cf_results[key] = None # str(cf_results[key])
                 cf_results_list.append(pd.DataFrame(cf_results, index=[0]))
 
                 #plot
