@@ -271,10 +271,12 @@ class Seq2SeqModel(object):
             self.network_summaries.append(
                 tf.summary.histogram(var_log_name + "/gradient_norm", clip_ops.global_norm([grad_values])))
 
-        self.saver = tf.train.Saver(tf.global_variables())
-
         self.network_summaries.append(tf.summary.scalar('Loss',self.losses))
         self.network_summaries.append(tf.summary.scalar('Learning Rate', self.learning_rate))
+
+        self.summary_op = tf.summary.merge(self.network_summaries)
+
+        self.saver = tf.train.Saver(tf.global_variables())
 
         return
 
@@ -323,8 +325,8 @@ class Seq2SeqModel(object):
 
         outputs = session.run(output_feed, input_feed)
         if summary_writer is not None:
-            summary_op = tf.summary.merge(self.network_summaries)
-            summary_str = session.run(summary_op,input_feed)
+
+            summary_str = session.run(self.summary_op,input_feed)
             summary_writer.add_summary(summary_str, self.global_step.eval(session=session))
         if train_model:
             return outputs[3], outputs[2], None  # accuracy, loss, no outputs.

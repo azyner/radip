@@ -60,8 +60,8 @@ class TrainingManager:
                     metric_string += " %0.1f" % value
 
                 print ("g_step %d lr %.6f step %.4fs av tr loss %.4f Acc %.3f v_acc %.3f p_dis"
-                       % (netManager.model.global_step.eval(session=netManager.sess),
-                          netManager.model.learning_rate.eval(session=netManager.sess),
+                       % (netManager.get_global_step(),
+                          netManager.get_learning_rate(),
                           step_time, loss, accuracy, eval_accuracy) + metric_string)
 
                 graphs = netManager.draw_png_graphs(dist_results)
@@ -72,21 +72,22 @@ class TrainingManager:
                 decrement_timestep = self.parameter_dict['decrement_steps']
                 if (len(previous_losses) > decrement_timestep-1
                         and
-                        loss > 0.99*(max(previous_losses[-decrement_timestep:]))): #0.95 is float fudge factor
-                    netManager.sess.run(netManager.model.learning_rate_decay_op)
+                        loss > 0.99*(max(previous_losses))): #0.95 is float fudge factor
+                    netManager.decay_learning_rate()
                     previous_losses = []
 
                 # TODO Save checkpoint here
                 # checkpoint_path = os.path.join(os.path.join(FLAGS.train_dir,get_title_from_params()), "TFseq2seqSinusoid.ckpt")
                 # model.saver.save(sess, checkpoint_path, global_step=model.global_step)
                 previous_losses.append(loss)
+                previous_losses = previous_losses[-decrement_timestep:]
                 step_time, loss = 0.0, 0.0
 
                 # Training stop conditions:
                 # Out of time
                 # Out of learning rate
                 now = time.time()
-                if ((netManager.model.learning_rate.eval(netManager.sess)
+                if ((netManager.get_learning_rate()
                          <
                              self.parameter_dict['loss_decay_cutoff'] * self.parameter_dict['learning_rate'])
                     or
@@ -96,7 +97,7 @@ class TrainingManager:
         fold_results = copy.copy(self.parameter_dict)
         fold_results['input_columns'] = ",".join(fold_results['input_columns'])
         fold_results['eval_accuracy'] = eval_accuracy
-        fold_results['final_learning_rate'] = netManager.model.learning_rate.eval(session=netManager.sess)
+        fold_results['final_learning_rate'] = netManager.get_learning_rate()
         fold_results['training_accuracy'] = accuracy
         fold_results['training_loss'] = loss
         fold_results['network_chkpt_dir'] = netManager.log_file_name

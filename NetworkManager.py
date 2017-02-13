@@ -110,8 +110,12 @@ class NetworkManager:
     def get_learning_rate(self):
         return self.model.learning_rate.eval(session=self.sess)
 
+    def decay_learning_rate(self):
+        self.sess.run(self.model.learning_rate_decay_op)
+        return
+
     def run_training_step(self, X, Y, weights, train_model, summary_writer=None):
-         return self.model.step(self.sess, X, Y, weights, train_model, summary_writer=summary_writer)
+        return self.model.step(self.sess, X, Y, weights, train_model, summary_writer=summary_writer)
 
     def draw_html_graphs(self, graph_results):
         if True:  # Plot HTML bokeh
@@ -304,7 +308,6 @@ class NetworkManager:
         total_correct = 0
         total_valid = 0
         while not batch_complete:
-
             #val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_sequential_minibatch()
             if 'QUICK_VALBATCH' in os.environ or quick:
                 # Run one regular batch. Debug mode takes longer, and there are ~30,000 val samples
