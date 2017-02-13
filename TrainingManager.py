@@ -175,6 +175,10 @@ class TrainingManager:
             hyperparam_results['network_chkpt_dir'] = (
                 cf_df.sort_values('eval_accuracy',ascending=False).iloc[[0]]['network_chkpt_dir'])
             hyperparam_results['cf_summary'] = True
+            for key, value in hyperparam_results.iteritems():
+                if (type(value) is list or
+                            type(value) is np.ndarray):
+                    hyperparam_results[key] = None  # str(cf_results[key])
             hyperparam_results_list.append(pd.DataFrame(hyperparam_results, index=[0]))
             hyperparam_results_list.append(cf_df)
             #Write results and hyperparams to hyperparameter_results_dataframe
