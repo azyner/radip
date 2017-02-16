@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import os
 import subprocess
 import time
@@ -12,42 +13,45 @@ import time
 import argparse
 
 parser = argparse.ArgumentParser(description='Spawn N TF workers (main.py) and N tensorboard programs.')
-parser.add_argument('N', metavar='N', type=int, nargs='+',
-                   help='Number of experiments')
+parser.add_argument('N', type=int, nargs=1, help='Number of experiments')
+parser.add_argument('--port',type=int, nargs=1, default=6006, help='Staring port number')
+parser.add_argument('-tb','--tensorboard',action='store_true', help='Run tensorboard only, do not run experiments')
 args = parser.parse_args()
 N = args.N[0]
 
-if os.path.exists('results'):
-    experments = os.listdir('results')
-    if len(experments) is not 0:
-        print "Non-empty results dir. Clean it before starting another experiment run"
-        quit()
+if not args.tensorboard:
 
-# run N Number of main.py
-print "Spawning trainers"
-for i in range(N):
-    subprocess.Popen(["/usr/bin/python2","main.py"])
-    time.sleep(2)
-    print ["/usr/bin/python2","main.py"]
-
-# Wait 10 seconds - count them off
-print "waiting for all workers to begin"
-
-while True:
     if os.path.exists('results'):
         experments = os.listdir('results')
-        if len(experments) is N:
-            break
-    time.sleep(1)
-    print '.'
+        if len(experments) is not 0:
+            print "Non-empty results dir. Clean it before starting another experiment run"
+            quit()
+
+    # run N Number of main.py
+    print "Spawning trainers"
+    for i in range(N):
+        subprocess.Popen(["/usr/bin/python2","main.py"])
+        time.sleep(2)
+        print ["/usr/bin/python2","main.py"]
+
+    # Wait 10 seconds - count them off
+    print "waiting for all workers to begin"
+
+    while True:
+        if os.path.exists('results'):
+            experments = os.listdir('results')
+            if len(experments) is N:
+                break
+        time.sleep(1)
+        print '.'
 
 print "Spawning tensorboard observers"
 
 results_dir = os.listdir('results')
 
-for i in range(N):
+for i in range(len(results_dir)):
     tensorboard_string = os.path.join('results',os.path.join(results_dir[i],'tensorboard_logs'))
-    port = 6006 + i
+    port = args.port + i
     tb_args =["tensorboard","--logdir",tensorboard_string,"--port",str(port)]
     subprocess.Popen(tb_args)
     print tb_args
