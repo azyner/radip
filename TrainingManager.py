@@ -17,6 +17,7 @@ class TrainingManager:
 
         return
 
+
     def train_network(self,netManager,training_batch_handler,validation_batch_handler):
         fold_time = time.time()
         current_step = 0
@@ -110,6 +111,17 @@ class TrainingManager:
 
         return fold_results
 
+    def test_network(self,netManager,test_batch_handler):
+        # Function that takes the currently built network and runs the test data through it (each data point is run once
+        #  and only once). Graphs are generated. Make it easy to generate many graphs as this will be helpful for the
+        # sequence generation model
+
+        # TODO run_validation(quick=False)
+
+        test_accuracy, test_loss, _ = netManager.run_validation(test_batch_handler,quick=False)
+
+        return test_accuracy, test_loss
+
     def run_hyperparameter_search(self):
         hyperparam_results_list = []
         hyper_time = time.time()
@@ -170,6 +182,9 @@ class TrainingManager:
                 #######
                 # Here we have a fully trained model, but we are still in the cross fold.
 
+                # FIXME Only do 1 fold per hyperparams. Its not neccessary to continue
+                break
+
 
             cf_df = pd.concat(cf_results_list)
             # Condense results from cross fold (Average, best, worst, whatever selection method)
@@ -205,7 +220,7 @@ class TrainingManager:
 
         return best_params
 
-    def long_test_network(self, params, train_pool, val_pool):
+    def long_train_network(self, params, train_pool, val_pool, test_pool):
         self.parameter_dict = params
 
         # Run for many minutes, or until loss decays significantly.
@@ -215,6 +230,7 @@ class TrainingManager:
 
         training_batch_handler = BatchHandler.BatchHandler(train_pool, self.parameter_dict, True)
         validation_batch_handler = BatchHandler.BatchHandler(val_pool, self.parameter_dict, False)
+        test_batch_handler = BatchHandler.BatchHandler(val_pool, self.parameter_dict, False)
 
         # Add input_size, num_classes
         self.parameter_dict['input_size'] = training_batch_handler.get_input_size()
@@ -224,9 +240,10 @@ class TrainingManager:
         netManager.build_model()
 
         best_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)
+        best_results['test_accuracy'], best_results['test_loss'] = self.test_network(netManager,test_batch_handler)
 
         print "Drawing html graph"
-        netManager.draw_html_graphs(netManager.compute_result_per_dis(validation_batch_handler))
+        netManager.draw_html_graphs(netManager.compute_result_per_dis(test_batch_handler))
 
         best_results = pd.DataFrame(best_results,index=[0])
         best_results.to_csv(os.path.join(self.parameter_dict['master_dir'],"best.csv"))
@@ -235,3 +252,4 @@ class TrainingManager:
         # I guess this is where the HTML plots would be generated
 
         return best_results
+

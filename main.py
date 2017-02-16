@@ -31,7 +31,7 @@ if not Wrangler.load_from_checkpoint():
 
 Wrangler.split_into_evaluation_pools()
 cf_pool, test_pool = Wrangler.get_pools()
-full_cf_pool = pd.concat([cf_pool[0][0], cf_pool[0][1]])
+
 
 results_dir = 'results'
 if not os.path.exists(results_dir):
@@ -50,7 +50,7 @@ else:
 print "Crossfolding finished, now training with the best parameters"
 
 full_cf_pool = pd.concat([cf_pool[0][0], cf_pool[0][1]])
-trainingManager.long_test_network(best_params, full_cf_pool, test_pool)
+trainingManager.long_train_network(best_params,cf_pool[0][0], cf_pool[0][1], test_pool)
 #Dumb statement for breakpoint before system finishes
 ideas = None
 
