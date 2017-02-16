@@ -2,6 +2,7 @@
 # To be renamed as parameters.py in local only, git set to ignore. This is such that I do not have to push param
 # changes to git, they should all exist in a log file anyway
 import numpy as np
+import random
 
 parameters = {}
 parameters['device'] = 'gpu:0'
@@ -35,5 +36,7 @@ parameters['d_thresh_top_n'] = 5    #How many samples to take that exist immedia
 parameters['steps_per_checkpoint'] = 200
 parameters['loss_decay_cutoff'] = 1e-10
 parameters['long_training_time'] = 5*60 # Final training is for this long (minutes)
-parameters['learning_rate_range'] = None #[0.01, 0.003, 0.001, 0.003, 0.0001, 0.00001]
-parameters['rnn_size_range'] = None #np.arange(16,513)
+parameters['hyper_rnn_size_fn'] = random.uniform
+parameters['hyper_rnn_size_args'] = (16,513)
+parameters['hyper_learning_rate_fn'] = random.uniform
+parameters['hyper_learning_rate_args'] = (-6,0)

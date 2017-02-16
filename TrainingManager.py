@@ -5,6 +5,7 @@ import BatchHandler
 import numpy as np
 import pandas as pd
 import os
+import tensorflow as tf
 
 
 class TrainingManager:
@@ -116,10 +117,12 @@ class TrainingManager:
         while True:
 
             #Select new hyperparameters
-            if self.parameter_dict['learning_rate_range'] is not None:
-                self.parameter_dict['learning_rate'] = random.choice(self.parameter_dict['learning_rate_range'])
-            if self.parameter_dict['rnn_size_range'] is not None:
-                self.parameter_dict['rnn_size'] = random.choice(self.parameter_dict['rnn_size_range'])
+            if self.parameter_dict['hyper_learning_rate_args'] is not None:
+                self.parameter_dict['learning_rate'] = \
+                    10**self.parameter_dict['hyper_learning_rate_fn'](*self.parameter_dict['hyper_learning_rate_args'])
+            if self.parameter_dict['hyper_rnn_size_args'] is not None:
+                self.parameter_dict['rnn_size'] = \
+                    int(self.parameter_dict['hyper_rnn_size_fn'](*self.parameter_dict['hyper_rnn_size_args']))
 
             # TODO obs steps needs to load a new dataset every time, as the dataset has a fixed step size
             #self.parameter_dict["observation_steps"] = random.choice(timestep_range)
@@ -144,14 +147,19 @@ class TrainingManager:
 
                 netManager = NetworkManager.NetworkManager(self.parameter_dict, log_file_name)
                 netManager.build_model()
+                try:
+                    cf_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)
+                except tf.errors.InvalidArgumentError:
+                    print "**********************caugt error, probably gradients have exploded"
+                    continue
 
-                cf_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)
                 cf_results['crossfold_number'] = cf_fold
                 # As pandas does not like lists when adding a list to a row of a dataframe, set to None (the lists are
-                # a large amount of redundant data)
+                # a large amount of redundant data). This is why I copy out parameters.py
                 for key, value in cf_results.iteritems():
                     if (type(value) is list or
-                         type(value) is np.ndarray):
+                         type(value) is np.ndarray or
+                                type(value) is tuple):
                         cf_results[key] = None # str(cf_results[key])
                 cf_results_list.append(pd.DataFrame(cf_results, index=[0]))
 
@@ -177,7 +185,8 @@ class TrainingManager:
             hyperparam_results['cf_summary'] = True
             for key, value in hyperparam_results.iteritems():
                 if (type(value) is list or
-                            type(value) is np.ndarray):
+                            type(value) is np.ndarray or
+                            type(value) is tuple):
                     hyperparam_results[key] = None  # str(cf_results[key])
             hyperparam_results_list.append(pd.DataFrame(hyperparam_results, index=[0]))
             hyperparam_results_list.append(cf_df)
