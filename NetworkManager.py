@@ -34,7 +34,8 @@ class NetworkManager:
         self.model = None
         self.plot_directory = os.path.join(self.parameters['master_dir'],'plots')
         #self.network_name_string = "temp123456" # The unique network name descriptor.
-        self.train_chkpt_dir = os.path.join(self.parameters['master_dir'], self.parameters['train_dir'])
+        self.train_dir = os.path.join(self.parameters['master_dir'], self.parameters['train_dir'])
+        self.checkpoint_dir = os.path.join(self.train_dir, self.log_file_name)
         self.summaries_dir = os.path.join(self.parameters['master_dir'],'tensorboard_logs')
         self.train_writer = None
         self.val_writer = None
@@ -62,11 +63,11 @@ class NetworkManager:
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9,allow_growth=True)
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,gpu_options=gpu_options))
         self.model = Seq2SeqModel(self.parameters)
-        if not os.path.exists(self.train_chkpt_dir):
-            os.makedirs(self.train_chkpt_dir)
-        if not os.path.exists(os.path.join(self.train_chkpt_dir, self.log_file_name)):
-            os.makedirs(os.path.join(self.train_chkpt_dir, self.log_file_name))
-        ckpt = tf.train.get_checkpoint_state(os.path.join(self.train_chkpt_dir, self.log_file_name))
+        if not os.path.exists(self.train_dir):
+            os.makedirs(self.train_dir)
+        if not os.path.exists(self.checkpoint_dir):
+            os.makedirs(self.checkpoint_dir)
+        ckpt = tf.train.get_checkpoint_state(self.checkpoint_dir)
         if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path):
             print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
             self.model.saver.restore(self.sess, ckpt.model_checkpoint_path)
@@ -334,4 +335,10 @@ class NetworkManager:
         batch_acc = np.float32(total_correct) / np.float32(total_valid)
 
         return batch_acc, np.average(batch_losses), None
+
+    def checkpoint_model(self):
+        self.model.saver.save(self.sess, os.path.join(self.checkpoint_dir, 'model.chkpt'),
+                              global_step=self.get_global_step())
+        return
+
 

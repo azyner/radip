@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Main, the highest level instance.
 # In here, hyperparameter selection, the cross fold section, and the final testing loops should be declared and run
 

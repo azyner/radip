@@ -78,9 +78,10 @@ class TrainingManager:
                     netManager.decay_learning_rate()
                     previous_losses = []
 
-                # TODO Save checkpoint here
-                # checkpoint_path = os.path.join(os.path.join(FLAGS.train_dir,get_title_from_params()), "TFseq2seqSinusoid.ckpt")
-                # model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+                if current_step % (steps_per_checkpoint*5) == 0:
+                    # at 25M per checkpoint, don't do this too often
+                    netManager.checkpoint_model()
+
                 previous_losses.append(loss)
                 previous_losses = previous_losses[-decrement_timestep:]
                 step_time, loss = 0.0, 0.0
