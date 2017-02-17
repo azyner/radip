@@ -40,3 +40,6 @@ parameters['hyper_rnn_size_fn'] = random.uniform
 parameters['hyper_rnn_size_args'] = (16,513)
 parameters['hyper_learning_rate_fn'] = random.uniform
 parameters['hyper_learning_rate_args'] = (-6,0)
+parameters['augmentation_chance'] = 0.5
+parameters['aug_function'] = random.uniform
+parameters['aug_range'] = (-5,5)

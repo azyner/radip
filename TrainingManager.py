@@ -31,6 +31,7 @@ class TrainingManager:
 
             step_start_time = time.time()
             batch_frame = training_batch_handler.get_minibatch()
+            print "Time to get batch: " + str(time.time()-step_start_time)
             train_x, _, weights, train_y = training_batch_handler.format_minibatch_data(batch_frame['encoder_sample'],
                                                                                         batch_frame['dest_1_hot'],
                                                                                         batch_frame['padding'])

@@ -97,6 +97,7 @@ class BatchHandler:
         #  Similarly with batch_future_inputs
         return batch_observation_inputs, batch_future_inputs, batch_weights, batch_labels
 
+
     # This function collects the mini-batch for training
     # If the network is under test, it will sequentially feed the testing data in size minibatch
     # The last mini-batch for the dataset is padded with junk data (taken from the start of the sequence)
@@ -110,8 +111,28 @@ class BatchHandler:
         # Do I want this stratified?
 
         batch_idxs = np.random.choice(range(len(self.data_pool)), self.batch_size, replace=False)
-
         batch_frame = self.data_pool.iloc[batch_idxs].copy()
+
+        if self.training and self.parameters['augmentation_chance'] > 0.001:
+            i=1
+            # Do some data augmentation
+            # Pick N
+            aug_idxs = np.random.choice(range(len(batch_frame)),
+                                        int(len(batch_frame) * self.parameters['augmentation_chance']), replace=False)
+            # Generate same size matrix that contains the offsets
+            # i.e. e,n,0,0 * REPMATRIX(encoder_length) for all samples
+            # np.tile([randomx,randomy,0,0],(len_enc_samples,1))
+
+            aug = pd.Series([np.tile([
+                                      self.parameters['aug_function'](*self.parameters['aug_range']),
+                                      self.parameters['aug_function'](*self.parameters['aug_range'])
+                                      ]+[0.0]*(len(self.parameters['input_columns'])-2)
+                                     ,
+                                     (self.parameters['observation_steps'],1)
+                                     )
+                             for x in range(len(batch_frame))],dtype=object,index=[0]*len(batch_frame))
+            batch_frame.encoder_sample = batch_frame.encoder_sample + aug
+
         batch_frame = batch_frame.assign(padding=np.zeros(len(batch_frame), dtype=bool))
         return batch_frame # batch_X, batch_Y, batch_weights
 
