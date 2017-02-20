@@ -175,10 +175,10 @@ class SequenceWrangler:
                                              dest_raw_classes[track_raw_idx],
                                              self.des_classes[track_raw_idx])
             track_pool = self._track_slicer(single_track,
-                                            5,  # parameters.encoder_steps,
-                                            0,  # parameters.decoder_steps,
+                                            self.parameters['observation_steps'],
+                                            self.parameters['prediction_steps'],
                                             df_template,
-                                            20)  # parameters.bbox)
+                                            20)  # FIXME parameters.bbox)
 
             master_pool.append(track_pool)
 
