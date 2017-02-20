@@ -31,11 +31,13 @@ class TrainingManager:
 
             step_start_time = time.time()
             batch_frame = training_batch_handler.get_minibatch()
-            print "Time to get batch: " + str(time.time()-step_start_time)
+            # print "Time to get batch: " + str(time.time()-step_start_time)
+            step_start_time = time.time()
             train_x, _, weights, train_y = training_batch_handler.format_minibatch_data(batch_frame['encoder_sample'],
                                                                                         batch_frame['dest_1_hot'],
                                                                                         batch_frame['padding'])
             accuracy, step_loss, _ = netManager.run_training_step(train_x, train_y, weights, True)
+            # print "Time to step: " + str(time.time() - step_start_time)
 
             # Periodically, run without training for the summary logs
             if current_step % (steps_per_checkpoint/10) == 0:
@@ -118,8 +120,6 @@ class TrainingManager:
         #  and only once). Graphs are generated. Make it easy to generate many graphs as this will be helpful for the
         # sequence generation model
 
-        # TODO run_validation(quick=False)
-
         test_accuracy, test_loss, _ = netManager.run_validation(test_batch_handler,quick=False)
 
         return test_accuracy, test_loss
@@ -174,7 +174,7 @@ class TrainingManager:
                     if (type(value) is list or
                          type(value) is np.ndarray or
                                 type(value) is tuple):
-                        cf_results[key] = None # str(cf_results[key])
+                                  cf_results[key] = pd.Series([value],dtype=object)
                 cf_results_list.append(pd.DataFrame(cf_results, index=[0]))
 
                 #plot
@@ -204,7 +204,7 @@ class TrainingManager:
                 if (type(value) is list or
                             type(value) is np.ndarray or
                             type(value) is tuple):
-                    hyperparam_results[key] = None  # str(cf_results[key])
+                    hyperparam_results[key] = pd.Series([value],dtype=object)  # str(cf_results[key])
             hyperparam_results_list.append(pd.DataFrame(hyperparam_results, index=[0]))
             hyperparam_results_list.append(cf_df)
             #Write results and hyperparams to hyperparameter_results_dataframe
@@ -247,6 +247,12 @@ class TrainingManager:
         print "Drawing html graph"
         netManager.draw_html_graphs(netManager.compute_result_per_dis(test_batch_handler))
 
+        # FIXME maybe this needs its own function?
+        for key, value in best_results.iteritems():
+            if (type(value) is list or
+                        type(value) is np.ndarray or
+                        type(value) is tuple):
+                best_results[key] = pd.Series([value], dtype=object)
         best_results = pd.DataFrame(best_results,index=[0])
         best_results.to_csv(os.path.join(self.parameter_dict['master_dir'],"best.csv"))
         # Do it all again, but this time train with all data OR TODO return from best checkpoint

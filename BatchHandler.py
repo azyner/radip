@@ -112,28 +112,42 @@ class BatchHandler:
 
         batch_idxs = np.random.choice(range(len(self.data_pool)), self.batch_size, replace=False)
         batch_frame = self.data_pool.iloc[batch_idxs].copy()
+        num_columns = batch_frame.encoder_sample.iloc[0].shape[1]
 
         if self.training and self.parameters['augmentation_chance'] > 0.001:
             i=1
             # Do some data augmentation
             # Pick N
-            aug_idxs = np.random.choice(range(len(batch_frame)),
-                                        int(len(batch_frame) * self.parameters['augmentation_chance']), replace=False)
+            aug_idxs = np.random.choice(range(self.batch_size),
+                                        int(self.batch_size * self.parameters['augmentation_chance']), replace=False)
             # Generate same size matrix that contains the offsets
             # i.e. e,n,0,0 * REPMATRIX(encoder_length) for all samples
             # np.tile([randomx,randomy,0,0],(len_enc_samples,1))
 
-            aug = pd.Series([np.tile([
-                                      self.parameters['aug_function'](*self.parameters['aug_range']),
-                                      self.parameters['aug_function'](*self.parameters['aug_range'])
-                                      ]+[0.0]*(len(self.parameters['input_columns'])-2)
-                                     ,
-                                     (self.parameters['observation_steps'],1)
-                                     )
-                             for x in range(len(batch_frame))],dtype=object,index=[0]*len(batch_frame))
-            batch_frame.encoder_sample = batch_frame.encoder_sample + aug
+            aug = pd.Series([
+                            np.tile([
+                                  self.parameters['aug_function'](*self.parameters['aug_range']),
+                                  self.parameters['aug_function'](*self.parameters['aug_range'])
+                                  ]+[0.0]*(num_columns-2)
+                                  ,
+                                  (self.parameters['observation_steps'],1)
+                                 )
+                             for x in range(len(batch_frame))
+                             ],
+                            dtype=object,index=([0]*self.batch_size))
+            mask = pd.Series([
+                                np.tile([np.random.choice([1.0,0.0],p=[self.parameters['augmentation_chance'],
+                                                               1-self.parameters['augmentation_chance']])]
+                                         * num_columns
+                                        ,
+                                        (self.parameters['observation_steps'], 1)
+                                        )
+                                for x in range(len(batch_frame))
+                                ],
+                            dtype=object, index=([0] * self.batch_size))
+            batch_frame.encoder_sample = batch_frame.encoder_sample + (aug*mask)
 
-        batch_frame = batch_frame.assign(padding=np.zeros(len(batch_frame), dtype=bool))
+        batch_frame = batch_frame.assign(padding=np.zeros(self.batch_size, dtype=bool))
         return batch_frame # batch_X, batch_Y, batch_weights
 
         # Testing / validating
