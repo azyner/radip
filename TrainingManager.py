@@ -43,9 +43,8 @@ class TrainingManager:
             if current_step % (steps_per_checkpoint/10) == 0:
                 eval_accuracy, eval_step_loss, _ = netManager.run_training_step(train_x, train_y, weights, False,
                                                                                 summary_writer=netManager.train_writer)
-                # FIXME I feel this may break as it should be run once only for each global step for summary writer
-                # eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler, summary_writer=None)
-
+                eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler,
+                                                                                             summary_writer=netManager.val_writer,quick=True)
             step_time += (time.time() - step_start_time) / steps_per_checkpoint
             step_time += (time.time() - step_start_time) / steps_per_checkpoint
             loss += step_loss / steps_per_checkpoint
@@ -53,8 +52,8 @@ class TrainingManager:
 
             if current_step % steps_per_checkpoint == 0:
 
-                eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler,
-                                                                             summary_writer=netManager.val_writer,quick=True)
+                # eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler,
+                #                                                              summary_writer=netManager.val_writer,quick=True)
                 # graph_results = netManager.collect_graph_data(validation_batch_handler)
                 # netManager.draw_graphs(graph_results)
 
