@@ -23,6 +23,15 @@ import shutil
 # I want the logger and the crossfold here
 # This is where the hyperparameter searcher goes
 
+results_dir = 'results'
+if not os.path.exists(results_dir):
+    os.makedirs(results_dir)
+parameters.parameters['master_dir'] = os.path.join(results_dir,datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+if not os.path.exists(parameters.parameters['master_dir']):
+    os.makedirs(parameters.parameters['master_dir'])
+shutil.copy("parameters.py",os.path.join(parameters.parameters['master_dir'],"parameters.py"))
+print "results folder made, parameter file copied"
+
 print "wrangling tracks"
 Wrangler = SequenceWrangler.SequenceWrangler(parameters,n_folds=parameters.parameters['n_folds'])
 if not Wrangler.load_from_checkpoint():
@@ -32,15 +41,6 @@ if not Wrangler.load_from_checkpoint():
 
 Wrangler.split_into_evaluation_pools()
 cf_pool, test_pool = Wrangler.get_pools()
-
-
-results_dir = 'results'
-if not os.path.exists(results_dir):
-    os.makedirs(results_dir)
-parameters.parameters['master_dir'] = os.path.join(results_dir,datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-if not os.path.exists(parameters.parameters['master_dir']):
-    os.makedirs(parameters.parameters['master_dir'])
-shutil.copy("parameters.py",os.path.join(parameters.parameters['master_dir'],"parameters.py"))
 
 trainingManager = TrainingManager.TrainingManager(cf_pool, test_pool, parameters.parameters)
 if parameters.parameters['hyper_search_time'] > 0.001:
