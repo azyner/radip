@@ -18,7 +18,7 @@ import os
 import numpy as np
 import pandas as pd
 from bokeh.plotting import figure, output_file, show, gridplot, save
-from bokeh.models.widgets import Button
+from bokeh.models.widgets import Button, Paragraph, PreText
 from bokeh.layouts import widgetbox
 from bokeh.layouts import layout
 import StringIO
@@ -161,7 +161,11 @@ class NetworkManager:
                 p1.legend.location = "bottom_right"
                 plots.append(p1)
 
-            button_1 = Button(label=str(self.parameters))
+
+            label_str = ""
+            for key, value in self.parameters.iteritems():
+                label_str += str(key) + ': ' + str(value) + "\r\n"
+            paragraph_1 = PreText(text=label_str)
 
             # put the results in a row
 
@@ -169,7 +173,7 @@ class NetworkManager:
             # p1.line(1, 1, line_width=2, color='green')
             # plots.append(p1)
             p = gridplot([plots])
-            l = layout([plots, [widgetbox(button_1, width=300)]])
+            l = layout([plots, [widgetbox(paragraph_1, width=800)]])
             save(l)
             # show(widgetbox(button_1, width=300))
 
