@@ -21,11 +21,12 @@ class TrainingManager:
         fold_time = time.time()
         current_step = 0
         previous_losses = []
+        previous_val_losses = []
         step_time, loss = 0.0, 0.0
         steps_per_checkpoint = self.parameter_dict['steps_per_checkpoint']
         print "Starting Network training for:"
         print str(self.parameter_dict)
-        divergence_steps = 0
+        overfitting_steps = 0
         final_run = False
         training_log_df = pd.DataFrame()
 
@@ -96,28 +97,29 @@ class TrainingManager:
                     previous_losses = []
                 previous_losses.append(loss)
                 previous_losses = previous_losses[-self.parameter_dict['decrement_steps']:]
-
-
+                previous_val_losses.append(val_step_loss)
+                previous_val_losses = previous_val_losses[-self.parameter_dict['decrement_steps']:]
 
                 ##### Training stop conditions:
                 if final_run:
                     break
                 # Check for significant divergence of val_loss and train_loss
-                train_val_diverged = False
-                if loss < (val_step_loss)*0.9:
-                    divergence_steps += 1
+                model_is_overfit = False
+                if (loss < (val_step_loss)*0.9 and  # train / val have diverged
+                    val_step_loss > 0.95*max(previous_val_losses)):  # val is ~increasing
+                    overfitting_steps += 1
                     print "Warning, overfitting detected. Will stop training if it continues"
-                    if divergence_steps > 5:
-                        train_val_diverged = True
+                    if overfitting_steps > 5:
+                        model_is_overfit = True
                 else:
-                    divergence_steps = 0
+                    overfitting_steps = 0
 
                 learning_rate_too_low = (netManager.get_learning_rate() <
                                          self.parameter_dict['loss_decay_cutoff'] *
                                          self.parameter_dict['learning_rate'])
                 out_of_time = time.time() - fold_time > 60 * self.parameter_dict['training_early_stop']
 
-                if learning_rate_too_low or out_of_time or train_val_diverged:
+                if learning_rate_too_low or out_of_time or model_is_overfit:
                     # Lookup best model based on val_step_loss
                     # Load best model.
                     # Run one more loop for final network scores
