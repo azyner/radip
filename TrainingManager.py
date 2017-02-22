@@ -17,7 +17,6 @@ class TrainingManager:
 
         return
 
-
     def train_network(self,netManager,training_batch_handler,validation_batch_handler):
         fold_time = time.time()
         current_step = 0
@@ -26,88 +25,116 @@ class TrainingManager:
         steps_per_checkpoint = self.parameter_dict['steps_per_checkpoint']
         print "Starting Network training for:"
         print str(self.parameter_dict)
+        divergence_steps = 0
+        final_run = False
+        training_log_df = pd.DataFrame()
+
         while True:
-            # The training loop!
 
-            step_start_time = time.time()
-            batch_frame = training_batch_handler.get_minibatch()
-            # print "Time to get batch: " + str(time.time()-step_start_time)
-            step_start_time = time.time()
-            train_x, _, weights, train_y = training_batch_handler.format_minibatch_data(batch_frame['encoder_sample'],
-                                                                                        batch_frame['dest_1_hot'],
-                                                                                        batch_frame['padding'])
-            accuracy, step_loss, _ = netManager.run_training_step(train_x, train_y, weights, True)
-            # print "Time to step: " + str(time.time() - step_start_time)
+            #### TRAINING
+            if not final_run:
+                step_start_time = time.time()
+                batch_frame = training_batch_handler.get_minibatch()
+                # print "Time to get batch: " + str(time.time()-step_start_time)
+                train_x, _, weights, train_y = training_batch_handler.format_minibatch_data(batch_frame['encoder_sample'],
+                                                                                            batch_frame['dest_1_hot'],
+                                                                                            batch_frame['padding'])
+                accuracy, step_loss, _ = netManager.run_training_step(train_x, train_y, weights, True)
+                # print "Time to step: " + str(time.time() - step_start_time)
 
-            # Periodically, run without training for the summary logs
-            # This will always run in the same loop as the checkpoint fn below.
-            # Explicit check in case of rounding errors
+                # Periodically, run without training for the summary logs
+                # This will always run in the same loop as the checkpoint fn below.
+                # Explicit check in case of rounding errors
+                step_time += (time.time() - step_start_time) / steps_per_checkpoint
+                loss += step_loss / steps_per_checkpoint
+                current_step += 1
+
+            #### TENSORBOARD LOGGING
             if current_step % (steps_per_checkpoint/10) == 0 or \
-                current_step % steps_per_checkpoint == 0:
+                current_step % steps_per_checkpoint == 0 or \
+                final_run:
                 train_acc, train_step_loss, _ = netManager.run_training_step(train_x, train_y, weights, False,
                                                                                 summary_writer=netManager.train_writer)
                 val_accuracy, val_step_loss, _ = netManager.run_validation(validation_batch_handler,
                                                                                              summary_writer=netManager.val_writer,quick=True)
-            step_time += (time.time() - step_start_time) / steps_per_checkpoint
-            step_time += (time.time() - step_start_time) / steps_per_checkpoint
-            loss += step_loss / steps_per_checkpoint
-            current_step += 1
 
-            if current_step % steps_per_checkpoint == 0:
+            #### EVALUATION / CHECKPOINTING
+            if current_step % steps_per_checkpoint == 0 or final_run:
 
-                # eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler,
-                #                                                              summary_writer=netManager.val_writer,quick=True)
-                # graph_results = netManager.collect_graph_data(validation_batch_handler)
-                # netManager.draw_graphs(graph_results)
-
+                # Compute Distance Metric
                 dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
                 metric_results = netManager.evaluate_metric(dist_results)
                 metric_string = ""
                 for value in metric_results:
                     metric_string += " %0.1f" % value
 
-                print ("g_step %d lr %.6f step %.4fs av tr loss %.4f Acc %.3f v_acc %.3f p_dis"
+                print ("g_step %d lr %.6f step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f p_dis"
                        % (netManager.get_global_step(),
                           netManager.get_learning_rate(),
-                          step_time, loss, accuracy, train_acc) + metric_string)
+                          step_time, loss, val_step_loss, accuracy, val_accuracy) + metric_string)
 
                 graphs = netManager.draw_png_graphs(dist_results)
 
                 netManager.log_graphs_to_tensorboard(graphs)
                 netManager.log_metric_to_tensorboard(metric_results)
 
-                decrement_timestep = self.parameter_dict['decrement_steps']
-                if (len(previous_losses) > decrement_timestep-1
+                netManager.checkpoint_model()
+
+                # Log all things
+                results_dict = {'g_step':netManager.get_global_step(),
+                                'training_loss':train_step_loss,
+                                'training_acc':train_acc,
+                                'validation_loss':val_step_loss,
+                                'validation_acc':val_accuracy}
+                training_log_df = training_log_df.append(results_dict,ignore_index=True)
+
+                ### Decay learning rate checks
+                if (len(previous_losses) > self.parameter_dict['decrement_steps']-1
                         and
                         loss > 0.99*(max(previous_losses))): #0.95 is float fudge factor
                     netManager.decay_learning_rate()
                     previous_losses = []
-
-                if current_step % (steps_per_checkpoint*5) == 0:
-                    # at 25M per checkpoint, don't do this too often
-                    netManager.checkpoint_model()
-
                 previous_losses.append(loss)
-                previous_losses = previous_losses[-decrement_timestep:]
-                step_time, loss = 0.0, 0.0
+                previous_losses = previous_losses[-self.parameter_dict['decrement_steps']:]
 
-                # Training stop conditions:
-                # Out of time
-                # Out of learning rate
-                now = time.time()
-                if ((netManager.get_learning_rate()
-                         <
-                             self.parameter_dict['loss_decay_cutoff'] * self.parameter_dict['learning_rate'])
-                    or
-                    now - fold_time > 60 * self.parameter_dict['training_early_stop']):
+
+
+                ##### Training stop conditions:
+                if final_run:
                     break
+                # Check for significant divergence of val_loss and train_loss
+                train_val_diverged = False
+                if loss < (val_step_loss)*0.9:
+                    divergence_steps += 1
+                    print "Warning, overfitting detected. Will stop training if it continues"
+                    if divergence_steps > 5:
+                        train_val_diverged = True
+                else:
+                    divergence_steps = 0
+
+                learning_rate_too_low = (netManager.get_learning_rate() <
+                                         self.parameter_dict['loss_decay_cutoff'] *
+                                         self.parameter_dict['learning_rate'])
+                out_of_time = time.time() - fold_time > 60 * self.parameter_dict['training_early_stop']
+
+                if learning_rate_too_low or out_of_time or train_val_diverged:
+                    # Lookup best model based on val_step_loss
+                    # Load best model.
+                    # Run one more loop for final network scores
+                    best_g_step = training_log_df.sort_values('validation_loss',ascending=True).iloc[0].g_step
+                    print "FINAL RUN, Best model was at step: " + str(best_g_step)
+                    netManager.load_from_checkpoint(best_g_step)
+                    netManager.clean_checkpoint_dir(best_g_step)
+                    final_run = True
+
+                step_time, loss = 0.0, 0.0
 
         fold_results = copy.copy(self.parameter_dict)
         fold_results['input_columns'] = ",".join(fold_results['input_columns'])
         fold_results['eval_accuracy'] = train_acc
         fold_results['final_learning_rate'] = netManager.get_learning_rate()
         fold_results['training_accuracy'] = accuracy
-        fold_results['training_loss'] = loss
+        fold_results['training_loss'] = train_step_loss
         fold_results['network_chkpt_dir'] = netManager.log_file_name
         fold_results['validation_accuracy'] = val_accuracy
         fold_results['validation_loss'] = val_step_loss
@@ -171,7 +198,7 @@ class TrainingManager:
                 try:
                     cf_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)
                 except tf.errors.InvalidArgumentError:
-                    print "**********************caugt error, probably gradients have exploded"
+                    print "**********************caught error, probably gradients have exploded"
                     continue
 
                 cf_results['crossfold_number'] = cf_fold

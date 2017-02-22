@@ -276,10 +276,9 @@ class Seq2SeqModel(object):
 
         self.summary_op = tf.summary.merge(self.network_summaries)
 
-        self.saver = tf.train.Saver(tf.global_variables())
+        self.saver = tf.train.Saver(var_list=None, max_to_keep=999)
 
         return
-
 
     def step(self, session, observation_inputs, future_inputs, target_weights, train_model, summary_writer=None):
         """Run a step of the model feeding the given inputs.

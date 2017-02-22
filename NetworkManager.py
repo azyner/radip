@@ -22,6 +22,7 @@ from bokeh.models.widgets import Button, Paragraph, PreText
 from bokeh.layouts import widgetbox
 from bokeh.layouts import layout
 import StringIO
+import glob
 
 class NetworkManager:
     def __init__(self, parameters, log_file_name=None):
@@ -40,6 +41,9 @@ class NetworkManager:
         self.train_writer = None
         self.val_writer = None
         self.graph_writer = None
+        self.ckpt_dict = {}
+        self.global_state_cached = False
+        self.global_state_cache = None
 
         self.tensorboard_graph_summaries= []
         self.tensorboard_metric_summaries = []
@@ -106,7 +110,12 @@ class NetworkManager:
         return
 
     def get_global_step(self):
-        return self.model.global_step.eval(session=self.sess)
+        if self.global_state_cached == True:
+            return self.global_state_cache
+        else:
+            self.global_state_cache = self.model.global_step.eval(session=self.sess)
+            self.global_state_cached = True
+        return self.global_state_cache
 
     def get_learning_rate(self):
         return self.model.learning_rate.eval(session=self.sess)
@@ -116,6 +125,7 @@ class NetworkManager:
         return
 
     def run_training_step(self, X, Y, weights, train_model, summary_writer=None):
+        self.global_state_cached = False
         return self.model.step(self.sess, X, Y, weights, train_model, summary_writer=summary_writer)
 
     def draw_html_graphs(self, graph_results):
@@ -340,9 +350,28 @@ class NetworkManager:
 
         return batch_acc, np.average(batch_losses), None
 
+    # Checkpoints model. Adds path to global dict lookup
     def checkpoint_model(self):
-        self.model.saver.save(self.sess, os.path.join(self.checkpoint_dir, 'model.chkpt'),
+        self.ckpt_dict[self.get_global_step()] = \
+            self.model.saver.save(self.sess, os.path.join(self.checkpoint_dir, 'model.chkpt'),
                               global_step=self.get_global_step())
+
+    def load_from_checkpoint(self,g_step=None):
+        ckpt = tf.train.get_checkpoint_state(self.checkpoint_dir)
+        if g_step:
+            ckpt_dir = self.ckpt_dict[g_step]
+        else:
+            ckpt_dir = ckpt.model_checkpoint_path
+        if ckpt and ckpt_dir:
+            print("Reading model parameters from %s" % ckpt_dir)
+            self.model.saver.restore(self.sess, ckpt_dir)
         return
+
+    def clean_checkpoint_dir(self,g_step=None):
+        ckpt = tf.train.get_checkpoint_state(self.checkpoint_dir)
+        for checkpoint in ckpt.all_model_checkpoint_paths:
+            if (g_step is not None and
+                checkpoint != self.ckpt_dict[g_step]):
+                [os.remove(file) for file in glob.glob(ckpt.all_model_checkpoint_paths[0] + "*")]
 
 
