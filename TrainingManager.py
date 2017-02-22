@@ -40,10 +40,13 @@ class TrainingManager:
             # print "Time to step: " + str(time.time() - step_start_time)
 
             # Periodically, run without training for the summary logs
-            if current_step % (steps_per_checkpoint/10) == 0:
-                eval_accuracy, eval_step_loss, _ = netManager.run_training_step(train_x, train_y, weights, False,
+            # This will always run in the same loop as the checkpoint fn below.
+            # Explicit check in case of rounding errors
+            if current_step % (steps_per_checkpoint/10) == 0 or \
+                current_step % steps_per_checkpoint == 0:
+                train_acc, train_step_loss, _ = netManager.run_training_step(train_x, train_y, weights, False,
                                                                                 summary_writer=netManager.train_writer)
-                eval_accuracy, eval_step_loss, _ = netManager.run_validation(validation_batch_handler,
+                val_accuracy, val_step_loss, _ = netManager.run_validation(validation_batch_handler,
                                                                                              summary_writer=netManager.val_writer,quick=True)
             step_time += (time.time() - step_start_time) / steps_per_checkpoint
             step_time += (time.time() - step_start_time) / steps_per_checkpoint
@@ -66,7 +69,7 @@ class TrainingManager:
                 print ("g_step %d lr %.6f step %.4fs av tr loss %.4f Acc %.3f v_acc %.3f p_dis"
                        % (netManager.get_global_step(),
                           netManager.get_learning_rate(),
-                          step_time, loss, accuracy, eval_accuracy) + metric_string)
+                          step_time, loss, accuracy, train_acc) + metric_string)
 
                 graphs = netManager.draw_png_graphs(dist_results)
 
@@ -101,11 +104,14 @@ class TrainingManager:
 
         fold_results = copy.copy(self.parameter_dict)
         fold_results['input_columns'] = ",".join(fold_results['input_columns'])
-        fold_results['eval_accuracy'] = eval_accuracy
+        fold_results['eval_accuracy'] = train_acc
         fold_results['final_learning_rate'] = netManager.get_learning_rate()
         fold_results['training_accuracy'] = accuracy
         fold_results['training_loss'] = loss
         fold_results['network_chkpt_dir'] = netManager.log_file_name
+        fold_results['validation_accuracy'] = val_accuracy
+        fold_results['validation_loss'] = val_step_loss
+
         for class_idx in range(len(metric_results)):
             key_str = 'perfect_distance_' + str(class_idx)
             fold_results[key_str] = metric_results[class_idx]
@@ -138,6 +144,8 @@ class TrainingManager:
                     int(self.parameter_dict['hyper_rnn_size_fn'](*self.parameter_dict['hyper_rnn_size_args']))
 
             # TODO obs steps needs to load a new dataset every time, as the dataset has a fixed step size
+            # Actually it can just use the most recent t steps, but the dataset loaded needs to have the most encoder
+            # steps
             #self.parameter_dict["observation_steps"] = random.choice(timestep_range)
 
             cf_fold = -1
@@ -195,7 +203,11 @@ class TrainingManager:
             hyperparam_results['final_learning_rate'] = np.min(cf_df['final_learning_rate'])
             hyperparam_results['training_accuracy'] = np.min(cf_df['training_accuracy'])
             hyperparam_results['training_loss'] = np.average(cf_df['training_loss'])
+            hyperparam_results['validation_accuracy'] = np.average(cf_df['validation_accuracy'])
+            hyperparam_results['validation_loss'] =np.average(cf_df['validation_loss'])
+
             hyperparam_results['crossfold_number'] = -1
+            #FIXME What is this line doing?
             hyperparam_results['network_chkpt_dir'] = (
                 cf_df.sort_values('eval_accuracy',ascending=False).iloc[[0]]['network_chkpt_dir'])
             hyperparam_results['cf_summary'] = True
@@ -215,9 +227,15 @@ class TrainingManager:
 
         hyper_df = pd.concat(hyperparam_results_list,ignore_index=True)
         hyper_df.to_csv(os.path.join(self.parameter_dict['master_dir'],self.hyper_results_logfile))
-        #Distance at which the classifier can make a sound judgement, lower is better
         summary_df = hyper_df[hyper_df['cf_summary']==True]
-        best_params = summary_df.sort_values('perfect_distance',ascending=True).iloc[0].to_dict()
+
+        # Distance at which the classifier can make a sound judgement, lower is better
+        if self.parameter_dict['evaluation_metric_type'] == 'perfect_distance':
+            best_params = summary_df.sort_values('perfect_distance',ascending=True).iloc[0].to_dict()
+        if self.parameter_dict['evaluation_metric_type'] == 'validation_accuracy': # Higher better
+            best_params = summary_df.sort_values('validation_accuracy', ascending=False).iloc[0].to_dict()
+        if self.parameter_dict['evaluation_metric_type'] == 'validation_loss': # Lower better
+            best_params = summary_df.sort_values('validation_loss', ascending=True).iloc[0].to_dict()
 
         return best_params
 

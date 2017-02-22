@@ -43,3 +43,4 @@ parameters['hyper_learning_rate_args'] = (-6,0)
 parameters['augmentation_chance'] = 0.5
 parameters['aug_function'] = random.uniform
 parameters['aug_range'] = (-5,5)
+parameters['evaluation_metric_type'] = 'validation_loss' # "perfect_distance" / validation_accuracy
