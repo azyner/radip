@@ -51,7 +51,7 @@ results_dir = os.listdir('results')
 
 for i in range(len(results_dir)):
     tensorboard_string = os.path.join('results',os.path.join(results_dir[i],'tensorboard_logs'))
-    port = args.port + i
+    port = args.port[0] + i
     tb_args =["tensorboard","--logdir",tensorboard_string,"--port",str(port)]
     subprocess.Popen(tb_args)
     print tb_args
