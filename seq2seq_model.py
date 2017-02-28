@@ -168,11 +168,11 @@ class Seq2SeqModel(object):
 
         if self.model_type == 'classifier':
             # Add a single target. Name is target0 for continuity
-            targets.append(tf.placeholder(tf.int32, shape=[self.batch_size, self.num_classes],
-                                                         name="target{0}".format(i)))
-            for target in targets:
-                targets_sparse.append(tf.squeeze(tf.argmax(target,1)))
-            self.target_weights.append(tf.ones([self.batch_size],name="weight{0}".format(i)))
+            target = tf.placeholder(tf.int32, shape=[self.batch_size, self.num_classes],
+                                                         name="target".format(i))
+            targets_sparse.append(tf.squeeze(tf.argmax(target,1),name="Sq_"+target.op.name))
+            self.target_weights.append(tf.ones([self.batch_size],name="weight".format(i)))
+            targets = [target]
 
         #Hook for the input_feed
         self.target_inputs = targets
@@ -233,8 +233,9 @@ class Seq2SeqModel(object):
             self.losses = tf.nn.seq2seq.sequence_loss(self.MDN_output, targets_sparse, self.target_weights)
             #TODO I have to take into account padding here
             #squeeze away output to remove a single element list (It would be longer if classifier was allowed 2+ timesteps
-            correct_prediction = tf.equal(tf.argmax(tf.squeeze(self.MDN_output), 1), targets_sparse)
-            self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+            correct_prediction = tf.equal(tf.argmax(tf.squeeze(self.MDN_output), 1), targets_sparse,
+                                          name="Correct_prediction")
+            self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32),name="Accuracy")
 
 
         # Gradients and SGD update operation for training the model.
