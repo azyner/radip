@@ -63,6 +63,7 @@ class Seq2SeqModel(object):
         self.learning_rate * parameters['learning_rate_decay_factor'])
         self.global_step = tf.Variable(0, trainable=False)
         self.network_summaries = []
+        keep_prob = 1-self.dropout_prob
 
         # TODO Placeholder until I implement MDN
         feed_future_data = False
@@ -101,16 +102,15 @@ class Seq2SeqModel(object):
                                   initializer=tf.constant_initializer(0.1))
             input_layer = (i_w, i_b)
 
-        single_cell = tf.nn.rnn_cell.LSTMCell(self.rnn_size,state_is_tuple=True,use_peepholes=True)
+        single_cell = tf.nn.rnn_cell.DropoutWrapper(
+                        tf.nn.rnn_cell.LSTMCell(self.rnn_size,state_is_tuple=True,use_peepholes=False)
+            ,output_keep_prob=keep_prob)
         RNN_layers = single_cell
         if self.num_layers > 1:
             RNN_layers = tf.nn.rnn_cell.MultiRNNCell([single_cell] * self.num_layers,state_is_tuple=True)
 
-        keep_prob = 1-self.dropout_prob
-        RNN_layers = tf.nn.rnn_cell.DropoutWrapper(RNN_layers,output_keep_prob=keep_prob)
-
-        for RNN_cell_idx in range(len(RNN_layers._cell._cells)):
-            i = RNN_cell_idx
+        # Don't double dropout
+        #RNN_layers = tf.nn.rnn_cell.DropoutWrapper(RNN_layers,output_keep_prob=keep_prob)
 
         def output_function(output):
             return nn_ops.xw_plus_b(output, output_projection[0], output_projection[1],name="output_projection")
