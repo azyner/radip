@@ -229,8 +229,10 @@ class Seq2SeqModel(object):
             self.losses = self.losses / self.batch_size
             self.accuracy = self.losses #TODO placeholder, use MSE or something visually intuitive
         if self.model_type == 'classifier':
+            embedding_regularizer = tf.reduce_sum(tf.abs(i_w),name="Embedding_L1_reg") # Only regularize embedding layer
             # Don't forget that sequence loss uses sparse targets
-            self.losses = tf.nn.seq2seq.sequence_loss(self.MDN_output, targets_sparse, self.target_weights)
+            self.losses = (tf.nn.seq2seq.sequence_loss(self.MDN_output, targets_sparse, self.target_weights)
+                           + parameters['reg_embedding_beta']*embedding_regularizer)
             #TODO I have to take into account padding here
             #squeeze away output to remove a single element list (It would be longer if classifier was allowed 2+ timesteps
             correct_prediction = tf.equal(tf.argmax(tf.squeeze(self.MDN_output), 1), targets_sparse,
