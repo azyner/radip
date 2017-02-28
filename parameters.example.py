@@ -3,6 +3,10 @@
 # changes to git, they should all exist in a log file anyway
 import numpy as np
 import random
+import os
+
+#Change this to 1 or zero to set the GPU to use
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 parameters = {}
 parameters['device'] = 'gpu:0'
