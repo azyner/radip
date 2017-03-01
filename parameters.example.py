@@ -49,3 +49,5 @@ parameters['aug_function'] = random.uniform
 parameters['aug_range'] = (-5,5)
 parameters['evaluation_metric_type'] = 'validation_loss' # "perfect_distance" / validation_accuracy
 parameters['reg_embedding_beta'] = 0
+parameters['hyper_reg_embedding_beta_fn'] = random.uniform
+parameters['hyper_reg_embedding_beta_args'] = (-5,-1) #10^X # OR None
