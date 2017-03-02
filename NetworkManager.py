@@ -372,6 +372,6 @@ class NetworkManager:
         for checkpoint in ckpt.all_model_checkpoint_paths:
             if (g_step is not None and
                 checkpoint != self.ckpt_dict[g_step]):
-                [os.remove(file) for file in glob.glob(ckpt.all_model_checkpoint_paths[0] + "*")]
+                [os.remove(file) for file in glob.glob(checkpoint + "*")]
 
 
