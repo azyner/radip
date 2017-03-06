@@ -18,6 +18,7 @@ import parameters
 import datetime
 import os
 import pandas as pd
+import subprocess
 import shutil
 
 # I want the logger and the crossfold here
@@ -31,6 +32,14 @@ if not os.path.exists(parameters.parameters['master_dir']):
     os.makedirs(parameters.parameters['master_dir'])
 shutil.copy("parameters.py",os.path.join(parameters.parameters['master_dir'],"parameters.py"))
 print "results folder made, parameter file copied"
+
+githash = subprocess.check_output(["git", "describe", "--always"])
+with open(os.path.join(parameters.parameters['master_dir'], githash + ".githash"), "w") as outfile:
+    outfile.write("Git hash:")
+    outfile.write(githash)
+    outfile.write("Git diff:")
+    diff = subprocess.check_output(["git", "diff"])
+    outfile.write(diff)
 
 print "wrangling tracks"
 Wrangler = SequenceWrangler.SequenceWrangler(parameters,n_folds=parameters.parameters['n_folds'])
