@@ -103,7 +103,8 @@ class Seq2SeqModel(object):
             input_layer = (i_w, i_b)
 
         single_cell = tf.nn.rnn_cell.DropoutWrapper(
-                        tf.nn.rnn_cell.LSTMCell(self.rnn_size,state_is_tuple=True,use_peepholes=False)
+                        tf.nn.rnn_cell.LSTMCell(self.rnn_size,state_is_tuple=True,
+                                                use_peepholes=parameters['peephole_connections'])
             ,output_keep_prob=keep_prob)
         RNN_layers = single_cell
         if self.num_layers > 1:

@@ -62,22 +62,26 @@ class TrainingManager:
             #### EVALUATION / CHECKPOINTING
             if current_step % steps_per_checkpoint == 0 or final_run:
 
-                # Compute Distance Metric
-                dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
-                metric_results = netManager.evaluate_metric(dist_results)
-                metric_string = ""
-                for value in metric_results:
-                    metric_string += " %0.1f" % value
+                if not self.parameter_dict['debug']:
+                    # Compute Distance Metric
+                    dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
+                    metric_results = netManager.evaluate_metric(dist_results)
+                    metric_string = ""
+                    for value in metric_results:
+                        metric_string += " %0.1f" % value
+                else:
+                    metric_string = " debug"
 
                 print ("g_step %d lr %.6f step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f p_dis"
                        % (netManager.get_global_step(),
                           netManager.get_learning_rate(),
                           step_time, loss, val_step_loss, accuracy, val_accuracy) + metric_string)
 
-                graphs = netManager.draw_png_graphs(dist_results)
+                if not self.parameter_dict['debug']:
+                    graphs = netManager.draw_png_graphs(dist_results)
 
-                netManager.log_graphs_to_tensorboard(graphs)
-                netManager.log_metric_to_tensorboard(metric_results)
+                    netManager.log_graphs_to_tensorboard(graphs)
+                    netManager.log_metric_to_tensorboard(metric_results)
 
                 netManager.checkpoint_model()
 
