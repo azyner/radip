@@ -7,6 +7,7 @@ from TF_mods import basic_rnn_seq2seq_with_loop_function
 from tensorflow.python.ops import seq2seq
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import clip_ops
+from recurrent_batchnorm_tensorflow.BN_LSTMCell import BN_LSTMCell
 
 
 class Seq2SeqModel(object):
@@ -102,16 +103,22 @@ class Seq2SeqModel(object):
                                   initializer=tf.constant_initializer(0.1))
             input_layer = (i_w, i_b)
 
-        single_cell = tf.nn.rnn_cell.DropoutWrapper(
-                        tf.nn.rnn_cell.LSTMCell(self.rnn_size,state_is_tuple=True,
-                                                use_peepholes=parameters['peephole_connections'])
-            ,output_keep_prob=keep_prob)
-        RNN_layers = single_cell
+        if parameters['RNN_cell'] == "LSTMCell":
+            single_cell = tf.nn.rnn_cell.DropoutWrapper(
+                            tf.nn.rnn_cell.LSTMCell(self.rnn_size,state_is_tuple=True,
+                                                    use_peepholes=parameters['peephole_connections'])
+                ,output_keep_prob=keep_prob)
+        if parameters['RNN_cell'] == "BN_LSTMCell":
+            single_cell = tf.nn.rnn_cell.DropoutWrapper(
+                            BN_LSTMCell(self.rnn_size,is_training=True,
+                                                    use_peepholes=parameters['peephole_connections'])
+                ,output_keep_prob=keep_prob)
+        self._RNN_layers = single_cell
         if self.num_layers > 1:
-            RNN_layers = tf.nn.rnn_cell.MultiRNNCell([single_cell] * self.num_layers,state_is_tuple=True)
+            self._RNN_layers = tf.nn.rnn_cell.MultiRNNCell([single_cell] * self.num_layers,state_is_tuple=True)
 
         # Don't double dropout
-        #RNN_layers = tf.nn.rnn_cell.DropoutWrapper(RNN_layers,output_keep_prob=keep_prob)
+        #self._RNN_layers = tf.nn.rnn_cell.DropoutWrapper(self._RNN_layers,output_keep_prob=keep_prob)
 
         def output_function(output):
             return nn_ops.xw_plus_b(output, output_projection[0], output_projection[1],name="output_projection")
@@ -143,7 +150,7 @@ class Seq2SeqModel(object):
                 loopback_function = None #feed correct input
             #return basic_rnn_seq2seq_with_loop_function(encoder_inputs,decoder_inputs,cell,
             #                                                         loop_function=loopback_function,dtype=dtype)
-            return seq2seq.tied_rnn_seq2seq(encoder_inputs,decoder_inputs,RNN_layers,
+            return seq2seq.tied_rnn_seq2seq(encoder_inputs,decoder_inputs,self._RNN_layers,
                                             loop_function=loopback_function,dtype=dtype)
 
         # Feeds for inputs.
@@ -298,6 +305,14 @@ class Seq2SeqModel(object):
           ValueError: if length of encoder_inputs, decoder_inputs, or
             target_weights disagrees with bucket size for the specified bucket_id.
         """
+
+        ## Batch Norm Changes
+        # The cell should be a drop in replacement above.
+        # The tricky part here is that I need to update the state: BN_LSTM.is_training = train_model
+        # I should be able to loop over all BN_LSTM Cells in the graph somehow.
+        if self.parameters['RNN_cell'] == "BN_LSTMCell":
+            for dropout_cell in self._RNN_layers._cells:
+                dropout_cell._cell.is_training = train_model
 
         # Input feed: encoder inputs, decoder inputs, target_weights, as provided.
         input_feed = {}

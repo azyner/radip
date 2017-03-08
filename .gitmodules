@@ -1,0 +1,3 @@
+[submodule "recurrent-batchnorm-tensorflow"]
+	path = recurrent-batchnorm-tensorflow
+	url = https://github.com/tam17aki/recurrent-batchnorm-tensorflow.git
