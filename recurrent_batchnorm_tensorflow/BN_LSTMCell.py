@@ -57,10 +57,10 @@ def batch_norm(inputs, name_scope, is_training, epsilon=1e-3, decay=0.99):
 
         population_mean = tf.get_variable(
             'population_mean', [size],
-            initializer=tf.zeros_initializer, trainable=False)
+            initializer=tf.zeros_initializer(), trainable=False)
         population_var = tf.get_variable(
             'population_var', [size],
-            initializer=tf.ones_initializer, trainable=False)
+            initializer=tf.ones_initializer(), trainable=False)
         batch_mean, batch_var = tf.nn.moments(inputs, [0])
 
         # The following part is based on the implementation of :
@@ -174,7 +174,7 @@ class BN_LSTMCell(RNNCell):
 
             # i:input gate, j:new input, f:forget gate, o:output gate
             lstm_matrix = tf.nn.bias_add(tf.add(bn_xh, bn_hh), bias)
-            i, j, f, o = tf.split(1, 4, lstm_matrix)
+            i, j, f, o = tf.split(axis=1, num_or_size_splits=4, value=lstm_matrix)
 
             # Diagonal connections
             if self.use_peepholes:
@@ -211,4 +211,4 @@ class BN_LSTMCell(RNNCell):
                 if self.proj_clip is not None:
                     h = tf.clip_by_value(h, -self.proj_clip, self.proj_clip)
 
-            return h, tf.concat(1, [c, h])
+            return h, tf.concat(axis=1, values=[c, h])

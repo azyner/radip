@@ -5,21 +5,21 @@ import numpy as np
 
 def tf_2d_normal(x1, x2, mu1, mu2, s1, s2, rho):
     # eq # 24 and 25 of http://arxiv.org/abs/1308.0850
-    norm1 = tf.sub(x1, mu1)
-    norm2 = tf.sub(x2, mu2)
-    s1s2 = tf.mul(s1, s2)
-    z = tf.square(tf.div(norm1, s1)) + tf.square(tf.div(norm2, s2)) - 2 * tf.div(tf.mul(rho, tf.mul(norm1, norm2)),
+    norm1 = tf.subtract(x1, mu1)
+    norm2 = tf.subtract(x2, mu2)
+    s1s2 = tf.multiply(s1, s2)
+    z = tf.square(tf.div(norm1, s1)) + tf.square(tf.div(norm2, s2)) - 2 * tf.div(tf.multiply(rho, tf.multiply(norm1, norm2)),
                                                                                  s1s2)
     negRho = 1 - tf.square(rho)
     result = tf.exp(tf.div(-z, 2 * negRho))
-    denom = 2 * np.pi * tf.mul(s1s2, tf.sqrt(negRho))
+    denom = 2 * np.pi * tf.multiply(s1s2, tf.sqrt(negRho))
     result = tf.div(result, denom)
     return result
 
 def get_lossfunc(z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr, x1_data, x2_data):
     result0 = tf_2d_normal(x1_data, x2_data, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr)
     # implementing eq # 26 of http://arxiv.org/abs/1308.0850
-    result1 = tf.mul(result0, z_pi)
+    result1 = tf.multiply(result0, z_pi)
     result1 = tf.reduce_sum(result1, 1, keep_dims=True)
     result = -tf.log(tf.maximum(result1, 1e-20))  # at the beginning, some errors are exactly zero.
 
@@ -30,7 +30,7 @@ def lossfunc_wrapper(prediction, ground_truth):
     z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr = get_mixture_coef(prediction)
     #HACK to force NaN's so I can write a catcher
     #z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr = tf.split(1,6,prediction)
-    x1_data, x2_data = tf.split(1,2,ground_truth)
+    x1_data, x2_data = tf.split(axis=1,num_or_size_splits=2,value=ground_truth)
     return get_lossfunc(z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr, x1_data, x2_data)
 
 
@@ -39,15 +39,15 @@ def get_mixture_coef(output):
     # returns the tf slices containing mdn dist params
     # ie, eq 18 -> 23 of http://arxiv.org/abs/1308.0850
     z = output
-    z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr = tf.split(1,6,z)
+    z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr = tf.split(axis=1,num_or_size_splits=6,value=z)
 
     # process output z's into MDN paramters
     # softmax all the pi's:
     max_pi = tf.reduce_max(z_pi, 1, keep_dims=True)
     z_pi = tf.sub(z_pi, max_pi)
     z_pi = tf.exp(z_pi)
-    normalize_pi = tf.inv(tf.reduce_sum(z_pi, 1, keep_dims=True))
-    z_pi = tf.mul(normalize_pi, z_pi)
+    normalize_pi = tf.reciprocal(tf.reduce_sum(z_pi, 1, keep_dims=True))
+    z_pi = tf.multiply(normalize_pi, z_pi)
 
     # exponentiate the sigmas and also make corr between -1 and 1.
     z_sigma1 = tf.exp(z_sigma1)
@@ -92,14 +92,14 @@ def sample(output):
 
         #TODO THURSDAY
         covUL = tf.expand_dims(tf.square(s1),1)
-        covUR = tf.expand_dims(tf.mul(rho,tf.mul(s1,s2)),1)
-        covLL = tf.expand_dims(tf.mul(rho,tf.mul(s1,s2)),1)
+        covUR = tf.expand_dims(tf.multiply(rho,tf.multiply(s1,s2)),1)
+        covLL = tf.expand_dims(tf.multiply(rho,tf.multiply(s1,s2)),1)
         covLR = tf.expand_dims(tf.square(s2),1)
 
         #WRONG this makes size 22, I want 11,2
-        covU = tf.expand_dims(tf.concat(1,[covUL,covUR]),2)
-        covL = tf.expand_dims(tf.concat(1,[covLL,covLR]),2)
-        cov = tf.concat(2,[covU,covL])
+        covU = tf.expand_dims(tf.concat(axis=1,values=[covUL,covUR]),2)
+        covL = tf.expand_dims(tf.concat(axis=1,values=[covLL,covLR]),2)
+        cov = tf.concat(axis=2,values=[covU,covL])
 
         # #tf.random_normal? its not multivariate, but it will have to do.
         # #tf.self_adjoint_eigvals can be used on the cov matrix
@@ -113,14 +113,14 @@ def sample(output):
         batch_size = tf.shape(mu1)
         #batch_size = mu1.get_shape()
         convar = tf.constant([2])
-        random_shape = tf.concat(0,[convar,batch_size])
+        random_shape = tf.concat(axis=0,values=[convar,batch_size])
         #TODO batch?
         z = tf.expand_dims(tf.transpose(tf.random_normal(random_shape)),2)
         #/TODO
-        L = tf.batch_cholesky(cov)
-        mean = tf.concat(1,[tf.expand_dims(mu1,1),
+        L = tf.cholesky(cov)
+        mean = tf.concat(axis=1,values=[tf.expand_dims(mu1,1),
                             tf.expand_dims(mu2,1)])
-        Lz = tf.squeeze(tf.batch_matmul(L,z),[2])
+        Lz = tf.squeeze(tf.matmul(L,z),[2])
         x = tf.add(mean,Lz)
 
 

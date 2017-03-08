@@ -3,7 +3,7 @@ import numpy as np
 import random
 import MDN
 from tensorflow.python.ops import nn_ops
-from TF_mods import basic_rnn_seq2seq_with_loop_function
+#from TF_mods import basic_rnn_seq2seq_with_loop_function
 from tensorflow.python.ops import seq2seq
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import clip_ops
@@ -224,7 +224,7 @@ class Seq2SeqModel(object):
             self.MDN_output = self.LSTM_output
 
         def mse(x, y):
-            return tf.sqrt(tf.reduce_mean(tf.square(tf.sub(y, x))))
+            return tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(y, x))))
 
         # TODO There are several types of cost functions to compare tracks. Implement many
         # Mainly, average MSE over the whole track, or just at a horizon time (t+10 or something)
