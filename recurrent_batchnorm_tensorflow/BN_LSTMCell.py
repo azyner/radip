@@ -30,7 +30,7 @@
 import numpy as np
 import tensorflow as tf
 
-from tensorflow.python.ops.rnn_cell import RNNCell
+from tensorflow.contrib.rnn import RNNCell
 
 
 # Thanks to 'initializers_enhanced.py' of Project RNN Enhancement:

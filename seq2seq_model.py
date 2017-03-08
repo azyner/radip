@@ -4,7 +4,7 @@ import random
 import MDN
 from tensorflow.python.ops import nn_ops
 #from TF_mods import basic_rnn_seq2seq_with_loop_function
-from tensorflow.python.ops import seq2seq
+from tensorflow.contrib.legacy_seq2seq.python.ops import seq2seq
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import clip_ops
 from recurrent_batchnorm_tensorflow.BN_LSTMCell import BN_LSTMCell
@@ -40,7 +40,7 @@ class Seq2SeqModel(object):
         # Also try and fix how the loopback function sample is not being used as the output sample.
 
         #TODO Reorganise code using namespace for better readability
-
+        self.parameters = parameters
         self.max_gradient_norm = parameters['max_gradient_norm']
         self.rnn_size = parameters['rnn_size']
         self.num_layers = parameters['num_layers']
@@ -104,21 +104,21 @@ class Seq2SeqModel(object):
             input_layer = (i_w, i_b)
 
         if parameters['RNN_cell'] == "LSTMCell":
-            single_cell = tf.nn.rnn_cell.DropoutWrapper(
-                            tf.nn.rnn_cell.LSTMCell(self.rnn_size,state_is_tuple=True,
+            single_cell = tf.contrib.rnn.DropoutWrapper(
+                            tf.contrib.rnn.LSTMCell(self.rnn_size,state_is_tuple=True,
                                                     use_peepholes=parameters['peephole_connections'])
                 ,output_keep_prob=keep_prob)
         if parameters['RNN_cell'] == "BN_LSTMCell":
-            single_cell = tf.nn.rnn_cell.DropoutWrapper(
+            single_cell = tf.contrib.rnn.DropoutWrapper(
                             BN_LSTMCell(self.rnn_size,is_training=True,
                                                     use_peepholes=parameters['peephole_connections'])
                 ,output_keep_prob=keep_prob)
         self._RNN_layers = single_cell
         if self.num_layers > 1:
-            self._RNN_layers = tf.nn.rnn_cell.MultiRNNCell([single_cell] * self.num_layers,state_is_tuple=True)
+            self._RNN_layers = tf.contrib.rnn.MultiRNNCell([single_cell] * self.num_layers,state_is_tuple=True)
 
         # Don't double dropout
-        #self._RNN_layers = tf.nn.rnn_cell.DropoutWrapper(self._RNN_layers,output_keep_prob=keep_prob)
+        #self._RNN_layers = tensorflow.contrib.rnn.DropoutWrapper(self._RNN_layers,output_keep_prob=keep_prob)
 
         def output_function(output):
             return nn_ops.xw_plus_b(output, output_projection[0], output_projection[1],name="output_projection")
@@ -239,7 +239,7 @@ class Seq2SeqModel(object):
         if self.model_type == 'classifier':
             embedding_regularizer = tf.reduce_sum(tf.abs(i_w),name="Embedding_L1_reg") # Only regularize embedding layer
             # Don't forget that sequence loss uses sparse targets
-            self.losses = (tf.nn.seq2seq.sequence_loss(self.MDN_output, targets_sparse, self.target_weights)
+            self.losses = (tf.contrib.legacy_seq2seq.sequence_loss(self.MDN_output, targets_sparse, self.target_weights)
                            + parameters['reg_embedding_beta']*embedding_regularizer)
             #TODO I have to take into account padding here
             #squeeze away output to remove a single element list (It would be longer if classifier was allowed 2+ timesteps
