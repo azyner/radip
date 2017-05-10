@@ -17,7 +17,7 @@ class TestBatchHandler(TestCase):
             #This call copied from the dataset paper. It takes considerable time, so ensure it is run once only
             print "reading data"
             raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(parameters.parameters['input_columns'])
-            Wrangler.generate_master_pool(raw_sequences,raw_classes)
+            Wrangler.generate_master_pool_naturalistic_2015(raw_sequences, raw_classes)
 
         Wrangler.split_into_evaluation_pools()
         cf_pool, test_pool = Wrangler.get_pools()

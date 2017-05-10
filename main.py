@@ -46,7 +46,7 @@ Wrangler = SequenceWrangler.SequenceWrangler(parameters,n_folds=parameters.param
 if not Wrangler.load_from_checkpoint():
     print "reading data and splitting into data pool, this will take some time (10? minutes). Grab a coffee"
     raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(parameters.parameters['input_columns'])
-    Wrangler.generate_master_pool(raw_sequences, raw_classes)
+    Wrangler.generate_master_pool_naturalistic_2015(raw_sequences, raw_classes)
 
 Wrangler.split_into_evaluation_pools()
 cf_pool, test_pool = Wrangler.get_pools()
