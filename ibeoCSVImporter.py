@@ -21,16 +21,16 @@ class ibeoCSVImporter:
         # s1 = pd.read_csv('round1.csv')
         # s2 = pd.read_csv('round2.csv')
         # df = pd.read_csv('round3.csv')
-        input_df = pd.read_csv('20170427-stationary-2-leith-croydon.csv')
-        if csv_name == '20170427-stationary-2-leith-croydon.csv':
+        input_df = pd.read_csv(csv_name)
+        if csv_name == 'data/20170427-stationary-2-leith-croydon.csv':
             top_exit = [-33, -30, 3, 4]
             top_enter = [-23, -20, 6, 7]
             right_exit = [-16, -15, -3, 2]
             right_enter = [-16, -15, -12, -8]
             low_exit = [-23, -21, -19, -18]
             low_enter = [-33, -30, -16, -15]
-        self.dest_gates = {"top": top_exit, "right": right_exit, "bottom": low_exit}
-        self.origin_gates = {"top": top_enter, "right": right_enter, "bottom": low_enter}
+        self.dest_gates = {"north": top_exit, "east": right_exit, "south": low_exit}
+        self.origin_gates = {"north": top_enter, "east": right_enter, "south": low_enter}
 
 
         # Clean up the cs and add some labels
@@ -40,8 +40,8 @@ class ibeoCSVImporter:
         input_df.trackedByStationaryModel = (input_df.trackedByStationaryModel == 1)
         input_df.mobile = (input_df.mobile == 1)
         input_df['ObjPrediction'] = (input_df.ObjectPredAge > 0)
-        self._disambiguate_df(input_df)
-        self._label_df()
+        disambiguated_df = self._disambiguate_df(input_df)
+        self._label_df(disambiguated_df)
 
     def _disambiguate_df(self,input_df):
         # ts_diff = np.diff(df[(df.ObjectId == 17) & (df.Classification > 3)].Timestamp)
@@ -93,7 +93,8 @@ class ibeoCSVImporter:
             obj_data.uniqueId = obj_data.uniqueId.astype(int) # Why is this a float64?
             disambiguated_df_list.append(obj_data)
 
-        self.disambiguated_df = pd.concat(disambiguated_df_list)
+        disambiguated_df = pd.concat(disambiguated_df_list)
+        return disambiguated_df
 
 
     ############################################################################
@@ -109,7 +110,7 @@ class ibeoCSVImporter:
     # Boxes will be in metres, in format [X X Y Y]
     # For whatever reason, the forward back measurement seems to be X, and the other Y
 
-    def _label_df(self):
+    def _label_df(self, disambiguated_df):
 
         def in_box(point, extent):
             """Return if a point is within a spatial extent."""
@@ -120,9 +121,9 @@ class ibeoCSVImporter:
 
         clean_tracks = []
 
-        for uID in self.disambiguated_df.uniqueId.unique():
+        for uID in disambiguated_df.uniqueId.unique():
             # obj_data = vehicle_df[vehicle_df.ObjectId==ID]
-            obj_data = self.disambiguated_df.loc[self.disambiguated_df.uniqueId == uID, :]
+            obj_data = disambiguated_df.loc[disambiguated_df.uniqueId == uID, :]
             print("Sorting track: " + str(uID))
             if len(obj_data) < 1:
                 continue

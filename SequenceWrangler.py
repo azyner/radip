@@ -190,65 +190,65 @@ class SequenceWrangler:
 
     def generate_master_pool_ibeo(self, ibeo_df):
 
-        # Convert destination into a list of indicies
-        dest_raw_classes = [label[label.find('-') + 1:] for label in raw_classes]
-        origin = [label[:label.find('-')] for label in raw_classes]
-        des_encoder = preprocessing.LabelEncoder()
-        des_encoder.fit(ibeo_df["destination"])
-        self.des_classes = des_encoder.transform(dest_raw_classes)
-        dest_1hot_enc = preprocessing.OneHotEncoder()
-        dest_1hot_enc.fit(np.array(self.des_classes).reshape(-1,1))
-
-        # Forces continuity b/w crossfold template and test template
-        def _generate_template(track_idx, track_class,origin, destination, destination_vec):
-            return pd.DataFrame({"track_idx": track_idx,
-                                 "track_class": track_class,
-                                 "origin":origin,
-                                 "destination": destination,
-                                 "destination_vec": destination_vec,
-                                 "dest_1_hot":
-                                     pd.Series([dest_1hot_enc.transform(destination_vec).toarray().astype(np.float32)[0]],
-                                               dtype=object)
-                                 }, index=[0])
-
-        """
-        The notionally correct way to validate the algorithm is as follows:
-        --90/10 split for (train/val) and test
-        --Within train/val, do a crossfold search
-        So I'm going to wrap the crossvalidator in another test/train picker, so
-        that both are picked with an even dataset.
-        """
-
-        master_pool = []
-
-        # For all tracks
-        for track_raw_idx in range(len(raw_sequences)):
-            # if track_raw_idx > 10:
-            #    break
-            # Lookup the index in the original collection
-            # Get data
-            # print "Wrangling track: " + str(track_raw_idx)
-            wrangle_time = time.time()
-            single_track = raw_sequences[track_raw_idx]
-            df_template = _generate_template(track_raw_idx, raw_classes[track_raw_idx],
-                                             origin[track_raw_idx],
-                                             dest_raw_classes[track_raw_idx],
-                                             self.des_classes[track_raw_idx])
-            track_pool = self._track_slicer(single_track,
-                                            self.parameters['observation_steps'],
-                                            self.parameters['prediction_steps'],
-                                            df_template,
-                                            20)  # FIXME parameters.bbox)
-
-            master_pool.append(track_pool)
-
-        self.master_pool = pd.concat(master_pool)
-
-        #TODO save master to pickle
-        if not os.path.exists(self.pool_dir):
-            os.makedirs(self.pool_dir)
-        file_path = os.path.join(self.pool_dir, self.get_pool_filename())
-        self.master_pool.to_pickle(file_path)
+        # # Convert destination into a list of indicies
+        # dest_raw_classes = [label[label.find('-') + 1:] for label in raw_classes]
+        # origin = [label[:label.find('-')] for label in raw_classes]
+        # des_encoder = preprocessing.LabelEncoder()
+        # des_encoder.fit(ibeo_df["destination"])
+        # self.des_classes = des_encoder.transform(dest_raw_classes)
+        # dest_1hot_enc = preprocessing.OneHotEncoder()
+        # dest_1hot_enc.fit(np.array(self.des_classes).reshape(-1,1))
+        #
+        # # Forces continuity b/w crossfold template and test template
+        # def _generate_template(track_idx, track_class,origin, destination, destination_vec):
+        #     return pd.DataFrame({"track_idx": track_idx,
+        #                          "track_class": track_class,
+        #                          "origin":origin,
+        #                          "destination": destination,
+        #                          "destination_vec": destination_vec,
+        #                          "dest_1_hot":
+        #                              pd.Series([dest_1hot_enc.transform(destination_vec).toarray().astype(np.float32)[0]],
+        #                                        dtype=object)
+        #                          }, index=[0])
+        #
+        # """
+        # The notionally correct way to validate the algorithm is as follows:
+        # --90/10 split for (train/val) and test
+        # --Within train/val, do a crossfold search
+        # So I'm going to wrap the crossvalidator in another test/train picker, so
+        # that both are picked with an even dataset.
+        # """
+        #
+        # master_pool = []
+        #
+        # # For all tracks
+        # for track_raw_idx in range(len(raw_sequences)):
+        #     # if track_raw_idx > 10:
+        #     #    break
+        #     # Lookup the index in the original collection
+        #     # Get data
+        #     # print "Wrangling track: " + str(track_raw_idx)
+        #     wrangle_time = time.time()
+        #     single_track = raw_sequences[track_raw_idx]
+        #     df_template = _generate_template(track_raw_idx, raw_classes[track_raw_idx],
+        #                                      origin[track_raw_idx],
+        #                                      dest_raw_classes[track_raw_idx],
+        #                                      self.des_classes[track_raw_idx])
+        #     track_pool = self._track_slicer(single_track,
+        #                                     self.parameters['observation_steps'],
+        #                                     self.parameters['prediction_steps'],
+        #                                     df_template,
+        #                                     20)  # FIXME parameters.bbox)
+        #
+        #     master_pool.append(track_pool)
+        #
+        # self.master_pool = pd.concat(master_pool)
+        #
+        # #TODO save master to pickle
+        # if not os.path.exists(self.pool_dir):
+        #     os.makedirs(self.pool_dir)
+        # file_path = os.path.join(self.pool_dir, self.get_pool_filename())
+        # self.master_pool.to_pickle(file_path)
 
         return
 
