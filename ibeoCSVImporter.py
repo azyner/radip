@@ -11,16 +11,6 @@ from bokeh.io import output_notebook
 
 class ibeoCSVImporter:
     def __init__(self, parameters, csv_name):
-        # df = pd.read_csv('long.csv')
-        # sf = pd.read_csv('short.csv')
-        # d1 = pd.read_csv('test1.csv')
-        # d2 = pd.read_csv('test2.csv')
-        # d3 = pd.read_csv('test3.csv') #This is the one I have notes for
-        # d4 = pd.read_csv('test4.csv') #Driving Home
-
-        # s1 = pd.read_csv('round1.csv')
-        # s2 = pd.read_csv('round2.csv')
-        # df = pd.read_csv('round3.csv')
         input_df = pd.read_csv(csv_name)
         if csv_name == 'data/20170427-stationary-2-leith-croydon.csv':
             top_exit = [-33, -30, 3, 4]
@@ -29,25 +19,42 @@ class ibeoCSVImporter:
             right_enter = [-16, -15, -12, -8]
             low_exit = [-23, -21, -19, -18]
             low_enter = [-33, -30, -16, -15]
+            intersection_centre = [-25.8, -5]
+            intersection_rotation = 0
         self.dest_gates = {"north": top_exit, "east": right_exit, "south": low_exit}
         self.origin_gates = {"north": top_enter, "east": right_enter, "south": low_enter}
 
+        parsed_df = self._parse_ibeo_df(input_df)
+        disambiguated_df = self._disambiguate_df(parsed_df)
+        self._label_df(disambiguated_df)
+        self._calculate_intersection_distance()
+
+    def _in_box(self, point, extent):
+        """Return if a point is within a spatial extent."""
+        return ((point[0] >= extent[0]) and
+                (point[0] <= extent[1]) and
+                (point[1] >= extent[2]) and
+                (point[1] <= extent[3]))
+
+    def _parse_ibeo_df(self, input_df):
+        """ This function is used to clean up some of the many parameters inside the dataframe."""
 
         # Clean up the cs and add some labels
         input_df.Timestamp = input_df.Timestamp - input_df.iloc[0].Timestamp
-
         # motionModelValidated is always true
         input_df.trackedByStationaryModel = (input_df.trackedByStationaryModel == 1)
         input_df.mobile = (input_df.mobile == 1)
         input_df['ObjPrediction'] = (input_df.ObjectPredAge > 0)
-        disambiguated_df = self._disambiguate_df(input_df)
-        self._label_df(disambiguated_df)
+
+        # Here I can inject some more robust object tracking methods. I am just using object centre for now, which can
+        # be noisy as the estimate of the object size changes significantly
+
+        input_df["Object_X"] = input_df["ObjBoxCenter_X"]
+        input_df["Object_Y"] = input_df["ObjBoxCenter_Y"]
+
+        return input_df
 
     def _disambiguate_df(self,input_df):
-        # ts_diff = np.diff(df[(df.ObjectId == 17) & (df.Classification > 3)].Timestamp)
-        # print max(ts_diff)
-        # print min(ts_diff)
-        # print np.average(ts_diff)
 
         object_id_list = input_df.ObjectId.unique()
         # Classes 4 and 5 are car, truck (maybe in that order)
@@ -110,14 +117,10 @@ class ibeoCSVImporter:
     # Boxes will be in metres, in format [X X Y Y]
     # For whatever reason, the forward back measurement seems to be X, and the other Y
 
-    def _label_df(self, disambiguated_df):
+    # This code differs to the RAV4 dataset as I do not want to trim the tracks based on the intersection box.
+    # Instead, I only want to label them according to the gates, and calculate the distance from these gates.
 
-        def in_box(point, extent):
-            """Return if a point is within a spatial extent."""
-            return ((point[0] >= extent[0]) and
-                    (point[0] <= extent[1]) and
-                    (point[1] >= extent[2]) and
-                    (point[1] <= extent[3]))
+    def _label_df(self, disambiguated_df):
 
         clean_tracks = []
 
@@ -129,24 +132,24 @@ class ibeoCSVImporter:
                 continue
 
             # I do want to be copying out my slice and adding them individually to a new collection, as this reduces size
-            obj_data = obj_data.sort_values(['Timestamp'], ascending=True)
+            obj_data = obj_data.sort_values(['Timestamp'], ascending=True).reset_index()
 
             intersection_flag = False
             origin_label = None
             dest_label = None
             for time_idx in range(0, len(obj_data)):
                 data = obj_data.iloc[time_idx]
-                o_X = data["ObjBoxCente_X"]
-                o_Y = data["ObjBoxCenter_Y"]
+                o_X = data["Object_X"]
+                o_Y = data["Object_Y"]
                 if intersection_flag == False:
                     for label, gate in self.origin_gates.iteritems():
-                        if in_box([o_X, o_Y], gate):
+                        if self._in_box([o_X, o_Y], gate):
                             origin_label = label
                             intersection_flag = True
 
                 else:
                     for label, gate in self.dest_gates.iteritems():
-                        if in_box([o_X, o_Y], gate):
+                        if self._in_box([o_X, o_Y], gate):
                             dest_label = label
 
                 if origin_label is not None and dest_label is not None:
@@ -154,18 +157,52 @@ class ibeoCSVImporter:
                     break
 
             if origin_label is None or dest_label is None:
-                # If we never categorized this track, its garbage
+                # If we never categorized this track, its garbage, skip this and check next track
                 continue
-
             obj_data["origin"] = [origin_label] * len(obj_data)
             obj_data["destination"] = [dest_label] * len(obj_data)
-
             print("ID: " + str(uID) + " Origin: " + origin_label + " Destination: " + dest_label)
             clean_tracks.append(obj_data)
 
         print("Number of tracks in collection: " + str(len(clean_tracks)))
 
-        self.labelled_df = pd.concat(clean_tracks)
+        self.labelled_track_list = clean_tracks
+
+    def _calculate_intersection_distance(self):
+        for track_idx in range(len(self.labelled_track_list)):
+            single_track = self.labelled_track_list[track_idx]
+
+            # At this point the tracks are ordered, so I should find the index where the object leaves its already
+            # designated origin box.
+            ref_step = 0
+            print("Calculating distance metric for track: " + str(track_idx))
+            d = np.sqrt((single_track.loc[1:, "Object_X"].values -
+                         single_track.loc[0:len(single_track)-2, "Object_X"].values) ** 2  # [0:len-2] is equiv. to [0:-1].
+                        +
+                        (single_track.loc[1:, "Object_Y"].values -
+                         single_track.loc[0:len(single_track)-2, "Object_Y"].values) ** 2)
+            #d = np.sqrt((single_track[1:, 0] - single_track[0:-1, 0]) ** 2 +
+            #            (single_track[1:, 1] - single_track[0:-1, 1]) ** 2)
+            d = np.cumsum(np.append(0.0, d))
+
+            # Find the last point in which the car is still in the origin box.
+            ref_step = 0
+            for step in range(len(single_track)):
+                for label, gate in self.origin_gates.iteritems():
+                    if self._in_box([single_track.iloc[step]["Object_X"],
+                                     single_track.iloc[step]["Object_Y"]], gate):
+                        ref_step = step
+
+
+            #for i in range(len(single_track)):
+            #    if is_inside_box(single_track[i], ref_line_dis):
+            #        ref_step = i
+            #        break
+            d -= d[ref_step]
+            single_track["distance"] = d
+            temp = 1
+
+
 
         # Traversals:
         # iloc[]

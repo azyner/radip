@@ -47,8 +47,8 @@ print "wrangling tracks"
 ### TEST CODE ###
 ibeoCSV = ibeoCSVImporter.ibeoCSVImporter(parameters,'data/20170427-stationary-2-leith-croydon.csv')
 
-
 ### / TEST CODE ###
+
 Wrangler = SequenceWrangler.SequenceWrangler(parameters,n_folds=parameters.parameters['n_folds'])
 if not Wrangler.load_from_checkpoint():
     print "reading data and splitting into data pool, this will take some time (10? minutes). Grab a coffee"
