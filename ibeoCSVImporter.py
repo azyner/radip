@@ -28,6 +28,23 @@ class ibeoCSVImporter:
         disambiguated_df = self._disambiguate_df(parsed_df)
         self._label_df(disambiguated_df)
         self._calculate_intersection_distance()
+        self._print_collection_summary()
+
+    def _print_collection_summary(self):
+        # Here I want to print a origin/destination matrix
+        # Preferably with summary margins
+        key_list = [key for key,value in self.dest_gates.iteritems()]
+
+        summary_df = pd.DataFrame(np.zeros([len(key_list), len(key_list)]),columns=key_list,index=key_list)
+        for single_track in self.labelled_track_list:
+            summary_df.loc[single_track.iloc[0]["origin"],single_track.iloc[0]["destination"]] += 1
+        summary_df["total"] = summary_df.sum(1)
+        summary_df= summary_df.append(pd.Series(summary_df.sum(0), name="total"))
+
+        print "origin | destination"
+        print summary_df
+        print "Stuff"
+
 
     def _in_box(self, point, extent):
         """Return if a point is within a spatial extent."""
