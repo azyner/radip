@@ -54,7 +54,12 @@ class BatchHandler:
             pool = self.data_pool[self.data_pool['track_idx']==track_idx]
             tp = pool[pool['distance']<d_thresh] # thresholded pool - everything that came before d_thresh
             # Sort by distance, pick closest
-            record = tp.sort_values('distance',ascending=False).iloc[range(self.parameters['d_thresh_top_n'])] #
+            try:
+                record = tp.sort_values('distance',ascending=False).iloc[range(self.parameters['d_thresh_top_n'])] #
+            except IndexError:
+                # TODO Change p_dis range values.
+                continue
+
             # Double list as it will return a Series of type object otherwise, ruining all labels, breaking the data
             # structure, and wasting an afternoon of my life.
 
