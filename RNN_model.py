@@ -14,6 +14,8 @@ from TF_mods import basic_rnn_seq2seq_with_loop_function
 # The model should not be aware of the Ground Truth labels, so it should not do any loss computing, accuracy etc.
 # That's the NetworkManager's job
 
+#DEPRECATED
+
 class RNN_model:
     def __init__(self, batch_size, num_classes, summary_writer=None):
 
