@@ -103,19 +103,23 @@ class Seq2SeqModel(object):
                                   initializer=tf.constant_initializer(0.1))
             input_layer = (i_w, i_b)
 
-        if parameters['RNN_cell'] == "LSTMCell":
-            single_cell = tf.contrib.rnn.DropoutWrapper(
-                            tf.contrib.rnn.LSTMCell(self.rnn_size,state_is_tuple=True,
-                                                    use_peepholes=parameters['peephole_connections'])
-                ,output_keep_prob=keep_prob)
-        if parameters['RNN_cell'] == "BN_LSTMCell":
-            single_cell = tf.contrib.rnn.DropoutWrapper(
-                            BN_LSTMCell(self.rnn_size,is_training=True,
-                                                    use_peepholes=parameters['peephole_connections'])
-                ,output_keep_prob=keep_prob)
-        self._RNN_layers = single_cell
+        def _generate_rnn_layer():
+            if parameters['RNN_cell'] == "LSTMCell":
+                return tf.contrib.rnn.DropoutWrapper(
+                                tf.contrib.rnn.LSTMCell(self.rnn_size,state_is_tuple=True,
+                                                        use_peepholes=parameters['peephole_connections'])
+                                ,output_keep_prob=keep_prob)
+            if parameters['RNN_cell'] == "BN_LSTMCell":
+                return tf.contrib.rnn.DropoutWrapper(
+                                BN_LSTMCell(self.rnn_size,is_training=True,
+                                                        use_peepholes=parameters['peephole_connections'])
+                                ,output_keep_prob=keep_prob)
+
+
         if self.num_layers > 1:
-            self._RNN_layers = tf.contrib.rnn.MultiRNNCell([single_cell] * self.num_layers,state_is_tuple=True)
+            self._RNN_layers = tf.contrib.rnn.MultiRNNCell([_generate_rnn_layer() for _ in range(self.num_layers)],state_is_tuple=True)
+        else:
+            self._RNN_layers = _generate_rnn_layer()
 
         # Don't double dropout
         #self._RNN_layers = tensorflow.contrib.rnn.DropoutWrapper(self._RNN_layers,output_keep_prob=keep_prob)
