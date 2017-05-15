@@ -47,9 +47,11 @@ print "wrangling tracks"
 ### TEST CODE ###
 ibeoCSV = ibeoCSVImporter.ibeoCSVImporter(parameters,'data/20170427-stationary-2-leith-croydon.csv')
 
+
 ### / TEST CODE ###
 
 Wrangler = SequenceWrangler.SequenceWrangler(parameters,n_folds=parameters.parameters['n_folds'])
+Wrangler.generate_master_pool_ibeo(ibeoCSV.get_track_list())
 if not Wrangler.load_from_checkpoint():
     print "reading data and splitting into data pool, this will take some time (10? minutes). Grab a coffee"
     raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(parameters.parameters['input_columns'])

@@ -30,6 +30,9 @@ class ibeoCSVImporter:
         self._calculate_intersection_distance()
         self._print_collection_summary()
 
+    def get_track_list(self):
+        return self.labelled_track_list
+
     def _print_collection_summary(self):
         # Here I want to print a origin/destination matrix
         # Preferably with summary margins
@@ -44,6 +47,7 @@ class ibeoCSVImporter:
         print "origin | destination"
         print summary_df
         print "Stuff"
+        #TODO Write function that strips out any classes of length 1 as they break the stratitifer. Eg. rare u-turns.
 
 
     def _in_box(self, point, extent):
@@ -68,6 +72,7 @@ class ibeoCSVImporter:
 
         input_df["Object_X"] = input_df["ObjBoxCenter_X"]
         input_df["Object_Y"] = input_df["ObjBoxCenter_Y"]
+        #TODO Resolve AbsVelocity X/Y into one magnitude scalar
 
         return input_df
 
@@ -167,6 +172,10 @@ class ibeoCSVImporter:
                 else:
                     for label, gate in self.dest_gates.iteritems():
                         if self._in_box([o_X, o_Y], gate):
+                            if label == origin_label:
+                                #Skip U turns. HACK This is because in the first dataset, we have only 1 u-turn.
+                                # This breaks the stratifier.
+                                continue
                             dest_label = label
 
                 if origin_label is not None and dest_label is not None:

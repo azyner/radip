@@ -24,10 +24,18 @@ class SequenceWrangler:
         return
 
     def get_pool_filename(self):
-        filename = "pool_ckpt_" +\
-                    "obs-" + str(self.parameters["observation_steps"]) + \
-                    "_pred-" + str(self.parameters["prediction_steps"]) + \
-                   ".pkl"
+        ibeo = True
+        if ibeo:
+            filename = "pool_ckpt_ibeo_" + \
+                       ''.join([x[0] + x[-1] + '-' for x in self.parameters['ibeo_data_columns']]) + \
+                       "obs-" + str(self.parameters["observation_steps"]) + \
+                       "_pred-" + str(self.parameters["prediction_steps"]) + \
+                       ".pkl"
+        else:
+            filename = "pool_ckpt_" +\
+                        "obs-" + str(self.parameters["observation_steps"]) + \
+                        "_pred-" + str(self.parameters["prediction_steps"]) + \
+                       ".pkl"
 
         return filename
 
@@ -64,7 +72,7 @@ class SequenceWrangler:
         st_encoder.fit(raw_classes)
         origin_destination_enc_classes = st_encoder.transform(raw_classes)
 
-        trainval_idxs, test_idxs = train_test_split(raw_indicies,
+        trainval_idxs, test_idxs = train_test_split(raw_indicies, # BREAK HERE
                                                     test_size=self.test_split,
                                                     stratify=origin_destination_enc_classes)
 
@@ -187,27 +195,60 @@ class SequenceWrangler:
 
         return
 
+    def _extract_ibeo_data_for_encoders(self,single_track):
+        # Code that transforms the big dataframe into the input data list style for encoder/decoder
+        # DOES NOT DO TRACK SPLITTING. Len output shoulbe be equal to len input
 
+
+        ''''level_0', u'index', u'ObjectId', u'Flags',
+        u'trackedByStationaryModel', u'mobile', u'motionModelValidated',
+        u'ObjectAge', u'Timestamp', u'ObjectPredAge', u'Classification',
+        u'ClassCertainty', u'ClassAge', u'ObjBoxCenter_X', u'ObjBoxCenter_Y',
+        u'ObjBoxCenterSigma_X', u'ObjBoxCenterSigma_Y', u'ObjBoxSize_X',
+        u'ObjBoxSize_Y', u'ObjCourseAngle', u'ObjCourseAngleSigma',
+        u'ObjBoxOrientation', u'ObjBoxOrientationSigma', u'RelVelocity_X',
+        u'RelVelocity_Y', u'RelVelocitySigma_X', u'RelVelocitySigma_Y',
+        u'AbsVelocity_X', u'AbsVelocity_Y', u'AbsVelocitySigma_X',
+        u'AbsVelocitySigma_Y', u'RefPointLocation', u'RefPointCoords_X',
+        u'RefPointCoords_Y', u'RefPointCoordsSigma_X', u'RefPointCoordsSigma_Y',
+        u'RefPointPosCorrCoeffs', u'ObjPriority', u'ObjExtMeasurement',
+        u'EgoLatitude', u'EgoLongitude', u'EgoAltitude', u'EgoHeadingRad',
+        u'EgoPosTimestamp', u'GPSFixStatus', u'ObjPrediction', u'Object_X',
+        u'Object_Y', u'uniqueId', u'origin', u'destination', u'distance'],
+        dtype = 'object')
+        '''
+
+        ibeo_data_columns = ["Object_X","Object_Y","ObjBoxOrientation","AbsVelocity_X","AbsVelocity_Y","ObjectPredAge"]
+
+        output_df = single_track.loc[:,self.parameters["ibeo_data_columns"]].values.astype(np.float32)
+        return output_df
     def generate_master_pool_ibeo(self, ibeo_track_list):
 
+        # get the unique list of origins and destinations:
+        # Add all the first rows of each track
+        labelling_list = [track.iloc[0] for track in ibeo_track_list]
+        labelling_df = pd.concat(labelling_list)
+        destinations = labelling_df["destination"].unique()
+        origins = labelling_df["origin"].unique()
+
+
         # Convert destination into a list of indicies
-        dest_raw_classes = [label[label.find('-') + 1:] for label in raw_classes]
-        origin = [label[:label.find('-')] for label in raw_classes]
         des_encoder = preprocessing.LabelEncoder()
-        des_encoder.fit(ibeo_df["destination"])
-        self.des_classes = des_encoder.transform(dest_raw_classes)
+        des_encoder.fit(destinations)
+
         dest_1hot_enc = preprocessing.OneHotEncoder()
-        dest_1hot_enc.fit(np.array(self.des_classes).reshape(-1,1))
+        dest_1hot_enc.fit(des_encoder.transform(destinations).reshape(-1, 1))
 
         # Forces continuity b/w crossfold template and test template
-        def _generate_template(track_idx, track_class,origin, destination, destination_vec):
+        def _generate_ibeo_template(track_idx, track_class, origin, destination, destination_vec):
             return pd.DataFrame({"track_idx": track_idx,
                                  "track_class": track_class,
-                                 "origin":origin,
+                                 "origin": origin,
                                  "destination": destination,
                                  "destination_vec": destination_vec,
                                  "dest_1_hot":
-                                     pd.Series([dest_1hot_enc.transform(destination_vec).toarray().astype(np.float32)[0]],
+                                     pd.Series([dest_1hot_enc.transform(destination_vec.reshape(-1, 1)
+                                                                        ).astype(np.float32).toarray()[0]],
                                                dtype=object)
                                  }, index=[0])
 
@@ -222,23 +263,26 @@ class SequenceWrangler:
         master_pool = []
 
         # For all tracks
-        for track_raw_idx in range(len(raw_sequences)):
-            # if track_raw_idx > 10:
-            #    break
+        for track_raw_idx in range(len(ibeo_track_list)):
             # Lookup the index in the original collection
             # Get data
-            # print "Wrangling track: " + str(track_raw_idx)
+            print "Wrangling track: " + str(track_raw_idx) + " of: " + str(len(ibeo_track_list))
+            single_track = ibeo_track_list[track_raw_idx]
+            origin = single_track.iloc[0]['origin']
+            destination = single_track.iloc[0]['destination']
+            destination_vec = des_encoder.transform([destination])
+            data_for_encoders = self._extract_ibeo_data_for_encoders(single_track)
+
             wrangle_time = time.time()
-            single_track = raw_sequences[track_raw_idx]
-            df_template = _generate_template(track_raw_idx, raw_classes[track_raw_idx],
-                                             origin[track_raw_idx],
-                                             dest_raw_classes[track_raw_idx],
-                                             self.des_classes[track_raw_idx])
-            track_pool = self._track_slicer(single_track,
+
+            df_template = _generate_ibeo_template(track_raw_idx, origin + "-" + destination, origin, destination,
+                                                  destination_vec)
+            # Instead, I am going to give the new track slicer a list for distance, as I have pre-computed it.
+            track_pool = self._track_slicer(data_for_encoders,
                                             self.parameters['observation_steps'],
                                             self.parameters['prediction_steps'],
                                             df_template,
-                                            20)  # FIXME parameters.bbox)
+                                            single_track['distance'])  # FIXME parameters.bbox)
 
             master_pool.append(track_pool)
 
@@ -338,7 +382,11 @@ class SequenceWrangler:
             raise ValueError("length of track is shorter than encoder_steps and decoder_steps.")
 
         if bbox is not None:
-            dis = self._dis_from_ref_line(track,bbox)
+            if len(bbox) == 1:
+                dis = self._dis_from_ref_line(track, bbox)
+            # I probably should rename bbox now. For ibeo, I pre-compute this distance, and so I pass it as an array
+            if len(bbox) == len(track):
+                dis = bbox
 
         sample_collection = []
         for i in range(len(track) - (encoder_steps+decoder_steps)+1):
@@ -354,7 +402,7 @@ class SequenceWrangler:
         return pd.concat(sample_collection)
 
     # unused?
-    def split_sequence_collection(self,collection,encoder_steps,decoder_steps,labels):
+    def split_sequence_collection(self, collection, encoder_steps, decoder_steps, labels):
 
         def loop_through_collection(coll, encoder_steps, decoder_steps, labels):
             x_list = []
