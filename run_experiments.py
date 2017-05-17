@@ -31,7 +31,7 @@ if not args.tensorboard:
     print "Spawning trainers"
     for i in range(N):
         subprocess.Popen(["/usr/bin/python2","main.py"])
-        time.sleep(2)
+        time.sleep(4)
         print ["/usr/bin/python2","main.py"]
 
     # Wait 10 seconds - count them off
