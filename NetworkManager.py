@@ -137,14 +137,14 @@ class NetworkManager:
             plt_path = os.path.join(self.plot_directory, self.log_file_name + '.html')
             output_file(plt_path)
             for origin in plot_titles:
-
-                if os.path.exists("QDA/" + origin + ".npy"):
-                    QDA_data = np.load("QDA/" + origin + ".npy")
-                QDA_mean = QDA_data[0] / 100
-                QDA_meanpstd = QDA_data[1] / 100
-                QDA_meanmstd = QDA_data[2] / 100
-                QDA_range = np.array(range(len(QDA_mean)))
-                QDA_range -= 40
+                if self.parameters['data_format'] == 'legacy':
+                    if os.path.exists("QDA/" + origin + ".npy"):
+                        QDA_data = np.load("QDA/" + origin + ".npy")
+                    QDA_mean = QDA_data[0] / 100
+                    QDA_meanpstd = QDA_data[1] / 100
+                    QDA_meanmstd = QDA_data[2] / 100
+                    QDA_range = np.array(range(len(QDA_mean)))
+                    QDA_range -= 40
 
                 plt_title = 'Accuracy as measured relative to 20m mark. Averaged over all tracks'
                 # plot 1
@@ -163,7 +163,8 @@ class NetworkManager:
                 p1 = figure(title='Origin: ' + origin, x_axis_label='Dis from Ref Line (m)', y_axis_label='Acc.',
                             plot_width=400, plot_height=400)  # ~half a 1080p screen
                 p1.line(x_data, y_data, legend="Acc. RNN", line_width=2, color='green')
-                p1.line(QDA_range, QDA_mean, legend="Acc. QDA", line_width=2, color='red', line_alpha=1)
+                if self.parameters['data_format'] == 'legacy':
+                    p1.line(QDA_range, QDA_mean, legend="Acc. QDA", line_width=2, color='red', line_alpha=1)
                 # p1.line(QDA_range, QDA_meanmstd, line_width=2, color='red', line_alpha=0.5)
                 # p1.line(QDA_range, QDA_meanpstd, line_width=2, color='red', line_alpha=0.5)
                 # p1.line(bbox_range, loss, legend="Loss.", line_width=2, color='blue')
@@ -198,13 +199,14 @@ class NetworkManager:
 
         plot_titles = graph_results['destination'].unique()
         for origin in plot_titles:
-            if os.path.exists("QDA/" + origin + ".npy"):
-                QDA_data = np.load("QDA/" + origin + ".npy")
-            QDA_mean = QDA_data[0] / 100
-            QDA_meanpstd = QDA_data[1] / 100
-            QDA_meanmstd = QDA_data[2] / 100
-            QDA_range = np.array(range(len(QDA_mean)))
-            QDA_range -= 40
+            if self.parameters['data_format'] == 'legacy':
+                if os.path.exists("QDA/" + origin + ".npy"):
+                    QDA_data = np.load("QDA/" + origin + ".npy")
+                QDA_mean = QDA_data[0] / 100
+                QDA_meanpstd = QDA_data[1] / 100
+                QDA_meanmstd = QDA_data[2] / 100
+                QDA_range = np.array(range(len(QDA_mean)))
+                QDA_range -= 40
             dataset = graph_results[graph_results['origin'] == origin]
             x_data = []
             y_data = []
@@ -221,8 +223,9 @@ class NetworkManager:
             fig = plt.figure(figsize=self.plt_size)
             plt.plot(x_data, y_data,'g-',label=origin)
             legend_str.append(['Acc. RNN'])
-            plt.plot(QDA_range, QDA_mean,'r-')
-            legend_str.append(['Acc. QDA'])
+            if self.parameters['data_format'] == 'legacy':
+                plt.plot(QDA_range, QDA_mean,'r-')
+                legend_str.append(['Acc. QDA'])
             plt.legend(legend_str, loc='upper left')
             plt.title('Origin: ' + origin)
             plt.xlabel('Distance from Ref Line (m)')
@@ -313,7 +316,7 @@ class NetworkManager:
                 perfect_dist_threshold = perfect_dist[i]
                 d_array.append(np.min(perfect_dist_threshold))
 
-        return d_array
+        return d_array, results['origin'].unique()
 
     # Function that passes the entire validation dataset through the network once and only once.
     # Return cumulative accuracy, loss
