@@ -65,10 +65,11 @@ class TrainingManager:
                 if not self.parameter_dict['debug']:
                     # Compute Distance Metric
                     dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
-                    metric_results = netManager.evaluate_metric(dist_results)
-                    metric_string = ""
-                    for value in metric_results:
-                        metric_string += " %0.1f" % value
+                    metric_results, metric_labels = netManager.evaluate_metric(dist_results)
+                    metric_string = " "
+                    for metric_idx in range(len(metric_results)):
+                        metric_string += metric_labels[metric_idx][0]
+                        metric_string += "%0.1f " % metric_results[metric_idx]
                 else:
                     metric_string = " debug"
 
