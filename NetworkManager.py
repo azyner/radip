@@ -249,6 +249,7 @@ class NetworkManager:
 
     # This function needs the validation batch (or test batch)
     def compute_result_per_dis(self, batch_handler, plot=True):
+        # Legacy plot needs exactly one data point per meter.
         if plot:
             bbox_range_plot = np.arange(-35,60,1).tolist()
         else:
@@ -271,12 +272,37 @@ class NetworkManager:
                                                                 mini_batch_frame['dest_1_hot'],
                                                                 mini_batch_frame['padding'])
                         valid_data = np.logical_not(mini_batch_frame['padding'].values)
-                        acc, loss, outputs = self.model.step(self.sess, val_x, val_y,
-                                                             val_weights, False, summary_writer=None)
-                        output_idxs = np.argmax(outputs[0][valid_data], axis=1)
 
+                        #TODO Param this:
+                        output_samples = []
+                        num_samples = 1000
+                        for _ in range(num_samples):
+                            acc, loss, outputs = self.model.step(self.sess, val_x, val_y,
+                                                                 val_weights, False, summary_writer=None)
+                            # Do a straight comparison between val_y and outputs.
+                            #output_idxs = np.argmax(outputs[0][valid_data], axis=1)
+                            output_samples.append(outputs)
+
+                        #Get a population count of what the network thinks.
+                        output_samples_arr = np.array(output_samples).squeeze()
+                        output_1_hot = np.eye(output_samples_arr.shape[2])[np.argmax(output_samples_arr, axis=2)]
+                        output_pop = np.sum(output_1_hot,axis=0)
+
+                        #Get a percentage of population in the correct class.
+                        y_idxs = np.argmax(val_y,axis=2).squeeze()
+                        acc_pop = output_pop[0][y_idxs]/num_samples
+
+                        # Drop all results that are just padding to make the minibatch square.
+                        output_pop = output_pop[valid_data]
+                        acc_pop = acc_pop[valid_data]
                         mini_batch_frame = mini_batch_frame[mini_batch_frame['padding'] == False]
+
+                        # TODO Repeal and replace this qualifier.
+                        # Compute max pop. Assign it to idx for now. LEGACY FUNCTION
+                        output_idxs = np.argmax(output_pop,axis=1)
                         mini_batch_frame = mini_batch_frame.assign(output_idxs=output_idxs)
+                        mini_batch_frame = mini_batch_frame.assign(acc_pop=acc_pop)
+                        mini_batch_frame = mini_batch_frame.assign(output_pop=[pd.Series([x],dtype=object) for x in output_pop])
                         mini_batch_frame = mini_batch_frame.assign(d_thresh=np.repeat(d,len(mini_batch_frame)))
 
                         graph_results.append(mini_batch_frame)
