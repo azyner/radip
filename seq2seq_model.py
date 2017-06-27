@@ -221,37 +221,43 @@ class Seq2SeqModel(object):
         # Because MDN.sample() is a random function, this sample is not the
         # sample being used in the loopback function.
         if output_projection is not None:
-            self.MDN_output = [output_function(output) for output in self.LSTM_output]
+            self.model_output = [output_function(output) for output in self.LSTM_output]
             if self.model_type == 'MDN':
-                self.MDN_sample = [MDN.sample(x) for x in self.MDN_output]
+                self.MDN_sample = [MDN.sample(x) for x in self.model_output]
         else:
-            self.MDN_output = self.LSTM_output
+            self.model_output = self.LSTM_output
 
         def mse(x, y):
             return tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(y, x))))
 
+
+########### EVALUATOR / LOSS SECTION ###################
         # TODO There are several types of cost functions to compare tracks. Implement many
         # Mainly, average MSE over the whole track, or just at a horizon time (t+10 or something)
         # There's this corner alg that Social LSTM refernces, but I haven't looked into it.
         # NOTE - there is a good cost function for the MDN (MLE), this is different to the track accuracy metric (above)
         if self.model_type == 'MDN':
-            self.losses = tf.nn.seq2seq.sequence_loss(self.MDN_output,targets, self.target_weights,
-                                                  #softmax_loss_function=lambda x, y: mse(x,y))
+            self.losses = tf.nn.seq2seq.sequence_loss(self.model_output, targets, self.target_weights,
+                                                      #softmax_loss_function=lambda x, y: mse(x,y))
                                                   softmax_loss_function=MDN.lossfunc_wrapper)
             self.losses = self.losses / self.batch_size
             self.accuracy = self.losses #TODO placeholder, use MSE or something visually intuitive
         if self.model_type == 'classifier':
             embedding_regularizer = tf.reduce_sum(tf.abs(i_w),name="Embedding_L1_reg") # Only regularize embedding layer
             # Don't forget that sequence loss uses sparse targets
-            self.losses = (tf.contrib.legacy_seq2seq.sequence_loss(self.MDN_output, targets_sparse, self.target_weights)
+
+            self.losses = (tf.contrib.legacy_seq2seq.sequence_loss(self.model_output, targets_sparse, self.target_weights)
                            + parameters['reg_embedding_beta']*embedding_regularizer)
+
             #TODO I have to take into account padding here
+
             #squeeze away output to remove a single element list (It would be longer if classifier was allowed 2+ timesteps
-            correct_prediction = tf.equal(tf.argmax(tf.squeeze(self.MDN_output), 1), targets_sparse,
+            correct_prediction = tf.equal(tf.argmax(tf.squeeze(self.model_output), 1), targets_sparse,
                                           name="Correct_prediction")
             self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32),name="Accuracy")
 
 
+############# OPTIMIZER SECTION ########################
         # Gradients and SGD update operation for training the model.
         tvars = tf.trainable_variables()
         #if train:
@@ -270,6 +276,7 @@ class Seq2SeqModel(object):
         self.updates.append(opt.apply_gradients(
             gradients, global_step=self.global_step))
 
+############# LOGGING SECTION ###########################
         for gradient, variable in gradients:  #plot the gradient of each trainable variable
             if variable.name.find("seq_rnn/combined_tied_rnn_seq2seq/tied_rnn_seq2seq/MultiRNNCell") == 0:
                 var_log_name = variable.name[64:] #Make the thing readable in Tensorboard
@@ -343,7 +350,7 @@ class Seq2SeqModel(object):
                 for l in xrange(self.prediction_steps):  # Output logits.
                     output_feed.append(self.MDN_sample[l])
             if self.model_type == 'classifier':
-                output_feed.append(self.MDN_output[0])
+                output_feed.append(self.model_output[0])
 
         outputs = session.run(output_feed, input_feed)
         if summary_writer is not None:
