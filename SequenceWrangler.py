@@ -21,15 +21,18 @@ class SequenceWrangler:
         self.val_split = val
         self.test_split = test
         self.pool_dir = 'data_pool'
+        self.sourcename = ''
         return
 
-    def get_pool_filename(self):
+    def get_pool_filename(self,sourcename=''):
         ibeo = True
+        self.sourcename = sourcename
         if ibeo:
             filename = "pool_ckpt_ibeo_" + \
                        ''.join([x[0] + x[-1] + '-' for x in self.parameters['ibeo_data_columns']]) + \
                        "obs-" + str(self.parameters["observation_steps"]) + \
                        "_pred-" + str(self.parameters["prediction_steps"]) + \
+                        self.sourcename + \
                        ".pkl"
         else:
             filename = "pool_ckpt_" +\
@@ -39,12 +42,12 @@ class SequenceWrangler:
 
         return filename
 
-    def load_from_checkpoint(self):
+    def load_from_checkpoint(self,sourcename):
         #Function that returns True if data can be loaded, else false.
 
         if not os.path.exists(self.pool_dir):
             return False
-        file_path = os.path.join(self.pool_dir,self.get_pool_filename())
+        file_path = os.path.join(self.pool_dir,self.get_pool_filename(sourcename))
         file_exists = os.path.isfile(file_path)
         if not file_exists:
             return False
@@ -291,7 +294,7 @@ class SequenceWrangler:
         #TODO save master to pickle
         if not os.path.exists(self.pool_dir):
             os.makedirs(self.pool_dir)
-        file_path = os.path.join(self.pool_dir, self.get_pool_filename())
+        file_path = os.path.join(self.pool_dir, self.get_pool_filename(self.sourcename))
         self.master_pool.to_pickle(file_path)
 
         return
