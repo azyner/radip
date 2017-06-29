@@ -12,6 +12,8 @@ from bokeh.io import output_notebook
 class ibeoCSVImporter:
     def __init__(self, parameters, csv_name):
         input_df = pd.read_csv(csv_name)
+
+#        format: x_min,x_max,y_min,y_max
         if csv_name == 'data/20170427-stationary-2-leith-croydon.csv':
             top_exit = [-33, -30, 3, 4]
             top_enter = [-23, -20, 6, 7]
@@ -21,8 +23,19 @@ class ibeoCSVImporter:
             low_enter = [-33, -30, -16, -15]
             intersection_centre = [-25.8, -5]
             intersection_rotation = 0
-        self.dest_gates = {"north": top_exit, "east": right_exit, "south": low_exit}
-        self.origin_gates = {"north": top_enter, "east": right_enter, "south": low_enter}
+            self.dest_gates = {"north": top_exit, "east": right_exit, "south": low_exit}
+            self.origin_gates = {"north": top_enter, "east": right_enter, "south": low_enter}
+        if csv_name == 'data/20170601-stationary-3-leith-croydon.csv':
+            top_exit = [-25,-5,-0.5,0.5]
+            top_enter = top_exit
+            right_exit = [-4,-2,-16,-1]
+            right_enter = right_exit
+            left_exit = [-26,-25,-16,-2]
+            left_enter = left_exit
+            intersection_centre = [-14.4,-7.5]
+            intersection_rotation = 0 # 90 degree?
+            self.dest_gates = {"north": left_exit, "east": top_exit, "south": right_exit}
+            self.origin_gates = {"north": left_enter, "east": top_enter, "south": right_enter}
 
         parsed_df = self._parse_ibeo_df(input_df)
         disambiguated_df = self._disambiguate_df(parsed_df)
@@ -198,6 +211,8 @@ class ibeoCSVImporter:
     def _calculate_intersection_distance(self):
         for track_idx in range(len(self.labelled_track_list)):
             single_track = self.labelled_track_list[track_idx]
+            track_origin = single_track.iloc[0]['origin']
+            track_dest = single_track.iloc[0]['destination']
 
             # At this point the tracks are ordered, so I should find the index where the object leaves its already
             # designated origin box.
@@ -214,18 +229,16 @@ class ibeoCSVImporter:
             # Find the last point in which the car is still in the origin box.
             enter_ref_step = 0
             for step in range(len(single_track)):
-                for label, gate in self.origin_gates.iteritems():
-                    if self._in_box([single_track.iloc[step]["Object_X"],
-                                     single_track.iloc[step]["Object_Y"]], gate):
-                        enter_ref_step = step
+                if self._in_box([single_track.iloc[step]["Object_X"],
+                                 single_track.iloc[step]["Object_Y"]], self.origin_gates[track_origin]):
+                    enter_ref_step = step
                         # Do not break as it will keep overriding with the latest point in box
 
             for step in range(len(single_track)):
-                for label, gate in self.dest_gates.iteritems():
-                    if self._in_box([single_track.iloc[step]["Object_X"],
-                                     single_track.iloc[step]["Object_Y"]], gate):
-                        exit_ref_step = step
-                        break  # I want the first step, not the last step.
+                if self._in_box([single_track.iloc[step]["Object_X"],
+                                 single_track.iloc[step]["Object_Y"]], self.dest_gates[track_dest]):
+                    exit_ref_step = step
+                    break  # I want the first step, not the last step.
 
             dis_from_enter = d - d[enter_ref_step]
             dis_from_exit = d - d[exit_ref_step]

@@ -46,7 +46,12 @@ print "wrangling tracks"
 
 ibeo = True
 
-sourcename = '20170427-stationary-2-leith-croydon.csv'
+### TEST CODE ###
+#ibeoCSV = ibeoCSVImporter.ibeoCSVImporter(parameters,'data/20170601-stationary-3-leith-croydon.csv')
+
+
+# sourcename = '20170427-stationary-2-leith-croydon.csv'
+sourcename = '20170601-stationary-3-leith-croydon.csv'
 Wrangler = SequenceWrangler.SequenceWrangler(parameters,n_folds=parameters.parameters['n_folds'])
 
 if ibeo:
