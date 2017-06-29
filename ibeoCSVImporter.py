@@ -3,6 +3,7 @@ import scipy as sp
 import random
 import bokeh
 import csv
+import sys
 import pandas as pd
 import struct
 from bokeh.plotting import figure, show
@@ -11,6 +12,7 @@ from bokeh.io import output_notebook
 
 class ibeoCSVImporter:
     def __init__(self, parameters, csv_name):
+        print "Reading CSV"
         input_df = pd.read_csv(csv_name)
 
 #        format: x_min,x_max,y_min,y_max
@@ -38,8 +40,10 @@ class ibeoCSVImporter:
             self.origin_gates = {"north": left_enter, "east": top_enter, "south": right_enter}
 
         parsed_df = self._parse_ibeo_df(input_df)
+        #print "Disambiguating tracks"
         disambiguated_df = self._disambiguate_df(parsed_df)
         self._label_df(disambiguated_df)
+        #print "Calculating intersection distance"
         self._calculate_intersection_distance()
         self._print_collection_summary()
 
@@ -101,6 +105,8 @@ class ibeoCSVImporter:
         disambiguated_df_list = []
 
         for ID in object_id_list:
+            sys.stdout.write("\rDisambiguating track: %04d of %04d" % (ID, len(object_id_list)))
+            sys.stdout.flush()
             obj_data = vehicle_df.loc[vehicle_df.ObjectId == ID, :]
 
             # Some objects have no data at all.
@@ -120,8 +126,8 @@ class ibeoCSVImporter:
             for cut in cuts:
                 # print obj_data.loc[prev_cut:cut, :]
                 obj_data.loc[prev_cut:cut, "uniqueId"] = unique_id_idx
-                print("ObjId:" + str(ID) + " UniqueId:" + str(unique_id_idx) +
-                      " Prev:" + str(prev_cut) + " end:" + str(cut))
+                #print("ObjId:" + str(ID) + " UniqueId:" + str(unique_id_idx) +
+                #      " Prev:" + str(prev_cut) + " end:" + str(cut))
                 prev_cut = cut
                 unique_id_idx += 1
             if len(cuts) == 0:
@@ -135,6 +141,8 @@ class ibeoCSVImporter:
             disambiguated_df_list.append(obj_data)
 
         disambiguated_df = pd.concat(disambiguated_df_list)
+        sys.stdout.write("\t\t\t\t%4s" % "[ OK ]")
+        sys.stdout.write("\r\n")
         return disambiguated_df
 
 
@@ -161,7 +169,9 @@ class ibeoCSVImporter:
         for uID in disambiguated_df.uniqueId.unique():
             # obj_data = vehicle_df[vehicle_df.ObjectId==ID]
             obj_data = disambiguated_df.loc[disambiguated_df.uniqueId == uID, :]
-            print("Sorting track: " + str(uID))
+            #print("Sorting track: " + str(uID))
+            sys.stdout.write("\rSorting track: %04d of %04d " % (uID,len(disambiguated_df.uniqueId.unique())))
+            sys.stdout.flush()
             if len(obj_data) < 1:
                 continue
 
@@ -199,10 +209,13 @@ class ibeoCSVImporter:
                 continue
             obj_data["origin"] = [origin_label] * len(obj_data)
             obj_data["destination"] = [dest_label] * len(obj_data)
-            print("ID: " + str(uID) + " Origin: " + origin_label + " Destination: " + dest_label)
+            #print("ID: " + str(uID) + " Origin: " + origin_label + " Destination: " + dest_label)
             clean_tracks.append(obj_data)
-
-        print("Number of tracks in collection: " + str(len(clean_tracks)))
+        sys.stdout.write(" Found %d clean tracks" % (len(clean_tracks)))
+        sys.stdout.write("\t\t%4s" % "[ OK ]")
+        sys.stdout.write("\r\n")
+        sys.stdout.flush()
+        #print("Number of tracks in collection: " + str(len(clean_tracks)))
 
         self.labelled_track_list = clean_tracks
 
@@ -216,7 +229,9 @@ class ibeoCSVImporter:
 
             # At this point the tracks are ordered, so I should find the index where the object leaves its already
             # designated origin box.
-            print("Calculating distance metric for track: " + str(track_idx))
+            #print("Calculating distance metric for track: " + str(track_idx))
+            sys.stdout.write("\rCalculating distance metric for track: %04d of %04d " % (track_idx, len(self.labelled_track_list)))
+            sys.stdout.flush()
             d = np.sqrt((single_track.loc[1:, "Object_X"].values -
                          single_track.loc[0:len(single_track)-2, "Object_X"].values) ** 2  # [0:len-2] is equiv. to [0:-1].
                         +
@@ -244,6 +259,10 @@ class ibeoCSVImporter:
             dis_from_exit = d - d[exit_ref_step]
             single_track["distance"] = dis_from_enter
             single_track["distance_to_exit"] = dis_from_exit
+
+        sys.stdout.write("\t\t%4s" % "[ OK ]")
+        sys.stdout.write("\r\n")
+        sys.stdout.flush()
 
         # Traversals:
         # iloc[]

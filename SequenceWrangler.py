@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn import preprocessing
 import time
+import sys
 import os
 import pickle
 
@@ -269,7 +270,9 @@ class SequenceWrangler:
         for track_raw_idx in range(len(ibeo_track_list)):
             # Lookup the index in the original collection
             # Get data
-            print "Wrangling track: " + str(track_raw_idx) + " of: " + str(len(ibeo_track_list))
+            #rint "Wrangling track: " + str(track_raw_idx) + " of: " + str(len(ibeo_track_list))
+            sys.stdout.write("\rWrangling track:  %04d of %04d " % (track_raw_idx, len(ibeo_track_list)))
+            sys.stdout.flush()
             single_track = ibeo_track_list[track_raw_idx]
             origin = single_track.iloc[0]['origin']
             destination = single_track.iloc[0]['destination']
@@ -288,6 +291,9 @@ class SequenceWrangler:
                                             single_track['distance'])  # FIXME parameters.bbox)
 
             master_pool.append(track_pool)
+        sys.stdout.write("\t\t\t\t%4s" % "[ OK ]")
+        sys.stdout.write("\r\n")
+        sys.stdout.flush()
 
         self.master_pool = pd.concat(master_pool)
 

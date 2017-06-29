@@ -62,7 +62,9 @@ class TrainingManager:
             #### EVALUATION / CHECKPOINTING
             if current_step % steps_per_checkpoint == 0 or final_run:
 
-                if not self.parameter_dict['debug']:
+                #FIXME Hack to make the longer eval run only every 10 steps.
+                # I actually want a short report (loss/acc) to run often, and a long report ROC/dis to run sparsely
+                if not self.parameter_dict['debug'] and current_step*10 % steps_per_checkpoint == 0 :
                     # Compute Distance Metric
                     dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
                     metric_results, metric_labels = netManager.evaluate_metric(dist_results)
