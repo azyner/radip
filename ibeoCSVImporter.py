@@ -46,8 +46,7 @@ class ibeoCSVImporter:
 
         print "origin | destination"
         print summary_df
-        print "Stuff"
-        #TODO Write function that strips out any classes of length 1 as they break the stratitifer. Eg. rare u-turns.
+        #TODO Write function that strips out any classes of size 1 as they break the stratitifer. Eg. rare u-turns.
 
 
     def _in_box(self, point, extent):
@@ -194,13 +193,14 @@ class ibeoCSVImporter:
 
         self.labelled_track_list = clean_tracks
 
+
+    #TODO I want forward distance from entrance, and distance to exit.
     def _calculate_intersection_distance(self):
         for track_idx in range(len(self.labelled_track_list)):
             single_track = self.labelled_track_list[track_idx]
 
             # At this point the tracks are ordered, so I should find the index where the object leaves its already
             # designated origin box.
-            ref_step = 0
             print("Calculating distance metric for track: " + str(track_idx))
             d = np.sqrt((single_track.loc[1:, "Object_X"].values -
                          single_track.loc[0:len(single_track)-2, "Object_X"].values) ** 2  # [0:len-2] is equiv. to [0:-1].
@@ -212,30 +212,30 @@ class ibeoCSVImporter:
             d = np.cumsum(np.append(0.0, d))
 
             # Find the last point in which the car is still in the origin box.
-            ref_step = 0
+            enter_ref_step = 0
             for step in range(len(single_track)):
                 for label, gate in self.origin_gates.iteritems():
                     if self._in_box([single_track.iloc[step]["Object_X"],
                                      single_track.iloc[step]["Object_Y"]], gate):
-                        ref_step = step
+                        enter_ref_step = step
+                        # Do not break as it will keep overriding with the latest point in box
 
+            for step in range(len(single_track)):
+                for label, gate in self.dest_gates.iteritems():
+                    if self._in_box([single_track.iloc[step]["Object_X"],
+                                     single_track.iloc[step]["Object_Y"]], gate):
+                        exit_ref_step = step
+                        break  # I want the first step, not the last step.
 
-            #for i in range(len(single_track)):
-            #    if is_inside_box(single_track[i], ref_line_dis):
-            #        ref_step = i
-            #        break
-            d -= d[ref_step]
-            single_track["distance"] = d
-            temp = 1
-
-
+            dis_from_enter = d - d[enter_ref_step]
+            dis_from_exit = d - d[exit_ref_step]
+            single_track["distance"] = dis_from_enter
+            single_track["distance_to_exit"] = dis_from_exit
 
         # Traversals:
         # iloc[]
         # ObjBoxCente_X
         # ObjBoxCenter_Y
-
-
 
         # dest_1_hot                                           [1.0, 0.0, 0.0]
         # destination                                                     east
