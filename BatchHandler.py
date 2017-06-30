@@ -63,8 +63,9 @@ class BatchHandler:
             # Double list as it will return a Series of type object otherwise, ruining all labels, breaking the data
             # structure, and wasting an afternoon of my life.
 
-            # Note, Why only the closest, not the closest n?
-            rp.append(record)
+            # if the closest point is within 1m, it is valid data. Else we have no data at this threshold.
+            if record.iloc[0].distance > (d_thresh -1):
+                rp.append(record)
 
         self.reduced_pool = pd.concat(rp)
 
