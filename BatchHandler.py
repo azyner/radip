@@ -7,6 +7,7 @@ import random
 import pandas as pd
 import numpy as np
 from sklearn import preprocessing
+import sys
 
 class BatchHandler:
     def __init__(self, data_pool, parameters, training):
@@ -20,10 +21,12 @@ class BatchHandler:
         # A vector needs to be given whether the data is padding data at the end of the dataset
         # A return state needs to be given to state if all test data is given.
         self.categorical = True
+        self.d_thresh_range = None
 
         self.val_minibatch_idx = 0
         self.d_thresh = None
         self.reduced_pool = None
+        self.distance_pool_cache = {}
         self.input_mask = pd.Series([np.tile(self.parameters['input_mask']
                                   ,
                                   (self.parameters['observation_steps'],1)
@@ -70,6 +73,12 @@ class BatchHandler:
         self.reduced_pool = pd.concat(rp)
 
         return
+
+    def set_distance_threshold_ranges(self, d_thresh_range):
+        self.d_thresh_range = d_thresh_range
+        return
+
+
 
     #Function that gets the data as a list of sequences, (which are time length lists of features)
     # i.e. a list of length batch size, containing [time, input_size] elements
@@ -165,7 +174,11 @@ class BatchHandler:
                 data_pool = self.data_pool
             else:
                 data_pool = self.reduced_pool
+
+            #data_pool = NEW FUNCTION THAT RUNS ALL THE SET_DIS_THRESHOLD AND ADDS D_THRESH TO THE FRAME
             # if d_thresh is not none, I would reduce the dataset some way
+            if self.d_thresh_range is not None:
+                data_pool = self.generate_distance_pool()
 
             # If we do not have enough data remaining to fill a batch
             if (self.val_minibatch_idx+self.batch_size) > len(data_pool):
@@ -205,10 +218,26 @@ class BatchHandler:
 
     # Is this just the above function with a pool colleciton and partnered distance list?
     # Do I even need the partnered list, or just append d_thresh?
-    def generate_distance_minibatches(self,distances=None):
-        pool_dict = {}
-        for dis in distances:
-            self.set_distance_threshold(dis)
-            pool_dict[dis] = self.reduced_pool.copy()
+    def generate_distance_pool(self):
+        pool_list = []
+        try:
+            return self.distance_pool_cache[tuple(self.d_thresh_range)]
+        except KeyError:
+            busy_indicator = ['.', 'o', 'O', '*']
+            batch_counter = 0
+            print ''
+            for dis in self.d_thresh_range:
+                sys.stdout.write("\rGenerating validation data pool cache...%s" % busy_indicator[batch_counter % len(busy_indicator)])
+                sys.stdout.flush()
+                self.set_distance_threshold(dis)
+                local_pool = self.reduced_pool.copy()
+                local_pool = local_pool.assign(d_thresh=np.repeat(dis, len(local_pool)))
+                pool_list.append(local_pool)
+                batch_counter+=1
+            pool_df = pd.concat(pool_list)
+            self.distance_pool_cache[tuple(self.d_thresh_range)] = pool_df
+            print ''
+            return pool_df
+
 
         # Unwind all pools into one big pool with partnered distance list.
