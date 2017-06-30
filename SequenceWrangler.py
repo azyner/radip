@@ -27,7 +27,8 @@ class SequenceWrangler:
 
     def get_pool_filename(self,sourcename=''):
         ibeo = True
-        self.sourcename = sourcename
+        if sourcename is not '':
+            self.sourcename = sourcename
         if ibeo:
             filename = "pool_ckpt_ibeo_" + \
                        ''.join([x[0] + x[-1] + '-' for x in self.parameters['ibeo_data_columns']]) + \
@@ -190,8 +191,6 @@ class SequenceWrangler:
             master_pool.append(track_pool)
 
         self.master_pool = pd.concat(master_pool)
-
-        #TODO save master to pickle
         if not os.path.exists(self.pool_dir):
             os.makedirs(self.pool_dir)
         file_path = os.path.join(self.pool_dir, self.get_pool_filename())

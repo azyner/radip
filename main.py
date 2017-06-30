@@ -55,7 +55,7 @@ sourcename = '20170601-stationary-3-leith-croydon.csv'
 Wrangler = SequenceWrangler.SequenceWrangler(parameters,n_folds=parameters.parameters['n_folds'])
 
 if ibeo:
-    if not Wrangler.load_from_checkpoint('data/' + sourcename):
+    if not Wrangler.load_from_checkpoint(sourcename):
         print "reading data and splitting into data pool, this will take some time (10? minutes). Grab a coffee"
         ibeoCSV = ibeoCSVImporter.ibeoCSVImporter(parameters,'data/' + sourcename)
         Wrangler.generate_master_pool_ibeo(ibeoCSV.get_track_list())
