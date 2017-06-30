@@ -190,7 +190,7 @@ class NetworkManager:
 
         return
 
-    def draw_png_graphs(self, graph_results):
+    def draw_png_graphs_perf_dist(self, graph_results):
         fig_dir = self.plot_directory + "_img"
         if not os.path.exists(fig_dir):
             os.makedirs(fig_dir)

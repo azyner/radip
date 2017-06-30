@@ -61,25 +61,28 @@ class TrainingManager:
                                                                                              summary_writer=netManager.val_writer,quick=True)
 
             #### EVALUATION / CHECKPOINTING
+            sys.stdout.write("\rg_step %05d " % (current_step))
+            sys.stdout.flush()
             if current_step % steps_per_checkpoint == 0 or final_run:
-                #FIXME Hack to make the longer eval run only every 10 steps.
-                # I actually want a short report (loss/acc) to run often, and a long report ROC/dis to run sparsely
-
-                sys.stdout.write("g_step %d lr %.6f step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f "
+                sys.stdout.write("\rg_step %05d lr %.6f step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f "
                        % (netManager.get_global_step(),
                           netManager.get_learning_rate(),
                           step_time, loss, val_step_loss, accuracy, val_accuracy))
+                sys.stdout.flush()
 
-                if (not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0:
+                # TODO make this run every n minutes, not a multiple of steps. Also add duration reporting to console
+                if (not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*1) == 0:
                     # Compute Distance Metric
                     dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
+                    netManager.compute_distance_report(dist_results)
                     metric_results, metric_labels = netManager.evaluate_metric(dist_results)
+
                     metric_string = " "
                     for metric_idx in range(len(metric_results)):
                         metric_string += metric_labels[metric_idx][0]
                         metric_string += "%0.1f " % metric_results[metric_idx]
 
-                    graphs = netManager.draw_png_graphs(dist_results)
+                    graphs = netManager.draw_png_graphs_perf_dist(dist_results)
                     netManager.log_graphs_to_tensorboard(graphs)
                     netManager.log_metric_to_tensorboard(metric_results)
                     sys.stdout.write("p_dis" + metric_string)
