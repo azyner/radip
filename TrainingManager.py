@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import os
 import tensorflow as tf
+import sys
 
 
 class TrainingManager:
@@ -61,10 +62,15 @@ class TrainingManager:
 
             #### EVALUATION / CHECKPOINTING
             if current_step % steps_per_checkpoint == 0 or final_run:
-
                 #FIXME Hack to make the longer eval run only every 10 steps.
                 # I actually want a short report (loss/acc) to run often, and a long report ROC/dis to run sparsely
-                if not self.parameter_dict['debug'] and current_step % steps_per_checkpoint*10 == 0 :
+
+                sys.stdout.write("g_step %d lr %.6f step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f "
+                       % (netManager.get_global_step(),
+                          netManager.get_learning_rate(),
+                          step_time, loss, val_step_loss, accuracy, val_accuracy))
+
+                if (not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0:
                     # Compute Distance Metric
                     dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
                     metric_results, metric_labels = netManager.evaluate_metric(dist_results)
@@ -72,19 +78,14 @@ class TrainingManager:
                     for metric_idx in range(len(metric_results)):
                         metric_string += metric_labels[metric_idx][0]
                         metric_string += "%0.1f " % metric_results[metric_idx]
-                else:
-                    metric_string = " debug"
 
-                print ("g_step %d lr %.6f step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f p_dis"
-                       % (netManager.get_global_step(),
-                          netManager.get_learning_rate(),
-                          step_time, loss, val_step_loss, accuracy, val_accuracy) + metric_string)
-
-                if not self.parameter_dict['debug']:
                     graphs = netManager.draw_png_graphs(dist_results)
-
                     netManager.log_graphs_to_tensorboard(graphs)
                     netManager.log_metric_to_tensorboard(metric_results)
+                    sys.stdout.write("p_dis" + metric_string)
+
+                sys.stdout.write("\r\n")
+                sys.stdout.flush()
 
                 netManager.checkpoint_model()
 

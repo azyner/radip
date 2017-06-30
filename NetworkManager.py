@@ -252,7 +252,6 @@ class NetworkManager:
     # ~5 min for soak, ~20 min for long
     # This system should then do a ROC analysis at each distance we care about
     def compute_result_per_dis(self, batch_handler, plot=True):
-        print "compute_result_per_dis"
         # Legacy plot needs exactly one data point per meter.
         if plot:
             bbox_range_plot = np.arange(-35,60,1).tolist()
