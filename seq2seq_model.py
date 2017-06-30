@@ -249,8 +249,8 @@ class Seq2SeqModel(object):
             self.losses = (tf.contrib.legacy_seq2seq.sequence_loss(self.model_output, targets_sparse, self.target_weights)
                            + parameters['reg_embedding_beta']*embedding_regularizer)
 
-            #TODO I have to take into account padding here
-
+            #TODO I have to take into account padding here - not a huge issue as I do take it into account in the report
+            # and there is no padding during training.
             #squeeze away output to remove a single element list (It would be longer if classifier was allowed 2+ timesteps
             correct_prediction = tf.equal(tf.argmax(tf.squeeze(self.model_output), 1), targets_sparse,
                                           name="Correct_prediction")
@@ -293,7 +293,7 @@ class Seq2SeqModel(object):
             self.network_summaries.append(
                 tf.summary.histogram(var_log_name + "/gradient_norm", clip_ops.global_norm([grad_values])))
 
-        self.network_summaries.append(tf.summary.scalar('Loss',self.losses))
+        self.network_summaries.append(tf.summary.scalar('Loss', self.losses))
         self.network_summaries.append(tf.summary.scalar('Learning Rate', self.learning_rate))
 
         self.summary_op = tf.summary.merge(self.network_summaries)
@@ -307,8 +307,9 @@ class Seq2SeqModel(object):
         Args:
           session: tensorflow session to use.
           observation_inputs: list of numpy int vectors to feed as encoder inputs.
+          future_inputs: list of numpy float vectors to be used as the future path if doing a path prediction
           target_weights: list of numpy float vectors to feed as target weights.
-          train: whether to do the backward step or only forward.
+          train_model: whether to do the backward step or only forward.
         Returns:
           A triple consisting of gradient norm (or None if we did not do backward),
           average perplexity, and the outputs.
@@ -350,7 +351,7 @@ class Seq2SeqModel(object):
                 for l in xrange(self.prediction_steps):  # Output logits.
                     output_feed.append(self.MDN_sample[l])
             if self.model_type == 'classifier':
-                output_feed.append(self.model_output[0])
+                output_feed.append(self.model_output[0]) # TODO add a softmax here as it is done in the loss funciton.
 
         outputs = session.run(output_feed, input_feed)
         if summary_writer is not None:

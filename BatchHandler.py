@@ -41,7 +41,7 @@ class BatchHandler:
         return len(self.data_pool['destination'].unique())
 
     def set_distance_threshold(self, d_thresh=None):
-
+        # TODO Cache these.
         self.d_thresh = d_thresh
         # for every track_idx, find the sample that is max(d<thresh)
 
@@ -203,3 +203,12 @@ class BatchHandler:
             return batch_frame, batch_complete
 
 
+    # Is this just the above function with a pool colleciton and partnered distance list?
+    # Do I even need the partnered list, or just append d_thresh?
+    def generate_distance_minibatches(self,distances=None):
+        pool_dict = {}
+        for dis in distances:
+            self.set_distance_threshold(dis)
+            pool_dict[dis] = self.reduced_pool.copy()
+
+        # Unwind all pools into one big pool with partnered distance list.
