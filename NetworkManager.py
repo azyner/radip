@@ -22,7 +22,9 @@ from bokeh.models.widgets import Button, Paragraph, PreText
 from bokeh.layouts import widgetbox
 from bokeh.layouts import layout
 import StringIO
+import sys
 import glob
+import time
 
 class NetworkManager:
     def __init__(self, parameters, log_file_name=None):
@@ -100,6 +102,7 @@ class NetworkManager:
         self.graph_writer.add_summary(summary_str, self.model.global_step.eval(session=self.sess))
         return
 
+    # Logs a list of floats that are passed as args into Tensorboard, so they can be graphed over time.
     def log_metric_to_tensorboard(self,metrics):
         m_values = []
         for i in range(len(metrics)):
@@ -247,6 +250,69 @@ class NetworkManager:
 
         return graph_list
 
+    # def _pick_class(self,distribution):
+    #     threshold = 0.95
+    #     pop = np.sum(distribution)
+    #     distribution = distribution / pop
+    #     (dist_results.iloc[0]['dest_1_hot'].astype(int) == (dist_results.iloc[0]['output_pop'][0] > 95).astype(
+    #         int)).all()
+    #
+    #     return
+
+    def compute_distance_report(self, dist_results):
+        # Maybe at the end of training I want a ROC curve on the confidence threshold.
+        # Right now I want an F1 score with a default threshold.
+        i = 1
+        # FIXME can I get classes a better way?
+        classes = dist_results.destination.unique()
+        f1_df = pd.DataFrame()
+
+        # Declare class based on output_pop
+        population = np.sum(dist_results.iloc[0]['output_pop'][0])
+        dist_results = dist_results.assign(norm_pop=dist_results['output_pop']/population)
+        class_threshold = 0.95
+        dist_results = dist_results.assign(chosen_pop=pd.Series([(x > class_threshold).astype(float) for x in dist_results['norm_pop']]))
+        dist_results['correct_classification'] = \
+            dist_results.apply(lambda x: True if (x['chosen_pop'] == x['dest_1_hot']).all() else False, axis=1)
+        dist_results['any_classification'] = \
+            dist_results.apply(lambda x: True if (x['chosen_pop']).any() else False, axis=1)
+
+        for distance in dist_results['d_thresh'].unique():
+            distance_set = dist_results[dist_results['d_thresh'] == distance]
+
+            #f1 score calc needs:
+            # True positive = number correctly classified
+            # False Positive = Number incorrectly classified as this class
+            # False Negative = Number without class, or wrong class.
+            for dest in classes:
+                dest_subset = distance_set[distance_set['destination'] == dest]
+                dest_pop = len(dest_subset)
+                TP = len(dest_subset[dest_subset['correct_classification'] == True])
+                FN = len(dest_subset[dest_subset['any_classification'] == False])
+                FP = dest_pop - TP - FN
+                print ("Dis: %3.2fm Dest: %5s TP %2d FN %2d FP %2d" % (distance, dest, TP, FN, FP))
+                f1 = 2*TP / (2*TP + FP + FN)
+                f1_df.append({"destination": dest,
+                              "distance": distance,
+                              "F1_score": f1,
+                              "TruePositive": TP,
+                              "FalsePositive": FP,
+                              "FalseNegative": FN})
+
+
+
+  #      Index([u'dest_1_hot', u'destination', u'destination_vec', u'origin',
+  #             u'track_class', u'track_idx', u'encoder_sample', u'decoder_sample',
+ #              u'distance', u'time_idx', u'padding', u'output_idxs', u'acc_pop',
+#               u'output_pop', u'd_thresh'],
+#              dtype='object')
+
+        # TODO NOW The last data point is repeated forever to fill. i.e. if last distance is 15 I get many, 15's,
+        # to fill to some size to 60m I suppose.
+
+
+        return
+
     # This function needs the validation batch (or test batch)
     # This is to be refactored as a report writer, that is done every n minutes
     # ~5 min for soak, ~20 min for long
@@ -262,20 +328,32 @@ class NetworkManager:
         # This could be optimized.
         # If the batch size is larger than twice a sequential minibatch
         # I could run two distances per step.
+        print ""
+        #TEMP
+        #batch_handler.generate_distance_minibatches(bbox_range_plot)
         for d in bbox_range_plot:
-            #print "Distance: " + str(d)
+            sys.stdout.write("\rGenerating distance report: %03.1fm %10s" % (d, ''))
+            sys.stdout.flush()
             # Set d_thresh
             # Do it in a loop in case batch_size < num_val_tracks
+            dis_thresh_time = time.time()
             batch_handler.set_distance_threshold(d)
+            #print "Time to set dis thresh: " + str (time.time() - dis_thresh_time)
             batch_complete = False
-            while not batch_complete:
 
+            batch_time = time.time()
+            while not batch_complete:
+                #print "Running batch"
                 mini_batch_frame,batch_complete = batch_handler.get_sequential_minibatch()
+                #TODO check if mini_batch_frame is empty here. If I have no data at all for this range.
+                if mini_batch_frame is None:
+                    break
                 val_x, _, val_weights, val_y = \
                     batch_handler.format_minibatch_data(mini_batch_frame['encoder_sample'],
                                                         mini_batch_frame['dest_1_hot'],
                                                         mini_batch_frame['padding'])
                 valid_data = np.logical_not(mini_batch_frame['padding'].values)
+
 
                 #TODO Param this:
                 output_samples = []
@@ -306,10 +384,11 @@ class NetworkManager:
                 output_idxs = np.argmax(output_pop,axis=1)
                 mini_batch_frame = mini_batch_frame.assign(output_idxs=output_idxs)
                 mini_batch_frame = mini_batch_frame.assign(acc_pop=acc_pop)
-                mini_batch_frame = mini_batch_frame.assign(output_pop=[pd.Series([x],dtype=object) for x in output_pop])
+                mini_batch_frame = mini_batch_frame.assign(output_pop=pd.Series([x for x in output_pop],dtype=object))
                 mini_batch_frame = mini_batch_frame.assign(d_thresh=np.repeat(d,len(mini_batch_frame)))
 
                 graph_results.append(mini_batch_frame)
+            #print "Time to run dis batches: " + str(time.time() - batch_time)
 
         #Concat once only, much faster
         graph_results_frame = pd.concat(graph_results)
