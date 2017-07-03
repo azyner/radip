@@ -52,16 +52,16 @@ ibeo = True
 
 # sourcename = '20170427-stationary-2-leith-croydon.csv'
 sourcename = '20170601-stationary-3-leith-croydon.csv'
-Wrangler = SequenceWrangler.SequenceWrangler(parameters,n_folds=parameters.parameters['n_folds'])
+Wrangler = SequenceWrangler.SequenceWrangler(parameters,sourcename,n_folds=parameters.parameters['n_folds'])
 
 if ibeo:
-    if not Wrangler.load_from_checkpoint(sourcename):
+    if not Wrangler.load_from_checkpoint():
         print "reading data and splitting into data pool, this will take some time (10? minutes). Grab a coffee"
         ibeoCSV = ibeoCSVImporter.ibeoCSVImporter(parameters,'data/' + sourcename)
         Wrangler.generate_master_pool_ibeo(ibeoCSV.get_track_list())
 
 else:
-    if not Wrangler.load_from_checkpoint(sourcename):
+    if not Wrangler.load_from_checkpoint():
         print "reading data and splitting into data pool, this will take some time (10? minutes). Grab a coffee"
         raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(parameters.parameters['input_columns'])
         Wrangler.generate_master_pool_naturalistic_2015(raw_sequences, raw_classes)

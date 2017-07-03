@@ -14,7 +14,7 @@ import pickle
 
 
 class SequenceWrangler:
-    def __init__(self,parameters, n_folds=5, training=0.55,val=0.2,test=0.25):
+    def __init__(self,parameters,sourcename, n_folds=5, training=0.55,val=0.2,test=0.25):
         self.n_folds = n_folds
         self.parameters = parameters.parameters
         #TODO Normalize the below splits
@@ -22,13 +22,11 @@ class SequenceWrangler:
         self.val_split = val
         self.test_split = test
         self.pool_dir = 'data_pool'
-        self.sourcename = ''
+        self.sourcename = sourcename
         return
 
-    def get_pool_filename(self,sourcename=''):
+    def get_pool_filename(self):
         ibeo = True
-        if sourcename is not '':
-            self.sourcename = sourcename
         if ibeo:
             filename = "pool_ckpt_ibeo_" + \
                        ''.join([x[0] + x[-1] + '-' for x in self.parameters['ibeo_data_columns']]) + \
@@ -44,12 +42,12 @@ class SequenceWrangler:
 
         return filename
 
-    def load_from_checkpoint(self,sourcename):
+    def load_from_checkpoint(self,):
         #Function that returns True if data can be loaded, else false.
 
         if not os.path.exists(self.pool_dir):
             return False
-        file_path = os.path.join(self.pool_dir,self.get_pool_filename(sourcename))
+        file_path = os.path.join(self.pool_dir,self.get_pool_filename())
         file_exists = os.path.isfile(file_path)
         if not file_exists:
             return False
@@ -299,7 +297,7 @@ class SequenceWrangler:
         #TODO save master to pickle
         if not os.path.exists(self.pool_dir):
             os.makedirs(self.pool_dir)
-        file_path = os.path.join(self.pool_dir, self.get_pool_filename(self.sourcename))
+        file_path = os.path.join(self.pool_dir, self.get_pool_filename())
         self.master_pool.to_pickle(file_path)
 
         return
