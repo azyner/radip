@@ -71,10 +71,10 @@ class TrainingManager:
                 sys.stdout.flush()
 
                 # TODO make this run every n minutes, not a multiple of steps. Also add duration reporting to console
-                if (not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*1) == 0:
+                if (not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0:
                     # Compute Distance Metric
                     dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
-                    netManager.compute_distance_report(dist_results)
+                    f1_scores = netManager.compute_distance_report(dist_results)
                     metric_results, metric_labels = netManager.evaluate_metric(dist_results)
 
                     metric_string = " "
@@ -82,7 +82,7 @@ class TrainingManager:
                         metric_string += metric_labels[metric_idx][0]
                         metric_string += "%0.1f " % metric_results[metric_idx]
 
-                    graphs = netManager.draw_png_graphs_perf_dist(dist_results)
+                    graphs = netManager.draw_png_graphs_perf_dist(f1_scores)
                     netManager.log_graphs_to_tensorboard(graphs)
                     netManager.log_metric_to_tensorboard(metric_results)
                     sys.stdout.write("p_dis" + metric_string)
@@ -231,7 +231,10 @@ class TrainingManager:
 
                 #plot
                 print "Drawing html graph"
-                netManager.draw_html_graphs(netManager.compute_result_per_dis(validation_batch_handler))
+                netManager.draw_html_graphs(
+                    netManager.compute_distance_report(
+                        netManager.compute_result_per_dis(
+                            validation_batch_handler)))
 
                 #######
                 # Here we have a fully trained model, but we are still in the cross fold.

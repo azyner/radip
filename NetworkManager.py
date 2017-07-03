@@ -133,7 +133,7 @@ class NetworkManager:
 
     def draw_html_graphs(self, graph_results):
         if True:  # Plot HTML bokeh
-            plot_titles = graph_results['destination'].unique()
+            plot_titles = graph_results['origin'].unique()
             plots = []
             if not os.path.exists(self.plot_directory):
                 os.makedirs(self.plot_directory)
@@ -154,18 +154,40 @@ class NetworkManager:
                 dataset = graph_results[graph_results['origin'] == origin]
                 x_data = []
                 y_data = []
-                for range_val in np.unique(dataset['d_thresh']):
-                    # If I group by track number here, I can get a collection of accuracy scores
-                    # and therefore a std dev
-                    data_at_range = dataset[dataset['d_thresh'] == range_val]
-                    acc = np.average(np.equal(data_at_range['output_idxs'],
-                                              data_at_range['destination_vec']))
-                    x_data.append(range_val)
-                    y_data.append(acc)
+                tp_data = []
+                fp_data = []
+                fn_data = []
+                try:
+                    f1_labels = True
+                    graph_results['f1_score']
+                    for range_val in np.unique(dataset['distance']):
+                        data_at_range = dataset[dataset['distance'] == range_val]
+                        x_data.append(range_val)
+                        y_data.append(data_at_range['f1_score'][0])
+                        tp_data.append(data_at_range['true_positive'][0])
+                        fp_data.append(data_at_range['false_positive'][0])
+                        fn_data.append(data_at_range['false_negative'][0])
+                except KeyError:
+                    f1_labels = False
+                    for range_val in np.unique(dataset['d_thresh']):
+                        # If I group by track number here, I can get a collection of accuracy scores
+                        # and therefore a std dev
+                        data_at_range = dataset[dataset['d_thresh'] == range_val]
+                        acc = np.average(np.equal(data_at_range['output_idxs'],
+                                                  data_at_range['destination_vec']))
+                        x_data.append(range_val)
+                        y_data.append(acc)
 
                 p1 = figure(title='Origin: ' + origin, x_axis_label='Dis from Ref Line (m)', y_axis_label='Acc.',
-                            plot_width=400, plot_height=400)  # ~half a 1080p screen
-                p1.line(x_data, y_data, legend="Acc. RNN", line_width=2, color='green')
+                            plot_width=500, plot_height=500)  # ~half a 1080p screen
+                if not f1_labels:
+                    p1.line(x_data, y_data, legend="Acc. RNN", line_width=2, color='green')
+                else:
+                    p1.line(x_data, y_data, legend="F1 Score RNN", line_width=2, color='green')
+                    p1.line(x_data, tp_data, legend="True Positive Percent RNN", line_width=2, color='yellow')
+                    p1.line(x_data, fp_data, legend="False Positive Percent RNN", line_width=2, color='orange')
+                    p1.line(x_data, fn_data, legend="False Negative Percent RNN", line_width=2, color='blue')
+
                 if self.parameters['data_format'] == 'legacy':
                     p1.line(QDA_range, QDA_mean, legend="Acc. QDA", line_width=2, color='red', line_alpha=1)
                 # p1.line(QDA_range, QDA_meanmstd, line_width=2, color='red', line_alpha=0.5)
@@ -200,7 +222,7 @@ class NetworkManager:
 
         graph_list = []
 
-        plot_titles = graph_results['destination'].unique()
+        plot_titles = graph_results['origin'].unique()
         for origin in plot_titles:
             if self.parameters['data_format'] == 'legacy':
                 if os.path.exists("QDA/" + origin + ".npy"):
@@ -213,14 +235,30 @@ class NetworkManager:
             dataset = graph_results[graph_results['origin'] == origin]
             x_data = []
             y_data = []
-            for range_val in np.unique(dataset['d_thresh']):
-                # If I group by track number here, I can get a collection of accuracy scores
-                # and therefore a std dev
-                data_at_range = dataset[dataset['d_thresh'] == range_val]
-                acc = np.average(np.equal(data_at_range['output_idxs'],
-                                          data_at_range['destination_vec']))
-                x_data.append(range_val)
-                y_data.append(acc)
+            tp_data = []
+            fp_data = []
+            fn_data = []
+            try:
+                f1_labels = True
+                graph_results['f1_score']
+                for range_val in np.unique(dataset['distance']):
+                    data_at_range = dataset[dataset['distance'] == range_val]
+                    x_data.append(range_val)
+                    y_data.append(data_at_range['f1_score'][0])
+                    tp_data.append(data_at_range['true_positive'][0])
+                    fp_data.append(data_at_range['false_positive'][0])
+                    fn_data.append(data_at_range['false_negative'][0])
+
+            except KeyError:
+                f1_labels = False
+                for range_val in np.unique(dataset['d_thresh']):
+                    # If I group by track number here, I can get a collection of accuracy scores
+                    # and therefore a std dev
+                    data_at_range = dataset[dataset['d_thresh'] == range_val]
+                    acc = np.average(np.equal(data_at_range['output_idxs'],
+                                              data_at_range['destination_vec']))
+                    x_data.append(range_val)
+                    y_data.append(acc)
 
             legend_str = []
             fig = plt.figure(figsize=self.plt_size)
@@ -232,7 +270,17 @@ class NetworkManager:
             plt.legend(legend_str, loc='upper left')
             plt.title('Origin: ' + origin)
             plt.xlabel('Distance from Ref Line (m)')
-            plt.ylabel('Accuracy')
+            if not f1_labels:
+                plt.ylabel('Accuracy')
+            else:
+                plt.ylabel('F1 Score')
+                plt.plot(x_data, tp_data,'y-')
+                legend_str.append(['True Positive Percent'])
+                plt.plot(x_data, fp_data,'o-')
+                legend_str.append(['False Positive Percent'])
+                plt.plot(x_data, fn_data,'b-')
+                legend_str.append(['False Negative Percent'])
+
 
             fig_path = os.path.join(self.plot_directory + "_img", self.log_file_name + '-' +
                                     str(self.get_global_step()) + '-' + origin+ '.png')
@@ -264,7 +312,7 @@ class NetworkManager:
         # Right now I want an F1 score with a default threshold.
 
         # FIXME can I get classes a better way?
-        classes = dist_results.destination.unique()
+        classes = dist_results.origin.unique()
         f1_df_list = []
 
         # Declare class based on output_pop
@@ -284,25 +332,29 @@ class NetworkManager:
             # True positive = number correctly classified
             # False Positive = Number incorrectly classified as this class
             # False Negative = Number without class, or wrong class.
-            for dest in classes:
-                dest_subset = distance_set[distance_set['destination'] == dest]
-                dest_pop = len(dest_subset)
-                TP = len(dest_subset[dest_subset['correct_classification'] == True])
-                FN = len(dest_subset[dest_subset['any_classification'] == False])
-                FP = dest_pop - TP - FN
+            for origin in classes:
+                origin_subset = distance_set[distance_set['origin'] == origin]
+                origin_dist = len(origin_subset)
+                TP = len(origin_subset[origin_subset['correct_classification'] == True])
+                FN = len(origin_subset[origin_subset['any_classification'] == False])
+                FP = origin_dist - TP - FN
                 #print ("Dis: %3.2fm Dest: %5s TP %2d FN %2d FP %2d" % (distance, dest, TP, FN, FP))
                 try:
-                    f1 = 2*TP / (2*TP + FP + FN)
+                    f1 = 2*TP / float(2*TP + FP + FN)
                 except ZeroDivisionError:
-                    f1 = None
-                f1_df_list.append(pd.DataFrame({"destination": dest,
+                    f1 = 0.0
+                n_tracks = len(origin_subset)
+                if n_tracks == 0: n_tracks = 1 # If this is zeo, then FP,FN and TP are zero as well..
+                f1_df_list.append(pd.DataFrame({"origin": origin,
                                                 "distance": distance,
-                                                "F1_score": f1,
-                                                "TruePositive": TP,
-                                                "FalsePositive": FP,
-                                                "FalseNegative": FN},index=[0]))
+                                                "f1_score": f1,
+                                                "true_positive": TP / n_tracks,
+                                                "false_positive": FP / n_tracks,
+                                                "false_negative": FN / n_tracks,
+                                                "n_tracks": n_tracks
+                                                },index=[0]))
         f1_df = pd.concat(f1_df_list)
-        return
+        return f1_df
 
     # This function needs the validation batch (or test batch)
     # This is to be refactored as a report writer, that is done every n minutes
