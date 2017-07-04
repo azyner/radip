@@ -61,17 +61,17 @@ class TrainingManager:
                                                                                              summary_writer=netManager.val_writer,quick=True)
 
             #### EVALUATION / CHECKPOINTING
-            sys.stdout.write("\rg_step %05d " % (current_step))
+            sys.stdout.write("\rg_step %06d " % (current_step))
             sys.stdout.flush()
-            if current_step % steps_per_checkpoint == 0 or final_run:
-                sys.stdout.write("\rg_step %05d lr %.6f step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f "
+            if (current_step % steps_per_checkpoint == 0) or final_run:
+                sys.stdout.write("\rg_step %06d lr %.1e step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f "
                        % (netManager.get_global_step(),
                           netManager.get_learning_rate(),
                           step_time, loss, val_step_loss, accuracy, val_accuracy))
                 sys.stdout.flush()
 
                 # TODO make this run every n minutes, not a multiple of steps. Also add duration reporting to console
-                if (not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0:
+                if ((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run:
                     # Compute Distance Metric
                     dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
                     f1_scores = netManager.compute_distance_report(dist_results)
