@@ -184,7 +184,7 @@ class SequenceWrangler:
                                             self.parameters['observation_steps'],
                                             self.parameters['prediction_steps'],
                                             df_template,
-                                            20)  # FIXME parameters.bbox)
+                                            bbox=20)  # FIXME parameters.bbox)
 
             master_pool.append(track_pool)
 
@@ -284,8 +284,9 @@ class SequenceWrangler:
             track_pool = self._track_slicer(data_for_encoders,
                                             self.parameters['observation_steps'],
                                             self.parameters['prediction_steps'],
-                                            df_template,
-                                            single_track['distance'])  # FIXME parameters.bbox)
+                                            df_template, # Metadata that is static across the whole track
+                                            distance=single_track['distance'],
+                                            distance_to_exit=single_track['distance_to_exit']) #metadata that changes in the track.
 
             master_pool.append(track_pool)
         sys.stdout.write("\t\t\t\t%4s" % "[ OK ]")
@@ -374,7 +375,7 @@ class SequenceWrangler:
 
     # So track slicer is only handling one track at a time. It should be passed a set of common parameters
     #   For example: destination label, or vehicle type etc.
-    def _track_slicer(self, track, encoder_steps, decoder_steps, df_template, bbox=None):
+    def _track_slicer(self, track, encoder_steps, decoder_steps, df_template, bbox=None,distance=None,distance_to_exit=None):
         """
         creates new data frame based on previous observation
           * example:
@@ -387,12 +388,9 @@ class SequenceWrangler:
         if len(track) < encoder_steps + decoder_steps:
             raise ValueError("length of track is shorter than encoder_steps and decoder_steps.")
 
+        # Do this once only.
         if bbox is not None:
-            if len(bbox) == 1:
-                dis = self._dis_from_ref_line(track, bbox)
-            # I probably should rename bbox now. For ibeo, I pre-compute this distance, and so I pass it as an array
-            if len(bbox) == len(track):
-                dis = bbox
+            dis = self._dis_from_ref_line(track, bbox)
 
         sample_collection = []
         for i in range(len(track) - (encoder_steps+decoder_steps)+1):
@@ -402,6 +400,10 @@ class SequenceWrangler:
                                                            dtype=object)
             if bbox is not None:
                 sample_dataframe["distance"] = dis[i+encoder_steps-1] #distance for the last element given to encoder
+            if distance is not None:
+                sample_dataframe["distance"] = distance[i+encoder_steps-1]
+            if distance_to_exit is not None:
+                sample_dataframe["distance_to_exit"] = distance_to_exit[i+encoder_steps-1]
             sample_dataframe["time_idx"] = i
 
             sample_collection.append(pd.DataFrame(sample_dataframe))
