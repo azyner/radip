@@ -262,25 +262,28 @@ class NetworkManager:
 
             legend_str = []
             fig = plt.figure(figsize=self.plt_size)
-            plt.plot(x_data, y_data,'g-',label=origin)
-            legend_str.append(['Acc. RNN'])
+
+
             if self.parameters['data_format'] == 'legacy':
                 plt.plot(QDA_range, QDA_mean,'r-')
                 legend_str.append(['Acc. QDA'])
-            plt.legend(legend_str, loc='upper left')
             plt.title('Origin: ' + origin)
             plt.xlabel('Distance from Ref Line (m)')
             if not f1_labels:
+                plt.plot(x_data, y_data, 'g-', label=origin)
                 plt.ylabel('Accuracy')
+                legend_str.append(['Acc. RNN'])
             else:
-                plt.ylabel('F1 Score')
-                plt.plot(x_data, tp_data,'y-')
-                legend_str.append(['True Positive Percent'])
-                plt.plot(x_data, fp_data,'o-')
+                plt.plot(x_data, y_data, 'g-', label=origin)
+                plt.ylabel('Value')
+                legend_str.append(['F1 Score'])
+                plt.plot(x_data, fp_data,'r-')
                 legend_str.append(['False Positive Percent'])
                 plt.plot(x_data, fn_data,'b-')
                 legend_str.append(['False Negative Percent'])
-
+                plt.plot(x_data, tp_data,'c-')
+                legend_str.append(['True Positive Percent'])
+            plt.legend(legend_str, loc='upper left')
 
             fig_path = os.path.join(self.plot_directory + "_img", self.log_file_name + '-' +
                                     str(self.get_global_step()) + '-' + origin+ '.png')

@@ -310,7 +310,12 @@ class TrainingManager:
         best_results['test_accuracy'], best_results['test_loss'] = self.test_network(netManager,test_batch_handler)
 
         print "Drawing html graph"
-        netManager.draw_html_graphs(netManager.compute_result_per_dis(test_batch_handler))
+        #netManager.draw_html_graphs(netManager.compute_result_per_dis(test_batch_handler))
+
+        netManager.draw_html_graphs(
+            netManager.compute_distance_report(
+                netManager.compute_result_per_dis(
+                    validation_batch_handler)))
 
         # FIXME maybe this needs its own function?
         for key, value in best_results.iteritems():
