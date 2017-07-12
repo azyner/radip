@@ -14,8 +14,20 @@ class ibeoCSVImporter:
     def __init__(self, parameters, csv_name):
         print "Reading CSV"
         input_df = pd.read_csv(csv_name)
+        #Delete all columns not in parameters['ibeo_data_calumns'], excluding x,y,abs, orientation.
+        # Temp. Abandoned in favour of splitting the CSV and importing piecemeal.
+        # data_columns = list(input_df.columns)
+        # # I need these for data wrangling and processing
+        # columns_to_keep = ["Object_X","Object_Y","ObjBoxOrientation","AbsVelocity_X","AbsVelocity_Y","Timestamp",
+        #                    "trackedByStationaryModel","mobile","ObjectPredAge"]
+        # columns_to_keep.extend(parameters.parameters['ibeo_data_columns'])
+        # columns_to_keep = list(set(columns_to_keep))
+        # for label in list(data_columns):
+        #     if label not in columns_to_keep:
+        #         data_columns.remove(label)
+        # input_df = input_df[data_columns]
 
-#        format: x_min,x_max,y_min,y_max
+            #        format: x_min,x_max,y_min,y_max
         if csv_name == 'data/20170427-stationary-2-leith-croydon.csv':
             top_exit = [-33, -30, 3, 4]
             top_enter = [-23, -20, 6, 7]
@@ -40,8 +52,10 @@ class ibeoCSVImporter:
             self.origin_gates = {"north": left_enter, "east": top_enter, "south": right_enter}
 
         parsed_df = self._parse_ibeo_df(input_df)
+        input_df = None
         #print "Disambiguating tracks"
         disambiguated_df = self._disambiguate_df(parsed_df)
+        parsed_df = None
         self._label_df(disambiguated_df)
         #print "Calculating intersection distance"
         self._calculate_intersection_distance()
@@ -210,6 +224,8 @@ class ibeoCSVImporter:
             obj_data["origin"] = [origin_label] * len(obj_data)
             obj_data["destination"] = [dest_label] * len(obj_data)
             #print("ID: " + str(uID) + " Origin: " + origin_label + " Destination: " + dest_label)
+            obj_data = obj_data.assign(AbsVelocity=np.sqrt(np.power(obj_data['AbsVelocity_X'],2)
+                                                           + np.power(obj_data['AbsVelocity_Y'],2)))
             clean_tracks.append(obj_data)
         sys.stdout.write(" Found %d clean tracks" % (len(clean_tracks)))
         sys.stdout.write("\t\t%4s" % "[ OK ]")
