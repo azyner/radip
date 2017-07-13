@@ -52,12 +52,20 @@ ibeo = True
 
 # sourcename = '20170427-stationary-2-leith-croydon.csv'
 sourcename = '20170601-stationary-3-leith-croydon.csv'
+source_list = sourcename
+# source_list = ['split_20170601-stationary-3-leith-croydon_01.csv',
+#               'split_20170601-stationary-3-leith-croydon_02.csv',
+#               'split_20170601-stationary-3-leith-croydon_03.csv',
+#               'split_20170601-stationary-3-leith-croydon_04.csv',
+#               'split_20170601-stationary-3-leith-croydon_05.csv']
+# sourcename = source_list[0]
+
 Wrangler = SequenceWrangler.SequenceWrangler(parameters,sourcename,n_folds=parameters.parameters['n_folds'])
 
 if ibeo:
     if not Wrangler.load_from_checkpoint():
         print "reading data and splitting into data pool, this will take some time (10? minutes). Grab a coffee"
-        ibeoCSV = ibeoCSVImporter.ibeoCSVImporter(parameters,'data/' + sourcename)
+        ibeoCSV = ibeoCSVImporter.ibeoCSVImporter(parameters,source_list)
         Wrangler.generate_master_pool_ibeo(ibeoCSV.get_track_list())
 
 else:

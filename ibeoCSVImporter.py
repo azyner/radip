@@ -12,23 +12,29 @@ from bokeh.io import output_notebook
 
 class ibeoCSVImporter:
     def __init__(self, parameters, csv_name):
-        print "Reading CSV"
-        input_df = pd.read_csv(csv_name)
-        #Delete all columns not in parameters['ibeo_data_calumns'], excluding x,y,abs, orientation.
-        # Temp. Abandoned in favour of splitting the CSV and importing piecemeal.
-        # data_columns = list(input_df.columns)
-        # # I need these for data wrangling and processing
-        # columns_to_keep = ["Object_X","Object_Y","ObjBoxOrientation","AbsVelocity_X","AbsVelocity_Y","Timestamp",
-        #                    "trackedByStationaryModel","mobile","ObjectPredAge"]
-        # columns_to_keep.extend(parameters.parameters['ibeo_data_columns'])
-        # columns_to_keep = list(set(columns_to_keep))
-        # for label in list(data_columns):
-        #     if label not in columns_to_keep:
-        #         data_columns.remove(label)
-        # input_df = input_df[data_columns]
+        self.unique_id_idx = int(1) #Made object global as disambig is called multiple times now.
+        if isinstance(csv_name,str):
+            csv_name = [csv_name]
+        self.labelled_track_list = []
+        for csv_file in csv_name:
+            print "Reading CSV " + csv_file
+            input_df = pd.read_csv('data/' + csv_file)
+            self.lookup_intersection_extent(csv_file)
+            parsed_df = self._parse_ibeo_df(input_df)
+            input_df = None
+            #print "Disambiguating tracks"
+            disambiguated_df = self._disambiguate_df(parsed_df)
+            parsed_df = None
+            labelled_track_list = self._label_df(disambiguated_df)
+            #print "Calculating intersection distance"
+            sub_track_list = self._calculate_intersection_distance(labelled_track_list)
+            self.labelled_track_list.extend(sub_track_list)
 
-            #        format: x_min,x_max,y_min,y_max
-        if csv_name == 'data/20170427-stationary-2-leith-croydon.csv':
+        self._print_collection_summary()
+
+    def lookup_intersection_extent(self,csv_name):
+        #        format: x_min,x_max,y_min,y_max
+        if '20170427-stationary-2-leith-croydon' in csv_name:
             top_exit = [-33, -30, 3, 4]
             top_enter = [-23, -20, 6, 7]
             right_exit = [-16, -15, -3, 2]
@@ -39,7 +45,7 @@ class ibeoCSVImporter:
             intersection_rotation = 0
             self.dest_gates = {"north": top_exit, "east": right_exit, "south": low_exit}
             self.origin_gates = {"north": top_enter, "east": right_enter, "south": low_enter}
-        if csv_name == 'data/20170601-stationary-3-leith-croydon.csv':
+        if  '20170601-stationary-3-leith-croydon' in csv_name:
             top_exit = [-25,-5,-0.5,0.5]
             top_enter = top_exit
             right_exit = [-4,-2,-16,-1]
@@ -51,15 +57,6 @@ class ibeoCSVImporter:
             self.dest_gates = {"north": left_exit, "east": top_exit, "south": right_exit}
             self.origin_gates = {"north": left_enter, "east": top_enter, "south": right_enter}
 
-        parsed_df = self._parse_ibeo_df(input_df)
-        input_df = None
-        #print "Disambiguating tracks"
-        disambiguated_df = self._disambiguate_df(parsed_df)
-        parsed_df = None
-        self._label_df(disambiguated_df)
-        #print "Calculating intersection distance"
-        self._calculate_intersection_distance()
-        self._print_collection_summary()
 
     def get_track_list(self):
         return self.labelled_track_list
@@ -108,14 +105,13 @@ class ibeoCSVImporter:
 
     def _disambiguate_df(self,input_df):
 
-        object_id_list = input_df.ObjectId.unique()
+        object_id_list = np.sort(input_df.ObjectId.unique())
         # Classes 4 and 5 are car, truck (maybe in that order)
         # 3 might be bike, have to check.
         # I only care about cars and trucks right now.
 
         vehicle_df = input_df.loc[input_df.Classification > 3, :]
 
-        unique_id_idx = int(1)
         disambiguated_df_list = []
 
         for ID in object_id_list:
@@ -139,17 +135,17 @@ class ibeoCSVImporter:
             prev_cut = 0
             for cut in cuts:
                 # print obj_data.loc[prev_cut:cut, :]
-                obj_data.loc[prev_cut:cut, "uniqueId"] = unique_id_idx
+                obj_data.loc[prev_cut:cut, "uniqueId"] = self.unique_id_idx
                 #print("ObjId:" + str(ID) + " UniqueId:" + str(unique_id_idx) +
                 #      " Prev:" + str(prev_cut) + " end:" + str(cut))
                 prev_cut = cut
-                unique_id_idx += 1
+                self.unique_id_idx += 1
             if len(cuts) == 0:
                 cuts = [0]
 
             # Do this once more as there are more segments than there are cuts
-            obj_data.loc[cuts[-1]:len(obj_data) - 1, "uniqueId"] = unique_id_idx
-            unique_id_idx += 1
+            obj_data.loc[cuts[-1]:len(obj_data) - 1, "uniqueId"] = self.unique_id_idx
+            self.unique_id_idx += 1
 
             obj_data.uniqueId = obj_data.uniqueId.astype(int) # Why is this a float64?
             disambiguated_df_list.append(obj_data)
@@ -184,7 +180,7 @@ class ibeoCSVImporter:
             # obj_data = vehicle_df[vehicle_df.ObjectId==ID]
             obj_data = disambiguated_df.loc[disambiguated_df.uniqueId == uID, :]
             #print("Sorting track: " + str(uID))
-            sys.stdout.write("\rSorting track: %04d of %04d " % (uID,len(disambiguated_df.uniqueId.unique())))
+            sys.stdout.write("\rSorting track: %04d of %04d " % (uID,max(disambiguated_df.uniqueId.unique())))
             sys.stdout.flush()
             if len(obj_data) < 1:
                 continue
@@ -233,20 +229,22 @@ class ibeoCSVImporter:
         sys.stdout.flush()
         #print("Number of tracks in collection: " + str(len(clean_tracks)))
 
-        self.labelled_track_list = clean_tracks
+        return clean_tracks
 
 
     #TODO I want forward distance from entrance, and distance to exit.
-    def _calculate_intersection_distance(self):
-        for track_idx in range(len(self.labelled_track_list)):
-            single_track = self.labelled_track_list[track_idx]
+    def _calculate_intersection_distance(self, labelled_track_list):
+        base_idx = len(self.labelled_track_list)
+        for track_idx in range(len(labelled_track_list)):
+            single_track = labelled_track_list[track_idx]
             track_origin = single_track.iloc[0]['origin']
             track_dest = single_track.iloc[0]['destination']
 
             # At this point the tracks are ordered, so I should find the index where the object leaves its already
             # designated origin box.
             #print("Calculating distance metric for track: " + str(track_idx))
-            sys.stdout.write("\rCalculating distance metric for track: %04d of %04d " % (track_idx, len(self.labelled_track_list)))
+            sys.stdout.write("\rCalculating distance metric for track: %04d of %04d " % (base_idx + track_idx,
+                                                                                         base_idx + len(labelled_track_list)))
             sys.stdout.flush()
             d = np.sqrt((single_track.loc[1:, "Object_X"].values -
                          single_track.loc[0:len(single_track)-2, "Object_X"].values) ** 2  # [0:len-2] is equiv. to [0:-1].
@@ -279,6 +277,7 @@ class ibeoCSVImporter:
         sys.stdout.write("\t\t%4s" % "[ OK ]")
         sys.stdout.write("\r\n")
         sys.stdout.flush()
+        return labelled_track_list
 
         # Traversals:
         # iloc[]
