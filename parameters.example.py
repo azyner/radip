@@ -21,6 +21,8 @@ parameters['input_mask'] = [1,1,1,1]  # Used to investigate the usefullness of a
 
 parameters['RNN_cell'] = "LSTMCell"
 parameters['peephole_connections'] = True
+parameters['l2_recurrent_decay'] = False
+parameters['l2_lstm_input_decay'] = False
 
 ##### HYPER SEARCH
 parameters['early_stop_cf'] = 40  # Time in minutes for training one crossfold
@@ -38,12 +40,15 @@ parameters['evaluation_metric_type'] = 'validation_loss'  # "perfect_distance" /
 
 parameters['hyper_reg_embedding_beta_fn'] = random.uniform
 parameters['hyper_reg_embedding_beta_args'] = (-5, -1)  # 10^X # OR None
+parameters['hyper_reg_l2_beta_fn'] = random.uniform
+parameters['hyper_reg_l2_beta_args'] = None #(-5, -1)  # 10^X # OR None
 
 ##### SINGLE RUN
 parameters["learning_rate"] = 0.01
 parameters["rnn_size"] = 128
 parameters["learning_rate_decay_factor"] = 0.1
 parameters['reg_embedding_beta'] = 0
+parameters['l2_reg_beta'] = 0.001
 
 ##### STATIC
 parameters['device'] = 'gpu:0'

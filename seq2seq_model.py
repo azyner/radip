@@ -7,6 +7,7 @@ from tensorflow.python.ops import nn_ops
 from tensorflow.contrib.legacy_seq2seq.python.ops import seq2seq
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import clip_ops
+import tensorflow.contrib.layers
 from recurrent_batchnorm_tensorflow.BN_LSTMCell import BN_LSTMCell
 
 
@@ -243,11 +244,21 @@ class Seq2SeqModel(object):
             self.losses = self.losses / self.batch_size
             self.accuracy = self.losses #TODO placeholder, use MSE or something visually intuitive
         if self.model_type == 'classifier':
-            embedding_regularizer = tf.reduce_sum(tf.abs(i_w),name="Embedding_L1_reg") # Only regularize embedding layer
+            #embedding_regularizer = tf.reduce_sum(tf.abs(i_w),name="Embedding_L1_reg") # Only regularize embedding layer
+            embedding_regularizer = tf.contrib.layers.l1_regularizer(parameters['reg_embedding_beta'])
+            reg_loss = tf.contrib.layers.apply_regularization(embedding_regularizer,[i_w])
             # Don't forget that sequence loss uses sparse targets
+            l2_reg_list = [o_w]
+            # So there should be L2 applied to the recurrent weights, and the input weights... maybe. -- hyperparam this.
+            # I assume multi_rnn_cell/cell_0/lstm_cell/weights is the recurrent, and w_i_diag is the input weights
+            l2_reg_list.extend([x for x in tf.trainable_variables() if ('weight' in x.name) and ('rnn_cell') in x.name])
+            l2_reg_list.extend([x for x in tf.trainable_variables() if ('w_i_diag' in x.name) and ('rnn_cell') in x.name])
+
+            embedding_regularizer = tf.contrib.layers.l2_regularizer(parameters['l2_reg_beta'])
+            reg_loss += tf.contrib.layers.apply_regularization(embedding_regularizer, l2_reg_list)
 
             self.losses = (tf.contrib.legacy_seq2seq.sequence_loss(self.model_output, targets_sparse, self.target_weights)
-                           + parameters['reg_embedding_beta']*embedding_regularizer)
+                           + reg_loss)
 
             #TODO I have to take into account padding here - not a huge issue as I do take it into account in the report
             # and there is no padding during training.

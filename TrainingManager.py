@@ -187,6 +187,10 @@ class TrainingManager:
                 self.parameter_dict['reg_embedding_beta'] = \
                     10 ** self.parameter_dict['hyper_reg_embedding_beta_fn'](
                         *self.parameter_dict['hyper_reg_embedding_beta_args'])
+            if self.parameter_dict['hyper_reg_l2_beta_args'] is not None:
+                self.parameter_dict['l2_reg_beta'] = \
+                    10 ** self.parameter_dict['hyper_reg_l2_beta_fn'](
+                        *self.parameter_dict['hyper_reg_l2_beta_args'])
 
             # TODO obs steps needs to load a new dataset every time, as the dataset has a fixed step size
             # Actually it can just use the most recent t steps, but the dataset loaded needs to have the most encoder
