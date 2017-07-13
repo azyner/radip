@@ -251,8 +251,10 @@ class Seq2SeqModel(object):
             l2_reg_list = [o_w]
             # So there should be L2 applied to the recurrent weights, and the input weights... maybe. -- hyperparam this.
             # I assume multi_rnn_cell/cell_0/lstm_cell/weights is the recurrent, and w_i_diag is the input weights
-            l2_reg_list.extend([x for x in tf.trainable_variables() if ('weight' in x.name) and ('rnn_cell') in x.name])
-            l2_reg_list.extend([x for x in tf.trainable_variables() if ('w_i_diag' in x.name) and ('rnn_cell') in x.name])
+            if parameters['l2_recurrent_decay']:
+                l2_reg_list.extend([x for x in tf.trainable_variables() if ('weight' in x.name) and ('rnn_cell') in x.name])
+            if parameters['l2_lstm_input_decay']:
+                l2_reg_list.extend([x for x in tf.trainable_variables() if ('w_i_diag' in x.name) and ('rnn_cell') in x.name])
 
             embedding_regularizer = tf.contrib.layers.l2_regularizer(parameters['l2_reg_beta'])
             reg_loss += tf.contrib.layers.apply_regularization(embedding_regularizer, l2_reg_list)
