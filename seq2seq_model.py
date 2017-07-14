@@ -277,8 +277,8 @@ class Seq2SeqModel(object):
         # I don't see the difference here, as during testing the updates are not run
         self.gradient_norms = []
         self.updates = []
-        #opt = tf.train.AdadeltaOptimizer(self.learning_rate)
-        opt = tf.train.RMSPropOptimizer(self.learning_rate)
+        opt = tf.train.AdadeltaOptimizer(self.learning_rate)
+        #opt = tf.train.RMSPropOptimizer(self.learning_rate)
         #opt = tf.train.GradientDescentOptimizer(self.learning_rate)
         gradients = tf.gradients(self.losses, tvars)
         clipped_gradients, norm = tf.clip_by_global_norm(gradients, self.max_gradient_norm)
