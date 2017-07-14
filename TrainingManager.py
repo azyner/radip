@@ -58,7 +58,7 @@ class TrainingManager:
                 train_acc, train_step_loss, _ = netManager.run_training_step(train_x, train_y, weights, False,
                                                                                 summary_writer=netManager.train_writer)
                 val_accuracy, val_step_loss, _ = netManager.run_validation(validation_batch_handler,
-                                                                                             summary_writer=netManager.val_writer,quick=True)
+                                                                                             summary_writer=netManager.val_writer,quick=False)
 
             #### EVALUATION / CHECKPOINTING
             sys.stdout.write("\rg_step %06d " % (current_step))
@@ -233,7 +233,7 @@ class TrainingManager:
                                   cf_results[key] = pd.Series([value],dtype=object)
                 cf_results_list.append(pd.DataFrame(cf_results, index=[0]))
 
-                #plot
+                # plot
                 print "Drawing html graph"
                 netManager.draw_html_graphs(
                     netManager.compute_distance_report(
@@ -245,7 +245,6 @@ class TrainingManager:
 
                 # FIXME Only do 1 fold per hyperparams. Its not neccessary to continue
                 break
-
 
             cf_df = pd.concat(cf_results_list)
             # Condense results from cross fold (Average, best, worst, whatever selection method)
@@ -301,7 +300,7 @@ class TrainingManager:
 
         training_batch_handler = BatchHandler.BatchHandler(train_pool, self.parameter_dict, True)
         validation_batch_handler = BatchHandler.BatchHandler(val_pool, self.parameter_dict, False)
-        test_batch_handler = BatchHandler.BatchHandler(val_pool, self.parameter_dict, False)
+        test_batch_handler = BatchHandler.BatchHandler(test_pool, self.parameter_dict, False)
 
         # Add input_size, num_classes
         self.parameter_dict['input_size'] = training_batch_handler.get_input_size()

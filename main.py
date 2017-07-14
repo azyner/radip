@@ -21,6 +21,7 @@ import pandas as pd
 import subprocess
 import shutil
 import ibeoCSVImporter
+import pickle
 
 # I want the logger and the crossfold here
 # This is where the hyperparameter searcher goes
@@ -53,12 +54,12 @@ ibeo = True
 # sourcename = '20170427-stationary-2-leith-croydon.csv'
 sourcename = '20170601-stationary-3-leith-croydon.csv'
 source_list = sourcename
-# source_list = ['split_20170601-stationary-3-leith-croydon_01.csv',
-#               'split_20170601-stationary-3-leith-croydon_02.csv',
-#               'split_20170601-stationary-3-leith-croydon_03.csv',
-#               'split_20170601-stationary-3-leith-croydon_04.csv',
-#               'split_20170601-stationary-3-leith-croydon_05.csv']
-# sourcename = source_list[0]
+source_list = ['split_20170601-stationary-3-leith-croydon_01.csv',
+              'split_20170601-stationary-3-leith-croydon_02.csv',
+              'split_20170601-stationary-3-leith-croydon_03.csv',
+              'split_20170601-stationary-3-leith-croydon_04.csv',
+              'split_20170601-stationary-3-leith-croydon_05.csv']
+sourcename = source_list[0]
 
 Wrangler = SequenceWrangler.SequenceWrangler(parameters,sourcename,n_folds=parameters.parameters['n_folds'])
 
@@ -90,7 +91,16 @@ trainingManager.long_train_network(best_params,cf_pool[0][0], cf_pool[0][1], tes
 #Dumb statement for breakpoint before system finishes
 ideas = None
 
+#Anything else to pickle?
+# I need the track idx's for test train split for the visualiser
+to_pickle = {}
+to_pickle['test_idxs'] = test_pool.track_idx.unique()
+to_pickle['data_pool'] = Wrangler.get_pool_filename()
 
+with open(os.path.join(parameters.parameters['master_dir'],'data.pkl'),'wb') as pkl_file:
+    pickle.dump(to_pickle, pkl_file)
+
+ideas = None
 # Select best model based on hyper parameters
 # Train on all training/val data
 # Run on test data

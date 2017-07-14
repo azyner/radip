@@ -75,7 +75,7 @@ class SequenceWrangler:
         st_encoder.fit(raw_classes)
         origin_destination_enc_classes = st_encoder.transform(raw_classes)
 
-        trainval_idxs, test_idxs = train_test_split(raw_indicies, # BREAK HERE
+        trainval_idxs, test_idxs = train_test_split(raw_indicies,  # BREAK HERE
                                                     test_size=self.test_split,
                                                     stratify=origin_destination_enc_classes)
 
@@ -86,7 +86,6 @@ class SequenceWrangler:
         for trainval_idx in trainval_idxs:
             track_class = self.master_pool[self.master_pool.track_idx==trainval_idx]['track_class'].unique()
             trainval_class.append(track_class[0])
-
 
         skf = StratifiedKFold(n_splits=self.n_folds)
         crossfold_indicies = list(skf.split(trainval_idxs, trainval_class))
@@ -303,7 +302,6 @@ class SequenceWrangler:
 
         return
 
-
     def get_pools(self):
         return self.crossfold_pool, self.test_pool
 
@@ -371,7 +369,6 @@ class SequenceWrangler:
                 break
         d -= d[ref_step]
         return d
-
 
     # So track slicer is only handling one track at a time. It should be passed a set of common parameters
     #   For example: destination label, or vehicle type etc.
