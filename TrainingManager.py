@@ -82,7 +82,7 @@ class TrainingManager:
                         metric_string += metric_labels[metric_idx][0]
                         metric_string += "%0.1f " % metric_results[metric_idx]
 
-                    graphs = netManager.draw_png_graphs_perf_dist(f1_scores)
+                    graphs = netManager.draw_png_graphs_perf_dist(dist_results)
                     netManager.log_graphs_to_tensorboard(graphs)
                     netManager.log_metric_to_tensorboard(metric_results)
                     sys.stdout.write("p_dis" + metric_string)
@@ -120,7 +120,7 @@ class TrainingManager:
                     val_step_loss > 0.95*max(previous_val_losses)):  # val is ~increasing
                     overfitting_steps += 1
                     print "Warning, overfitting detected. Will stop training if it continues"
-                    if overfitting_steps > 5:
+                    if overfitting_steps > 20:
                         model_is_overfit = True
                 else:
                     overfitting_steps = 0
@@ -236,9 +236,12 @@ class TrainingManager:
                 # plot
                 print "Drawing html graph"
                 netManager.draw_html_graphs(
-                    netManager.compute_distance_report(
                         netManager.compute_result_per_dis(
-                            validation_batch_handler)))
+                            validation_batch_handler))
+                # netManager.draw_html_graphs(
+                #     netManager.compute_distance_report(
+                #         netManager.compute_result_per_dis(
+                #             validation_batch_handler)))
 
                 #######
                 # Here we have a fully trained model, but we are still in the cross fold.
@@ -290,13 +293,16 @@ class TrainingManager:
 
         return best_params
 
-    def long_train_network(self, params, train_pool, val_pool, test_pool):
+    def long_train_network(self, params, train_pool, val_pool, test_pool, checkpoint=None, test_network_only=False):
         self.parameter_dict = params
 
         # Run for many minutes, or until loss decays significantly.
         self.parameter_dict['training_early_stop'] = self.parameter_dict['long_training_time']
 
-        log_file_name = "best-" + str(time.time())
+        if checkpoint is not None:
+            log_file_name = checkpoint
+        else:
+            log_file_name = "best-" + str(time.time())
 
         training_batch_handler = BatchHandler.BatchHandler(train_pool, self.parameter_dict, True)
         validation_batch_handler = BatchHandler.BatchHandler(val_pool, self.parameter_dict, False)
@@ -309,7 +315,10 @@ class TrainingManager:
         netManager = NetworkManager.NetworkManager(self.parameter_dict, log_file_name)
         netManager.build_model()
 
-        best_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)
+        if not test_network_only:
+            best_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)
+        else:
+            best_results = {}
         best_results['test_accuracy'], best_results['test_loss'] = self.test_network(netManager,test_batch_handler)
 
         print "Drawing html graph"
@@ -318,7 +327,7 @@ class TrainingManager:
         netManager.draw_html_graphs(
             netManager.compute_distance_report(
                 netManager.compute_result_per_dis(
-                    validation_batch_handler)))
+                    test_batch_handler)))
 
         # FIXME maybe this needs its own function?
         for key, value in best_results.iteritems():
@@ -327,7 +336,8 @@ class TrainingManager:
                         type(value) is tuple):
                 best_results[key] = pd.Series([value], dtype=object)
         best_results = pd.DataFrame(best_results,index=[0])
-        best_results.to_csv(os.path.join(self.parameter_dict['master_dir'],"best.csv"))
+        if not test_network_only:
+            best_results.to_csv(os.path.join(self.parameter_dict['master_dir'],"best.csv"))
         # Do it all again, but this time train with all data OR TODO return from best checkpoint
         # and test against that last test set
         # I guess this is where the HTML plots would be generated

@@ -35,11 +35,20 @@ class NetworkManager:
         self.device = None
         self.log_file_name = log_file_name
         self.model = None
-        self.plot_directory = os.path.join(self.parameters['master_dir'],'plots')
-        #self.network_name_string = "temp123456" # The unique network name descriptor.
-        self.train_dir = os.path.join(self.parameters['master_dir'], self.parameters['train_dir'])
-        self.checkpoint_dir = os.path.join(self.train_dir, self.log_file_name)
-        self.summaries_dir = os.path.join(self.parameters['master_dir'],'tensorboard_logs')
+
+        if log_file_name is not None:
+            #self.parameters['master_dir'] = os.path.abspath(os.path.join(os.path.join(log_file_name,os.pardir),os.pardir))
+            self.plot_directory = os.path.join(self.parameters['master_dir'], 'plots')
+            # self.network_name_string = "temp123456" # The unique network name descriptor.
+            self.train_dir = os.path.join(self.parameters['master_dir'], self.parameters['train_dir'])
+            self.checkpoint_dir = os.path.join(self.train_dir, os.path.basename(self.log_file_name))
+            self.summaries_dir = os.path.join(self.parameters['master_dir'], 'tensorboard_logs')
+        else:
+            self.plot_directory = os.path.join(self.parameters['master_dir'],'plots')
+            #self.network_name_string = "temp123456" # The unique network name descriptor.
+            self.train_dir = os.path.join(self.parameters['master_dir'], self.parameters['train_dir'])
+            self.checkpoint_dir = os.path.join(self.train_dir, self.log_file_name)
+            self.summaries_dir = os.path.join(self.parameters['master_dir'],'tensorboard_logs')
         self.train_writer = None
         self.val_writer = None
         self.graph_writer = None
@@ -59,7 +68,7 @@ class NetworkManager:
         # Silence illegal summary names INFO warning.
         # It warns that ':' is illegal. However, its in the variable.name, so I can't avoid it without
         # overly verbose code.
-        tf.logging.set_verbosity(tf.logging.ERROR)
+        #tf.logging.set_verbosity(tf.logging.ERROR)
 
         return
 
@@ -68,17 +77,21 @@ class NetworkManager:
         self.device = tf.device(self.parameters['device'])
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9,allow_growth=True)
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,gpu_options=gpu_options))
-        self.model = Seq2SeqModel(self.parameters)
+
         if not os.path.exists(self.train_dir):
             os.makedirs(self.train_dir)
         if not os.path.exists(self.checkpoint_dir):
             os.makedirs(self.checkpoint_dir)
         ckpt = tf.train.get_checkpoint_state(self.checkpoint_dir)
-        if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path):
+        if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path + ".index"): #TODO is +.index a hack?
             print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
+            #tf.train.import_meta_graph(ckpt.model_checkpoint_path + ".meta")
+            #saver = tf.train.Saver()
+            self.model = Seq2SeqModel(self.parameters)
             self.model.saver.restore(self.sess, ckpt.model_checkpoint_path)
         else:
             print("Created model with fresh parameters.")
+            self.model = Seq2SeqModel(self.parameters)
             self.sess.run(tf.global_variables_initializer())
 
         self.train_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'train'),
@@ -138,6 +151,12 @@ class NetworkManager:
             if not os.path.exists(self.plot_directory):
                 os.makedirs(self.plot_directory)
             plt_path = os.path.join(self.plot_directory, self.log_file_name + '.html')
+            # If I am running this many times, make new filenames
+            if os.path.exists(plt_path):
+                path_idx = 1
+                while not os.path.exists(plt_path):
+                    plt_path = os.path.join(self.plot_directory, self.log_file_name + "%02d" % path_idx + '.html')
+
             output_file(plt_path)
             for origin in plot_titles:
                 if self.parameters['data_format'] == 'legacy':
