@@ -40,13 +40,13 @@ class NetworkManager:
             self.plot_directory = os.path.join(self.parameters['master_dir'], 'plots')
             # self.network_name_string = "temp123456" # The unique network name descriptor.
             self.train_dir = os.path.join(self.parameters['master_dir'], self.parameters['train_dir'])
-            self.checkpoint_dir = os.path.join(self.train_dir, self.log_file_name)
+            self.checkpoint_dir = os.path.join(self.train_dir, os.path.basename(self.log_file_name))
             self.summaries_dir = None
         else:
             self.plot_directory = os.path.join(self.parameters['master_dir'],'plots')
             #self.network_name_string = "temp123456" # The unique network name descriptor.
             self.train_dir = os.path.join(self.parameters['master_dir'], self.parameters['train_dir'])
-            self.checkpoint_dir = os.path.join(self.train_dir, self.log_file_name)
+            self.checkpoint_dir = os.path.join(self.train_dir, os.path.basename(self.log_file_name))
             self.summaries_dir = os.path.join(self.parameters['master_dir'],'tensorboard_logs')
         self.train_writer = None
         self.val_writer = None
