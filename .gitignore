@@ -5,3 +5,5 @@ data_pool
 *.pyc
 parameters.py
 monolith*
+writeup
+network_plots
