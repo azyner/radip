@@ -246,8 +246,8 @@ class NetworkManager:
                 acc = np.average(np.equal(data_at_range['output_idxs'],
                                           data_at_range['destination_vec']))
                 acc_list.append(acc)
-                x_list.append(long_track_df[long_track_df['d_thresh']==d_thresh].encoder_sample[0][0][0])
-                y_list.append(long_track_df[long_track_df['d_thresh'] == d_thresh].encoder_sample[0][0][1])
+                x_list.append(long_track_df[long_track_df['d_thresh']==d_thresh].iloc[0].encoder_sample[0][0])
+                y_list.append(long_track_df[long_track_df['d_thresh'] == d_thresh].iloc[0].encoder_sample[0][1])
 
             colors = [
                 "#%02x%02x%02x" % (int(r), int(g), int(b)) for r, g, b, _ in
