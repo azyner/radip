@@ -35,14 +35,13 @@ class NetworkManager:
         self.device = None
         self.log_file_name = log_file_name
         self.model = None
-
-        if log_file_name is not None:
-            #self.parameters['master_dir'] = os.path.abspath(os.path.join(os.path.join(log_file_name,os.pardir),os.pardir))
+        #if parent dir is train_dir, we have a checkpoint. No
+        if self.parameters['train_dir'] in os.path.basename(os.path.abspath(os.path.join(log_file_name,os.pardir))):
             self.plot_directory = os.path.join(self.parameters['master_dir'], 'plots')
             # self.network_name_string = "temp123456" # The unique network name descriptor.
             self.train_dir = os.path.join(self.parameters['master_dir'], self.parameters['train_dir'])
-            self.checkpoint_dir = os.path.join(self.train_dir, os.path.basename(self.log_file_name))
-            self.summaries_dir = os.path.join(self.parameters['master_dir'], 'tensorboard_logs')
+            self.checkpoint_dir = os.path.join(self.train_dir, self.log_file_name)
+            self.summaries_dir = None
         else:
             self.plot_directory = os.path.join(self.parameters['master_dir'],'plots')
             #self.network_name_string = "temp123456" # The unique network name descriptor.
@@ -94,12 +93,13 @@ class NetworkManager:
             self.model = Seq2SeqModel(self.parameters)
             self.sess.run(tf.global_variables_initializer())
 
-        self.train_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'train'),
-                                                   graph=self.sess.graph)
-        self.val_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'val'),
-                                                 graph=self.sess.graph)
-        self.graph_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name + 'graph'),
-                                                  graph=self.sess.graph)
+        if self.summaries_dir is not None:
+            self.train_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'train'),
+                                                       graph=self.sess.graph)
+            self.val_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'val'),
+                                                     graph=self.sess.graph)
+            self.graph_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name + 'graph'),
+                                                      graph=self.sess.graph)
 
         return
 
@@ -150,12 +150,14 @@ class NetworkManager:
             plots = []
             if not os.path.exists(self.plot_directory):
                 os.makedirs(self.plot_directory)
-            plt_path = os.path.join(self.plot_directory, self.log_file_name + '.html')
+            plt_path = os.path.join(self.plot_directory, os.path.basename(self.log_file_name) + '.html')
             # If I am running this many times, make new filenames
             if os.path.exists(plt_path):
                 path_idx = 1
-                while not os.path.exists(plt_path):
-                    plt_path = os.path.join(self.plot_directory, self.log_file_name + "%02d" % path_idx + '.html')
+                while os.path.exists(plt_path):
+                    plt_path = os.path.join(self.plot_directory,
+                                            os.path.basename(self.log_file_name) + "-%02d" % path_idx + '.html')
+                    path_idx += 1
 
             output_file(plt_path)
             for origin in plot_titles:
