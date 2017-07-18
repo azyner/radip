@@ -74,7 +74,7 @@ class TrainingManager:
                 if ((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run:
                     # Compute Distance Metric
                     dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
-                    f1_scores = netManager.compute_distance_report(dist_results)
+                    #f1_scores = netManager.compute_distance_f1_report(dist_results)
                     metric_results, metric_labels = netManager.evaluate_metric(dist_results)
 
                     metric_string = " "
@@ -235,11 +235,9 @@ class TrainingManager:
 
                 # plot
                 print "Drawing html graph"
-                netManager.draw_html_graphs(
-                        netManager.compute_result_per_dis(
-                            validation_batch_handler))
+                netManager.draw_html_graphs(validation_batch_handler)
                 # netManager.draw_html_graphs(
-                #     netManager.compute_distance_report(
+                #     netManager.compute_distance_f1_report(
                 #         netManager.compute_result_per_dis(
                 #             validation_batch_handler)))
 
@@ -324,10 +322,7 @@ class TrainingManager:
         print "Drawing html graph"
         #netManager.draw_html_graphs(netManager.compute_result_per_dis(test_batch_handler))
 
-        netManager.draw_html_graphs(
-            netManager.compute_distance_report(
-                netManager.compute_result_per_dis(
-                    test_batch_handler)))
+        netManager.draw_html_graphs(test_batch_handler)
 
         # FIXME maybe this needs its own function?
         for key, value in best_results.iteritems():
@@ -338,9 +333,6 @@ class TrainingManager:
         best_results = pd.DataFrame(best_results,index=[0])
         if not test_network_only:
             best_results.to_csv(os.path.join(self.parameter_dict['master_dir'],"best.csv"))
-        # Do it all again, but this time train with all data OR TODO return from best checkpoint
-        # and test against that last test set
-        # I guess this is where the HTML plots would be generated
 
         return best_results
 

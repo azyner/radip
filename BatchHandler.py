@@ -223,7 +223,7 @@ class BatchHandler:
         try:
             return self.distance_pool_cache[tuple(self.d_thresh_range)]
         except KeyError:
-            busy_indicator = ['.', 'o', 'O', '*']
+            busy_indicator = ['.', 'o', 'O','@', '*']
             batch_counter = 0
             print ''
             for dis in self.d_thresh_range:

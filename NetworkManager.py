@@ -25,6 +25,7 @@ import StringIO
 import sys
 import glob
 import time
+import matplotlib as mpl
 
 class NetworkManager:
     def __init__(self, parameters, log_file_name=None):
@@ -144,95 +145,139 @@ class NetworkManager:
         self.global_state_cached = False
         return self.model.step(self.sess, X, Y, weights, train_model, summary_writer=summary_writer)
 
-    def draw_html_graphs(self, graph_results):
-        if True:  # Plot HTML bokeh
-            plot_titles = graph_results['origin'].unique()
-            plots = []
-            if not os.path.exists(self.plot_directory):
-                os.makedirs(self.plot_directory)
-            plt_path = os.path.join(self.plot_directory, os.path.basename(self.log_file_name) + '.html')
-            # If I am running this many times, make new filenames
-            if os.path.exists(plt_path):
-                path_idx = 1
-                while os.path.exists(plt_path):
-                    plt_path = os.path.join(self.plot_directory,
-                                            os.path.basename(self.log_file_name) + "-%02d" % path_idx + '.html')
-                    path_idx += 1
+    def draw_bokeh_linear_plot(self,graph_results):
+        plot_titles = graph_results['origin'].unique()
+        plots = []
+        if not os.path.exists(self.plot_directory):
+            os.makedirs(self.plot_directory)
+        plt_path = os.path.join(self.plot_directory, os.path.basename(self.log_file_name) + '.html')
+        # If I am running this many times, make new filenames
+        if os.path.exists(plt_path):
+            path_idx = 1
+            while os.path.exists(plt_path):
+                plt_path = os.path.join(self.plot_directory,
+                                        os.path.basename(self.log_file_name) + "-%02d" % path_idx + '.html')
+                path_idx += 1
 
-            output_file(plt_path)
-            for origin in plot_titles:
-                if self.parameters['data_format'] == 'legacy':
-                    if os.path.exists("QDA/" + origin + ".npy"):
-                        QDA_data = np.load("QDA/" + origin + ".npy")
-                    QDA_mean = QDA_data[0] / 100
-                    QDA_meanpstd = QDA_data[1] / 100
-                    QDA_meanmstd = QDA_data[2] / 100
-                    QDA_range = np.array(range(len(QDA_mean)))
-                    QDA_range -= 40
+        output_file(plt_path)
+        for origin in plot_titles:
+            if self.parameters['data_format'] == 'legacy':
+                if os.path.exists("QDA/" + origin + ".npy"):
+                    QDA_data = np.load("QDA/" + origin + ".npy")
+                QDA_mean = QDA_data[0] / 100
+                QDA_meanpstd = QDA_data[1] / 100
+                QDA_meanmstd = QDA_data[2] / 100
+                QDA_range = np.array(range(len(QDA_mean)))
+                QDA_range -= 40
 
-                plt_title = 'Accuracy as measured relative to 20m mark. Averaged over all tracks'
-                # plot 1
-                dataset = graph_results[graph_results['origin'] == origin]
-                x_data = []
-                y_data = []
-                tp_data = []
-                fp_data = []
-                fn_data = []
-                try:
-                    f1_labels = True
-                    graph_results['f1_score']
-                    for range_val in np.unique(dataset['distance']):
-                        data_at_range = dataset[dataset['distance'] == range_val]
-                        x_data.append(range_val)
-                        y_data.append(data_at_range['f1_score'][0])
-                        tp_data.append(data_at_range['true_positive'][0])
-                        fp_data.append(data_at_range['false_positive'][0])
-                        fn_data.append(data_at_range['false_negative'][0])
-                except KeyError:
-                    f1_labels = False
-                    for range_val in np.unique(dataset['d_thresh']):
-                        # If I group by track number here, I can get a collection of accuracy scores
-                        # and therefore a std dev
-                        data_at_range = dataset[dataset['d_thresh'] == range_val]
-                        acc = np.average(np.equal(data_at_range['output_idxs'],
-                                                  data_at_range['destination_vec']))
-                        x_data.append(range_val)
-                        y_data.append(acc)
+            plt_title = 'Accuracy as measured relative to 20m mark. Averaged over all tracks'
+            # plot 1
+            dataset = graph_results[graph_results['origin'] == origin]
+            x_data = []
+            y_data = []
+            tp_data = []
+            fp_data = []
+            fn_data = []
+            try:
+                f1_labels = True
+                graph_results['f1_score']
+                for range_val in np.unique(dataset['distance']):
+                    data_at_range = dataset[dataset['distance'] == range_val]
+                    x_data.append(range_val)
+                    y_data.append(data_at_range['f1_score'][0])
+                    tp_data.append(data_at_range['true_positive'][0])
+                    fp_data.append(data_at_range['false_positive'][0])
+                    fn_data.append(data_at_range['false_negative'][0])
+            except KeyError:
+                f1_labels = False
+                for range_val in np.unique(dataset['d_thresh']):
+                    # If I group by track number here, I can get a collection of accuracy scores
+                    # and therefore a std dev
+                    data_at_range = dataset[dataset['d_thresh'] == range_val]
+                    acc = np.average(np.equal(data_at_range['output_idxs'],
+                                              data_at_range['destination_vec']))
+                    x_data.append(range_val)
+                    y_data.append(acc)
 
-                p1 = figure(title='Origin: ' + origin, x_axis_label='Dis from Ref Line (m)', y_axis_label='Acc.',
-                            plot_width=500, plot_height=500)  # ~half a 1080p screen
-                if not f1_labels:
-                    p1.line(x_data, y_data, legend="Acc. RNN", line_width=2, color='green')
-                else:
-                    p1.line(x_data, y_data, legend="F1 Score RNN", line_width=2, color='green')
-                    p1.line(x_data, tp_data, legend="True Positive Percent RNN", line_width=2, color='yellow')
-                    p1.line(x_data, fp_data, legend="False Positive Percent RNN", line_width=2, color='orange')
-                    p1.line(x_data, fn_data, legend="False Negative Percent RNN", line_width=2, color='blue')
+            p1 = figure(title='Origin: ' + origin, x_axis_label='Dis from Ref Line (m)', y_axis_label='Acc.',
+                        plot_width=500, plot_height=500)  # ~half a 1080p screen
+            if not f1_labels:
+                p1.line(x_data, y_data, legend="Acc. RNN", line_width=2, color='green')
+            else:
+                p1.line(x_data, y_data, legend="F1 Score RNN", line_width=2, color='green')
+                p1.line(x_data, tp_data, legend="True Positive Percent RNN", line_width=2, color='yellow')
+                p1.line(x_data, fp_data, legend="False Positive Percent RNN", line_width=2, color='orange')
+                p1.line(x_data, fn_data, legend="False Negative Percent RNN", line_width=2, color='blue')
 
-                if self.parameters['data_format'] == 'legacy':
-                    p1.line(QDA_range, QDA_mean, legend="Acc. QDA", line_width=2, color='red', line_alpha=1)
-                # p1.line(QDA_range, QDA_meanmstd, line_width=2, color='red', line_alpha=0.5)
-                # p1.line(QDA_range, QDA_meanpstd, line_width=2, color='red', line_alpha=0.5)
-                # p1.line(bbox_range, loss, legend="Loss.", line_width=2, color='blue')
-                # p1.line(bbox_range, output_gen_plt[:, 1], legend="Generated Output.", line_width=2, color='red')
-                p1.legend.location = "bottom_right"
-                plots.append(p1)
+            if self.parameters['data_format'] == 'legacy':
+                p1.line(QDA_range, QDA_mean, legend="Acc. QDA", line_width=2, color='red', line_alpha=1)
+            # p1.line(QDA_range, QDA_meanmstd, line_width=2, color='red', line_alpha=0.5)
+            # p1.line(QDA_range, QDA_meanpstd, line_width=2, color='red', line_alpha=0.5)
+            # p1.line(bbox_range, loss, legend="Loss.", line_width=2, color='blue')
+            # p1.line(bbox_range, output_gen_plt[:, 1], legend="Generated Output.", line_width=2, color='red')
+            p1.legend.location = "bottom_right"
+            plots.append(p1)
+        return plots
+
+    def draw_bokeh_topographical_plot(self, results_per_dis_df, batch_handler):
+        plots = []
+        batch_handler.data_pool.track_idx.unique()
+        data_pool = batch_handler.data_pool
+
+        longest_track_dict = {}
+        for track_class in data_pool['track_class'].unique():
+            #THIS DOES NOT RETURN THE LONGEST TRACK.
+            longest_track_dict[track_class] = data_pool[data_pool['track_class'] == track_class]['track_idx'].mode()
+
+        for track_class, track_idx in longest_track_dict.iteritems():
+            if "Object_Y" not in self.parameters['ibeo_data_columns'][1]:
+                print "You broke my hack! X and Y need to be the first encoder items."
+                quit()
+            track_idx = track_idx[0]
+            p = figure(plot_height=600, plot_width=700, title=track_class,x_range=(-40,20),y_range=(-60,40))
+            x_list=[]
+            y_list=[]
+            acc_list=[]
+
+            track_class_df = results_per_dis_df[(results_per_dis_df.track_class==track_class)]
+            long_track_df = track_class_df[track_class_df['track_idx']==track_idx]
+            for d_thresh in long_track_df.d_thresh.unique():
+                data_at_range = track_class_df[track_class_df['d_thresh'] == d_thresh]
+                acc = np.average(np.equal(data_at_range['output_idxs'],
+                                          data_at_range['destination_vec']))
+                acc_list.append(acc)
+                x_list.append(long_track_df[long_track_df['d_thresh']==d_thresh].encoder_sample[0][0][0])
+                y_list.append(long_track_df[long_track_df['d_thresh'] == d_thresh].encoder_sample[0][0][1])
+
+            colors = [
+                "#%02x%02x%02x" % (int(r), int(g), int(b)) for r, g, b, _ in
+                255 * mpl.cm.viridis(mpl.colors.Normalize()(acc_list))
+            ]
+            p.circle(x_list, y_list, size=4, fill_color=colors, fill_alpha=0.6,line_color=colors)
+            plots.append(p)
+            ideas=None
+
+        return plots
+
+    def draw_html_graphs(self, batch_handler):
+
+        results_per_dis = self.compute_result_per_dis(batch_handler)
+        dis_f1_report = self.compute_distance_f1_report(results_per_dis)
+        top_plots = self.draw_bokeh_topographical_plot(results_per_dis, batch_handler)
+        linear_plots = self.draw_bokeh_linear_plot(results_per_dis)
+
+        #topographical_plots = self.draw_bokeh_topographical_plot(graph_results)
+
+        # Dump all the metadata to a big string.
+        label_str = ""
+        for key, value in self.parameters.iteritems():
+            label_str += str(key) + ': ' + str(value) + "\r\n"
+        paragraph_1 = PreText(text=label_str)
 
 
-            label_str = ""
-            for key, value in self.parameters.iteritems():
-                label_str += str(key) + ': ' + str(value) + "\r\n"
-            paragraph_1 = PreText(text=label_str)
-
-            # put the results in a row
-
-            # p1 = figure(title='Log: ' + get_log_filename(),plot_width=400, plot_height=40)
-            # p1.line(1, 1, line_width=2, color='green')
-            # plots.append(p1)
-            p = gridplot([plots])
-            l = layout([plots, [widgetbox(paragraph_1, width=800)]])
-            save(l)
-            # show(widgetbox(button_1, width=300))
+        l = layout([top_plots, linear_plots, [widgetbox(paragraph_1, width=800)]])
+        save(l)
+        # show(widgetbox(button_1, width=300))
 
         return
 
@@ -331,7 +376,7 @@ class NetworkManager:
     #
     #     return
 
-    def compute_distance_report(self, dist_results):
+    def compute_distance_f1_report(self, dist_results):
         # Maybe at the end of training I want a ROC curve on the confidence threshold.
         # Right now I want an F1 score with a default threshold.
 
