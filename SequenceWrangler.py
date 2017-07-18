@@ -23,6 +23,8 @@ class SequenceWrangler:
         self.test_split = test
         self.pool_dir = 'data_pool'
         self.sourcename = sourcename
+        self.trainval_idxs = None
+        self.test_idxs = None
         return
 
     def get_pool_filename(self):
@@ -55,7 +57,7 @@ class SequenceWrangler:
 
         return True
 
-    def split_into_evaluation_pools(self):
+    def split_into_evaluation_pools(self,trainval_idxs = None, test_idxs = None):
         # Consolidate with get_pools function?
         # self.master_pool should exist by now
 
@@ -75,20 +77,24 @@ class SequenceWrangler:
         st_encoder.fit(raw_classes)
         origin_destination_enc_classes = st_encoder.transform(raw_classes)
 
-        trainval_idxs, test_idxs = train_test_split(raw_indicies,  # BREAK HERE
+        if (trainval_idxs is None) and (test_idxs is None):
+            self.trainval_idxs, self.test_idxs = train_test_split(raw_indicies,  # BREAK HERE
                                                     test_size=self.test_split,
                                                     stratify=origin_destination_enc_classes)
+        else:
+            self.trainval_idxs = trainval_idxs
+            self.test_idxs = test_idxs
 
-        crossfold_idx_lookup = np.array(trainval_idxs)
+        crossfold_idx_lookup = np.array(self.trainval_idxs)
 
         #Now I need the class of each track in trainval_idx
         trainval_class = []
-        for trainval_idx in trainval_idxs:
+        for trainval_idx in self.trainval_idxs:
             track_class = self.master_pool[self.master_pool.track_idx==trainval_idx]['track_class'].unique()
             trainval_class.append(track_class[0])
 
         skf = StratifiedKFold(n_splits=self.n_folds)
-        crossfold_indicies = list(skf.split(trainval_idxs, trainval_class))
+        crossfold_indicies = list(skf.split(self.trainval_idxs, trainval_class))
         crossfold_pool = [[[], []] for x in xrange(self.n_folds)]
         test_pool = []
 
@@ -108,7 +114,7 @@ class SequenceWrangler:
                         #print "Added track " + str(track_raw_idx) + " to cf pool " + str(fold_idx) + \
                         #      (" train" if trainorval_pool_idx is 0 else " test")
             # else it must exist in the test_pool
-            if track_raw_idx in test_idxs:
+            if track_raw_idx in self.test_idxs:
                 test_pool.append(
                         self.master_pool[self.master_pool['track_idx'] == track_raw_idx]
                 )
