@@ -58,7 +58,7 @@ class TrainingManager:
                 train_acc, train_step_loss, _ = netManager.run_training_step(train_x, train_y, weights, False,
                                                                                 summary_writer=netManager.train_writer)
                 val_accuracy, val_step_loss, _ = netManager.run_validation(validation_batch_handler,
-                                                                                             summary_writer=netManager.val_writer,quick=False)
+                                                                        summary_writer=netManager.val_writer,quick=True)
 
             #### EVALUATION / CHECKPOINTING
             sys.stdout.write("\rg_step %06d " % (current_step))
