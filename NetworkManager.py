@@ -428,7 +428,7 @@ class NetworkManager:
 
                 #TODO Param this:
                 output_samples = []
-                num_samples = 100 #FIXME squeeze breaks if num_samples is 1
+                num_samples = 1 #FIXME squeeze breaks if num_samples is 1
                 for _ in range(num_samples):
                     acc, loss, outputs = self.model.step(self.sess, val_x, val_y,
                                                          val_weights, False, summary_writer=None)
@@ -437,7 +437,7 @@ class NetworkManager:
                     output_samples.append(outputs)
 
                 #Get a population count of what the network thinks.
-                output_samples_arr = np.array(output_samples).squeeze()
+                output_samples_arr = np.array(output_samples).squeeze(axis=1)
                 output_1_hot = np.eye(output_samples_arr.shape[2])[np.argmax(output_samples_arr, axis=2)]
                 output_pop = np.sum(output_1_hot,axis=0)
 
@@ -538,7 +538,7 @@ class NetworkManager:
     # Checkpoints model. Adds path to global dict lookup
     def checkpoint_model(self):
         self.ckpt_dict[self.get_global_step()] = \
-            self.model.saver.save(self.sess, os.path.join(self.checkpoint_dir, 'model.chkpt'),
+            self.model.saver.save(self.sess, os.path.join(self.checkpoint_dir, 'model-chkpt'),
                               global_step=self.get_global_step())
 
     def load_from_checkpoint(self,g_step=None):
