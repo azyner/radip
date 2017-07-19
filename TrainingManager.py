@@ -18,7 +18,7 @@ class TrainingManager:
 
         return
 
-    def train_network(self,netManager,training_batch_handler,validation_batch_handler):
+    def train_network(self,netManager,training_batch_handler,validation_batch_handler,hyper_search=False):
         fold_time = time.time()
         current_step = 0
         previous_losses = []
@@ -81,12 +81,12 @@ class TrainingManager:
                     for metric_idx in range(len(metric_results)):
                         metric_string += metric_labels[metric_idx][0]
                         metric_string += "%0.1f " % metric_results[metric_idx]
-
-                    graphs = netManager.draw_png_graphs_perf_dist(dist_results)
-                    netManager.log_graphs_to_tensorboard(graphs)
+                    # DOn't log hyper search graphs, it explodes the log directory.
+                    if not hyper_search:
+                        graphs = netManager.draw_png_graphs_perf_dist(dist_results)
+                        netManager.log_graphs_to_tensorboard(graphs)
                     netManager.log_metric_to_tensorboard(metric_results)
                     sys.stdout.write("p_dis" + metric_string)
-
                 sys.stdout.write("\r\n")
                 sys.stdout.flush()
 
@@ -218,7 +218,7 @@ class TrainingManager:
                 netManager = NetworkManager.NetworkManager(self.parameter_dict, log_file_name)
                 netManager.build_model()
                 try:
-                    cf_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)
+                    cf_results = self.train_network(netManager,training_batch_handler,validation_batch_handler,hyper_search=True)
                 except tf.errors.InvalidArgumentError:
                     print "**********************caught error, probably gradients have exploded"
                     continue
