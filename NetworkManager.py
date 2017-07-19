@@ -26,6 +26,7 @@ import sys
 import glob
 import time
 import matplotlib as mpl
+from bokeh.models import ColumnDataSource, HoverTool, Div
 
 class NetworkManager:
     def __init__(self, parameters, log_file_name=None):
@@ -234,26 +235,39 @@ class NetworkManager:
                 print "You broke my hack! X and Y need to be the first encoder items."
                 quit()
             track_idx = track_idx[0]
-            p = figure(plot_height=600, plot_width=700, title=track_class,x_range=(-40,20),y_range=(-60,40))
+
             x_list=[]
             y_list=[]
             acc_list=[]
 
             track_class_df = results_per_dis_df[(results_per_dis_df.track_class==track_class)]
             long_track_df = track_class_df[track_class_df['track_idx']==track_idx]
-            for d_thresh in long_track_df.d_thresh.unique():
+
+            #Iterate over every row in long_DF
+            #Convert Long_DF to dict.
+            long_track_dict = long_track_df.reset_index(drop=True).to_dict('list')
+            # calculate and assign
+            for d_thresh in long_track_dict['d_thresh']:
                 data_at_range = track_class_df[track_class_df['d_thresh'] == d_thresh]
                 acc = np.average(np.equal(data_at_range['output_idxs'],
                                           data_at_range['destination_vec']))
                 acc_list.append(acc)
-                x_list.append(long_track_df[long_track_df['d_thresh']==d_thresh].iloc[0].encoder_sample[0][0])
-                y_list.append(long_track_df[long_track_df['d_thresh'] == d_thresh].iloc[0].encoder_sample[0][1])
-
-            colors = [
+                #x_list.append(long_track_df[long_track_df['d_thresh']==d_thresh].iloc[0]['Object_X'])
+                #y_list.append(long_track_df[long_track_df['d_thresh'] == d_thresh].iloc[0]['Object_Y'])
+            long_track_dict['Accuracy'] = acc_list
+            long_track_dict['colours'] = [
                 "#%02x%02x%02x" % (int(r), int(g), int(b)) for r, g, b, _ in
                 255 * mpl.cm.viridis(mpl.colors.Normalize()(acc_list))
             ]
-            p.circle(x_list, y_list, size=4, fill_color=colors, fill_alpha=0.6,line_color=colors)
+            hover = HoverTool(tooltips=[
+                ("Object_X","@Object_X"),
+                ("Object_Y", "@Object_Y"),
+                ("Accuracy", "@Accuracy")
+            ])
+            p = figure(plot_height=600, plot_width=700, title=track_class, x_range=(-40, 20), y_range=(-60, 40),tools=[hover])
+            plot_source = ColumnDataSource(data=long_track_dict)
+            p.circle(x="Object_X", y='Object_Y', size=4, fill_color="colours", fill_alpha=0.6,line_color="colours",
+                     source=plot_source)
             plots.append(p)
             ideas=None
 

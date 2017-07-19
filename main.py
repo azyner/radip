@@ -28,6 +28,7 @@ import pickle
 
 # ibeoCSV = ibeoCSVImporter.ibeoCSVImporter(parameters,'data/20170601-stationary-3-leith-croydon.csv')
 checkpoint_dir = "network_plots/20170718-164817/train/best-1500360501.23"
+checkpoint_dir='network_plots/20170718-192827/train/best-1500370111.66'
 #checkpoint_dir = None
 if 'checkpoint_dir' in locals():
     test_network_only = True
