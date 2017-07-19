@@ -290,8 +290,10 @@ class SequenceWrangler:
                                             self.parameters['observation_steps'],
                                             self.parameters['prediction_steps'],
                                             df_template, # Metadata that is static across the whole track
-                                            distance=single_track['distance'],
-                                            distance_to_exit=single_track['distance_to_exit']) #metadata that changes in the track.
+                                            distance=single_track['distance'],#metadata that changes in the track.
+                                            distance_to_exit=single_track['distance_to_exit'],
+                                            additional_df=single_track) #Everything else. Useful for post network analysis
+
 
             master_pool.append(track_pool)
         sys.stdout.write("\t\t\t\t%4s" % "[ OK ]")
@@ -378,7 +380,8 @@ class SequenceWrangler:
 
     # So track slicer is only handling one track at a time. It should be passed a set of common parameters
     #   For example: destination label, or vehicle type etc.
-    def _track_slicer(self, track, encoder_steps, decoder_steps, df_template, bbox=None,distance=None,distance_to_exit=None):
+    def _track_slicer(self, track, encoder_steps, decoder_steps, df_template,
+                      bbox=None,distance=None,distance_to_exit=None, additional_df=None):
         """
         creates new data frame based on previous observation
           * example:
@@ -407,7 +410,12 @@ class SequenceWrangler:
                 sample_dataframe["distance"] = distance[i+encoder_steps-1]
             if distance_to_exit is not None:
                 sample_dataframe["distance_to_exit"] = distance_to_exit[i+encoder_steps-1]
-            sample_dataframe["time_idx"] = i
+            if additional_df is not None:
+                for col_name in additional_df.columns:
+                    if col_name is 'distance' or col_name is 'distance_to_exit':
+                        continue
+                    sample_dataframe[col_name] = additional_df[col_name][i+encoder_steps-1]
+            sample_dataframe["track_time_idx"] = i
 
             sample_collection.append(pd.DataFrame(sample_dataframe))
         return pd.concat(sample_collection)
