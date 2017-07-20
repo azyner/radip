@@ -259,11 +259,11 @@ class NetworkManager:
                 "#%02x%02x%02x" % (int(r), int(g), int(b)) for r, g, b, _ in
                 255 * mpl.cm.viridis(mpl.colors.Normalize()(acc_list))
             ]
-            hover = HoverTool(tooltips=[
-                ("Object_X","@Object_X"),
-                ("Object_Y", "@Object_Y"),
-                ("Accuracy", "@Accuracy")
-            ])
+            tooltips = []
+            for name, value in long_track_dict.iteritems():
+                if name in ['Object_X','Object_Y','distance','distance_to_exit','track_idx','uniqueId','Timestamp','AbsVelocity']:
+                    tooltips.append(tuple([name, "@" + name])) # X,Y Vel, Distance to xx, accuracy.
+            hover = HoverTool(tooltips=tooltips)
             p = figure(plot_height=600, plot_width=700, title=track_class, x_range=(-40, 20), y_range=(-60, 40),tools=[hover])
             plot_source = ColumnDataSource(data=long_track_dict)
             p.circle(x="Object_X", y='Object_Y', size=4, fill_color="colours", fill_alpha=0.6,line_color="colours",
