@@ -7,6 +7,8 @@ import random
 import pandas as pd
 import numpy as np
 from sklearn import preprocessing
+from sklearn.model_selection import StratifiedShuffleSplit
+from imblearn.over_sampling import RandomOverSampler
 import sys
 
 class BatchHandler:
@@ -35,6 +37,19 @@ class BatchHandler:
                              ],
                             dtype=object,index=([0]*self.batch_size))
 
+        # Generate balanced index list
+        ros = RandomOverSampler()
+        selection_data = list(data_pool.track_class.as_matrix())
+        le = preprocessing.LabelEncoder()
+        le.fit(selection_data)
+        indexed_classes = np.array(le.transform(selection_data))
+        ros.fit(np.expand_dims(range(len(indexed_classes)),1),indexed_classes)
+        balanced_idxs, balanced_classes = ros.sample(np.expand_dims(range(len(indexed_classes)),1),indexed_classes)
+        self.balanced_idxs = np.squeeze(balanced_idxs)
+        # bf = data_pool.iloc[balanced_idxs]
+        # class_dict = {}
+        # for class_t in data_pool.track_class.unique():
+        #     class_dict[class_t] = len(bf[bf.track_class==class_t])/float(len(bf))
         return
 
     def get_input_size(self):
@@ -129,10 +144,18 @@ class BatchHandler:
         # TODO Research
         # Bias sampling, importance sampling, weighted sampling
 
-        # TODO I can set a vector p of probabilities of each pick. Can use this for the biased sampler
-        # Do I want this stratified?
+        if self.training:
+            # Select randomly such that there is a balance between classes. Over sampling is used for small classes
+            batch_idxs = np.random.choice(self.balanced_idxs, self.batch_size, replace=False)
+        else:
+            # Select uniformly at random
+            batch_idxs = np.random.choice(range(len(self.data_pool)), self.batch_size, replace=False)
 
-        batch_idxs = np.random.choice(range(len(self.data_pool)), self.batch_size, replace=False)
+        # class_dict = {}  # BALANCER VERIFICATION CODE
+        # for class_t in data_pool.track_class.unique():
+        #     class_dict[class_t] = len(bf[bf.track_class==class_t])/float(len(bf))
+        # print class_dict
+
         batch_frame = self.data_pool.iloc[batch_idxs].copy()
         num_columns = batch_frame.encoder_sample.iloc[0].shape[1]
 
