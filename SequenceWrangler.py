@@ -205,7 +205,6 @@ class SequenceWrangler:
         # Code that transforms the big dataframe into the input data list style for encoder/decoder
         # DOES NOT DO TRACK SPLITTING. Len output shoulbe be equal to len input
 
-
         ''''level_0', u'index', u'ObjectId', u'Flags',
         u'trackedByStationaryModel', u'mobile', u'motionModelValidated',
         u'ObjectAge', u'Timestamp', u'ObjectPredAge', u'Classification',
@@ -228,6 +227,7 @@ class SequenceWrangler:
 
         output_df = single_track.loc[:,self.parameters["ibeo_data_columns"]].values.astype(np.float32)
         return output_df
+
     def generate_master_pool_ibeo(self, ibeo_track_list):
 
         # get the unique list of origins and destinations:
@@ -266,7 +266,35 @@ class SequenceWrangler:
         that both are picked with an even dataset.
         """
 
+        #COMPUTE NORM PARAMS HERE
+        # 1 - Collect all the encoder data. Ever.
+        # 2 - computer normalization parameters.
+        # 3 - save these parameters -- to be pickled for the batchhandler, or pre-computed here?
+        #       Either way, they need to be saved somewhere, and coupled with the data_pool
+
+        print "Computing batch normalization parameters."
+        encoder_data = np.empty([0,len(self.parameters["ibeo_data_columns"])])
+        for track_raw_idx in range(len(ibeo_track_list)):
+            single_track = ibeo_track_list[track_raw_idx]
+            data_for_encoders = self._extract_ibeo_data_for_encoders(single_track)
+            encoder_data = np.append(encoder_data,data_for_encoders,axis=0)
+        #encoder_data = pd.concat(encoder_data_list)
+        encoder_means = np.mean(encoder_data, axis=0)
+        encoder_vars = np.var(encoder_data, axis=0)
+        encoder_stddev = np.std(encoder_data, axis=0)
+
+        print "Encoder means: " + str(encoder_means)
+        print "Encoder vars: " + str(encoder_vars)
+        print "Encoder standard deviations: " + str(encoder_stddev)
+
         master_pool = []
+        # Don't put everything in the pool, it takes forever.
+        data_columns = ['index', 'ObjectId', 'ObjectAge', 'Timestamp', 'ObjectPredAge', 'Classification','ClassCertainty',
+          'ClassAge', 'ObjBoxCenter_X',  'ObjBoxCenter_Y','ObjBoxSize_X','ObjBoxSize_Y', 'ObjBoxOrientation',
+          'AbsVelocity_X', 'AbsVelocity_Y', 'ObjPrediction', 'Object_X', 'Object_Y', 'uniqueId', 'origin',
+          'destination', 'AbsVelocity', 'distance', 'distance_to_exit']
+        data_columns.extend(self.parameters['ibeo_data_columns'])
+        data_columns = list(set(data_columns))
 
         # For all tracks
         for track_raw_idx in range(len(ibeo_track_list)):
@@ -275,13 +303,14 @@ class SequenceWrangler:
             #rint "Wrangling track: " + str(track_raw_idx) + " of: " + str(len(ibeo_track_list))
             sys.stdout.write("\rWrangling track:  %04d of %04d " % (track_raw_idx, len(ibeo_track_list)))
             sys.stdout.flush()
+            wrangle_time = time.time()
             single_track = ibeo_track_list[track_raw_idx]
             origin = single_track.iloc[0]['origin']
             destination = single_track.iloc[0]['destination']
             destination_vec = des_encoder.transform([destination])
             data_for_encoders = self._extract_ibeo_data_for_encoders(single_track)
 
-            wrangle_time = time.time()
+            data_for_encoders = np.divide(np.subtract(data_for_encoders,encoder_means),encoder_stddev)
 
             df_template = _generate_ibeo_template(track_raw_idx, origin + "-" + destination, origin, destination,
                                                   destination_vec)
@@ -292,10 +321,11 @@ class SequenceWrangler:
                                             df_template, # Metadata that is static across the whole track
                                             distance=single_track['distance'],#metadata that changes in the track.
                                             distance_to_exit=single_track['distance_to_exit'],
-                                            additional_df=single_track) #Everything else. Useful for post network analysis
+                                            additional_df=single_track[data_columns]) #Everything else. Useful for post network analysis
 
 
             master_pool.append(track_pool)
+            #print "wrangle time: " + str(time.time()-wrangle_time)
         sys.stdout.write("\t\t\t\t%4s" % "[ OK ]")
         sys.stdout.write("\r\n")
         sys.stdout.flush()
@@ -333,7 +363,6 @@ class SequenceWrangler:
             # I only care about the destination
             dash_idx = string.find('-')
             return string[dash_idx + 1:]
-
 
         for i in range(len(string_collection)):
             class_dictionary[get_class_from_str(string_collection[i])] = '0'
