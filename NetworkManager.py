@@ -261,7 +261,7 @@ class NetworkManager:
             ]
             tooltips = []
             for name, value in long_track_dict.iteritems():
-                if name in ['Object_X','Object_Y','distance','distance_to_exit','track_idx','uniqueId','Timestamp','AbsVelocity']:
+                if name in ['Accuracy','Object_X','Object_Y','distance','distance_to_exit','track_idx','uniqueId','Timestamp','AbsVelocity']:
                     tooltips.append(tuple([name, "@" + name])) # X,Y Vel, Distance to xx, accuracy.
             hover = HoverTool(tooltips=tooltips)
             p = figure(plot_height=600, plot_width=700, title=track_class, x_range=(-40, 20), y_range=(-60, 40),tools=[hover])
