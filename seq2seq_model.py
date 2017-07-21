@@ -13,7 +13,7 @@ from recurrent_batchnorm_tensorflow.BN_LSTMCell import BN_LSTMCell
 
 class Seq2SeqModel(object):
 
-    def __init__(self, parameters):
+    def __init__(self, parameters,hyper_search=False):
         #feed_future_data, train, num_observation_steps, num_prediction_steps, batch_size,
         #         rnn_size, num_layers, learning_rate, learning_rate_decay_factor, input_size, max_gradient_norm,
         #        dropout_prob,random_bias,subsample,random_rotate,num_mixtures,model_type):
@@ -299,19 +299,20 @@ class Seq2SeqModel(object):
                 grad_values = gradient.values
             else:
                 grad_values = gradient
-            self.network_summaries.append(
-                tf.summary.histogram(var_log_name, variable))
-            self.network_summaries.append(
-                tf.summary.histogram(var_log_name + "/gradients", grad_values))
-            self.network_summaries.append(
-                tf.summary.histogram(var_log_name + "/gradient_norm", clip_ops.global_norm([grad_values])))
+            if not hyper_search:
+                self.network_summaries.append(
+                    tf.summary.histogram(var_log_name, variable))
+                self.network_summaries.append(
+                    tf.summary.histogram(var_log_name + "/gradients", grad_values))
+                self.network_summaries.append(
+                    tf.summary.histogram(var_log_name + "/gradient_norm", clip_ops.global_norm([grad_values])))
 
         self.network_summaries.append(tf.summary.scalar('Loss', self.losses))
         self.network_summaries.append(tf.summary.scalar('Learning Rate', self.learning_rate))
 
         self.summary_op = tf.summary.merge(self.network_summaries)
 
-        self.saver = tf.train.Saver(max_to_keep=999)
+        self.saver = tf.train.Saver(max_to_keep=99999)
 
         return
 
