@@ -27,6 +27,7 @@ import glob
 import time
 import matplotlib as mpl
 from bokeh.models import ColumnDataSource, HoverTool, Div
+import shutil
 
 class NetworkManager:
     def __init__(self, parameters, log_file_name=None):
@@ -221,6 +222,10 @@ class NetworkManager:
         return plots
 
     def draw_bokeh_topographical_plot(self, results_per_dis_df, batch_handler):
+        image_filename = 'leith-croydon.png'
+        if not os.path.exists(os.path.join(self.plot_directory,image_filename)):
+            shutil.copy(os.path.join('images',image_filename),os.path.join(self.plot_directory,image_filename))
+
         plots = []
         batch_handler.data_pool.track_idx.unique()
         data_pool = batch_handler.data_pool
@@ -264,7 +269,12 @@ class NetworkManager:
                 if name in ['Accuracy','Object_X','Object_Y','distance','distance_to_exit','track_idx','uniqueId','Timestamp','AbsVelocity']:
                     tooltips.append(tuple([name, "@" + name])) # X,Y Vel, Distance to xx, accuracy.
             hover = HoverTool(tooltips=tooltips)
-            p = figure(plot_height=600, plot_width=700, title=track_class, x_range=(-40, 20), y_range=(-60, 40),tools=[hover])
+            p = figure(plot_height=600, plot_width=700, title=track_class, x_range=(-40, 20), y_range=(-30, 30),
+                       tools=[hover,'pan','wheel_zoom','box_zoom','reset','resize'])
+            #Angle is in radians, rotates around anchor
+            #p.image_url([image_filename], x=-89, y=35.4, w=147.45, h=77.0, angle=0, anchor='top_left'
+            p.image_url([image_filename], x=-15.275, y=-3.1, w=147.45, h=77.0, angle=0,
+                        anchor='center', global_alpha=0.7)
             plot_source = ColumnDataSource(data=long_track_dict)
             p.circle(x="Object_X", y='Object_Y', size=4, fill_color="colours", fill_alpha=0.6,line_color="colours",
                      source=plot_source)
