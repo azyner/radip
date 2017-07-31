@@ -150,18 +150,7 @@ class NetworkManager:
     def draw_bokeh_linear_plot(self,graph_results):
         plot_titles = graph_results['origin'].unique()
         plots = []
-        if not os.path.exists(self.plot_directory):
-            os.makedirs(self.plot_directory)
-        plt_path = os.path.join(self.plot_directory, os.path.basename(self.log_file_name) + '.html')
-        # If I am running this many times, make new filenames
-        if os.path.exists(plt_path):
-            path_idx = 1
-            while os.path.exists(plt_path):
-                plt_path = os.path.join(self.plot_directory,
-                                        os.path.basename(self.log_file_name) + "-%02d" % path_idx + '.html')
-                path_idx += 1
 
-        output_file(plt_path)
         for origin in plot_titles:
             if self.parameters['data_format'] == 'legacy':
                 if os.path.exists("QDA/" + origin + ".npy"):
@@ -284,6 +273,19 @@ class NetworkManager:
         return plots
 
     def draw_html_graphs(self, batch_handler):
+
+        if not os.path.exists(self.plot_directory):
+            os.makedirs(self.plot_directory)
+        plt_path = os.path.join(self.plot_directory, os.path.basename(self.log_file_name) + '.html')
+        # If I am running this many times, make new filenames
+        if os.path.exists(plt_path):
+            path_idx = 1
+            while os.path.exists(plt_path):
+                plt_path = os.path.join(self.plot_directory,
+                                        os.path.basename(self.log_file_name) + "-%02d" % path_idx + '.html')
+                path_idx += 1
+
+        output_file(plt_path)
 
         results_per_dis = self.compute_result_per_dis(batch_handler)
         dis_f1_report = self.compute_distance_f1_report(results_per_dis)
