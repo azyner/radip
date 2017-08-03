@@ -56,7 +56,17 @@ class ibeoCSVImporter:
             intersection_rotation = 0 # 90 degree?
             self.dest_gates = {"north": left_exit, "east": top_exit, "south": right_exit}
             self.origin_gates = {"north": left_enter, "east": top_enter, "south": right_enter}
-
+        if 'stationary-4-leith-croydon' in csv_name:
+            top_exit = [-25, -5, -0.5, 0.5]
+            top_enter = top_exit
+            right_exit = [-4, -2, -16, -1]
+            right_enter = right_exit
+            left_exit = [-26, -25, -16, -2]
+            left_enter = left_exit
+            intersection_centre = [-14.4, -7.5]
+            intersection_rotation = 0  # 90 degree?
+            self.dest_gates = {"north": left_exit, "east": top_exit, "south": right_exit}
+            self.origin_gates = {"north": left_enter, "east": top_enter, "south": right_enter}
 
     def get_track_list(self):
         return self.labelled_track_list
