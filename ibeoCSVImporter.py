@@ -8,7 +8,7 @@ import pandas as pd
 import struct
 from bokeh.plotting import figure, show
 from bokeh.io import output_notebook
-
+import os, pickle
 
 class ibeoCSVImporter:
     def __init__(self, parameters, csv_name):
@@ -16,19 +16,32 @@ class ibeoCSVImporter:
         if isinstance(csv_name,str):
             csv_name = [csv_name]
         self.labelled_track_list = []
-        for csv_file in csv_name:
-            print "Reading CSV " + csv_file
-            input_df = pd.read_csv('data/' + csv_file)
-            self.lookup_intersection_extent(csv_file)
-            parsed_df = self._parse_ibeo_df(input_df)
-            input_df = None
-            #print "Disambiguating tracks"
-            disambiguated_df = self._disambiguate_df(parsed_df)
-            parsed_df = None
-            labelled_track_list = self._label_df(disambiguated_df)
-            #print "Calculating intersection distance"
-            sub_track_list = self._calculate_intersection_distance(labelled_track_list)
-            self.labelled_track_list.extend(sub_track_list)
+        # Check if I have cached this already
+        # name it after the last csv in csv_name
+        cache_name = csv_name[-1]
+        file_path = 'data/' + cache_name + ".pkl"
+        if not os.path.isfile(file_path):
+            for csv_file in csv_name:
+                print "Reading CSV " + csv_file
+                input_df = pd.read_csv('data/' + csv_file)
+                self.lookup_intersection_extent(csv_file)
+                parsed_df = self._parse_ibeo_df(input_df)
+                input_df = None
+                #print "Disambiguating tracks"
+                disambiguated_df = self._disambiguate_df(parsed_df)
+                parsed_df = None
+                labelled_track_list = self._label_df(disambiguated_df)
+                #print "Calculating intersection distance"
+
+                sub_track_list = self._calculate_intersection_distance(labelled_track_list)
+                trimmed_tracks = self._trim_tracks(sub_track_list)
+                self.labelled_track_list.extend(trimmed_tracks)
+                # write pkl
+                with open(file_path, 'wb') as pkl_file:
+                    pickle.dump(self.labelled_track_list, pkl_file)
+        else:
+            with open(file_path, 'wb') as pkl_file:
+                self.labelled_track_list = pickle.load(pkl_file)
 
         self._print_collection_summary()
 
@@ -134,6 +147,7 @@ class ibeoCSVImporter:
                 continue
 
             obj_data = obj_data.reset_index() # Create copy, and reset the index to be contiguous
+            obj_data.rename(columns={'index': "file_index"}, inplace=True)
             obj_data = obj_data.sort_values(['Timestamp'], ascending=True)
 
             # Diff in its current format gives an off-by one error when passed to my splitter function.
@@ -190,6 +204,9 @@ class ibeoCSVImporter:
             # obj_data = vehicle_df[vehicle_df.ObjectId==ID]
             obj_data = disambiguated_df.loc[disambiguated_df.uniqueId == uID, :]
             #print("Sorting track: " + str(uID))
+            if any(obj_data.trackedByStationaryModel):
+                #print "Don't know what's going on here, but the data is incomplete for this track, skipping"
+                continue
             sys.stdout.write("\rSorting track: %04d of %04d " % (uID,max(disambiguated_df.uniqueId.unique())))
             sys.stdout.flush()
             if len(obj_data) < 1:
@@ -241,6 +258,32 @@ class ibeoCSVImporter:
 
         return clean_tracks
 
+    def _trim_tracks(self,long_tracks):
+        #Intersection extent buffer.
+        buf = 40
+        trimmed_tracks = []
+
+        for track in long_tracks:
+            debug_track = track.copy()
+            #Cut out cars that park if they are visible
+            last_moving_idx = max(track[track['AbsVelocity'] > 0.1].index)
+            # trim_track = track.iloc[0:last_moving_idx]
+            # If they are outside the roundabout and have stopped i.e. parked
+            track.drop(track[(track.index>last_moving_idx) |
+                             (track.Object_Y > (self.dest_gates['east'][3])) |
+                             (track.Object_X > (self.dest_gates['south'][1])) |
+                             (track.Object_X < (self.dest_gates['north'][0]))
+                             ].index,inplace=True)
+            # Or they have left the roundabout proximity
+            track.drop(track[(track.Object_Y > (buf + self.dest_gates['east'][3])) |
+                             (track.Object_X > (buf + self.dest_gates['south'][1])) |
+                             (track.Object_X < (-buf + self.dest_gates['north'][0]))].index,inplace=True)
+            #track.drop('level_0', axis=1,inplace=True)
+            track.reset_index(inplace=True)
+            if len(track)  < 20:
+                print "WTF?"
+            trimmed_tracks.append(track)
+        return trimmed_tracks
 
     #TODO I want forward distance from entrance, and distance to exit.
     def _calculate_intersection_distance(self, labelled_track_list):
@@ -271,7 +314,7 @@ class ibeoCSVImporter:
                 if self._in_box([single_track.iloc[step]["Object_X"],
                                  single_track.iloc[step]["Object_Y"]], self.origin_gates[track_origin]):
                     enter_ref_step = step
-                        # Do not break as it will keep overriding with the latest point in box
+                    # Do not break as it will keep overriding with the latest point in box
 
             for step in range(len(single_track)):
                 if self._in_box([single_track.iloc[step]["Object_X"],
