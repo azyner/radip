@@ -123,7 +123,8 @@ class ibeoCSVImporter:
         """ This function is used to clean up some of the many parameters inside the dataframe."""
 
         # Clean up the cs and add some labels
-        input_df.Timestamp = input_df.Timestamp - input_df.iloc[0].Timestamp
+        # No longer works with the split csv
+        #input_df.Timestamp = input_df.Timestamp - input_df.iloc[0].Timestamp
         # motionModelValidated is always true
         input_df.trackedByStationaryModel = (input_df.trackedByStationaryModel == 1)
         input_df.mobile = (input_df.mobile == 1)
@@ -272,28 +273,53 @@ class ibeoCSVImporter:
 
     def _trim_tracks(self,long_tracks):
         #Intersection extent buffer.
-        buf = 40
+        buf = 15
         trimmed_tracks = []
 
         for track in long_tracks:
             debug_track = track.copy()
             #Cut out cars that park if they are visible
             last_moving_idx = max(track[track['AbsVelocity'] > 0.1].index)
+            last_observed_idx = max(track[track['ObjectPredAge'] == 0].index)
             # trim_track = track.iloc[0:last_moving_idx]
             # If they are outside the roundabout and have stopped i.e. parked
-            track.drop(track[(track.index>last_moving_idx) |
+            track.drop(track[(track.index > last_moving_idx) & (
                              (track.Object_Y > (self.dest_gates['east'][3])) |
                              (track.Object_X > (self.dest_gates['south'][1])) |
-                             (track.Object_X < (self.dest_gates['north'][0]))
+                             (track.Object_X < (self.dest_gates['north'][0])))
+                             ].index,inplace=True)
+            # If the system is guessing
+            track.drop(track[(track.index > last_observed_idx) & (
+                             (track.Object_Y > (self.dest_gates['east'][3])) |
+                             (track.Object_X > (self.dest_gates['south'][1])) |
+                             (track.Object_X < (self.dest_gates['north'][0])))
                              ].index,inplace=True)
             # Or they have left the roundabout proximity
             track.drop(track[(track.Object_Y > (buf + self.dest_gates['east'][3])) |
                              (track.Object_X > (buf + self.dest_gates['south'][1])) |
                              (track.Object_X < (-buf + self.dest_gates['north'][0]))].index,inplace=True)
             #track.drop('level_0', axis=1,inplace=True)
+            # And now trim everything that is not continuous around distance zero.
             track.reset_index(inplace=True)
-            if len(track)  < 20:
+            track.drop('level_0', axis=1, inplace=True)
+
+            # and finally, check if any of the above filters have split a track in two. Keep the track that contains
+            # distance zero
+            cuts = np.where(np.diff(track.Timestamp) > 1)[0]
+            if len(cuts) > 0:
+                cuts += 1
+                cuts = np.append(np.insert(cuts, 0, 0), len(track) - 1)
+                for i in range(len(cuts)-1):
+                    #check if zero distance is in this sequence
+                    if not 0.0 in list(track.iloc[cuts[i]:cuts[i+1]].distance):
+                        track.drop(range(cuts[i],cuts[i+1]),inplace=True)
+                track.reset_index(inplace=True)
+                track.drop('level_0', axis=1, inplace=True)
+
+            if len(track) < 30:
                 print "WTF?"
+                continue
+
             trimmed_tracks.append(track)
         return trimmed_tracks
 
