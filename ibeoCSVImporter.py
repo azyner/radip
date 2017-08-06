@@ -18,9 +18,9 @@ class ibeoCSVImporter:
         self.labelled_track_list = []
         # Check if I have cached this already
         # name it after the last csv in csv_name
-        cache_name = csv_name[-1]
-        file_path = 'data/' + cache_name + ".pkl"
-        if not os.path.isfile(file_path):
+        cache_name = hash(tuple(csv_name))
+        file_path = 'data/' + str(cache_name) + ".pkl"
+        if True: # not os.path.isfile(file_path):
             for csv_file in csv_name:
                 print "Reading CSV " + csv_file
                 input_df = pd.read_csv('data/' + csv_file)
@@ -40,7 +40,7 @@ class ibeoCSVImporter:
                 with open(file_path, 'wb') as pkl_file:
                     pickle.dump(self.labelled_track_list, pkl_file)
         else:
-            with open(file_path, 'wb') as pkl_file:
+            with open(file_path, 'rb') as pkl_file:
                 self.labelled_track_list = pickle.load(pkl_file)
 
         self._print_collection_summary()

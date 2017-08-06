@@ -457,10 +457,13 @@ class NetworkManager:
     # This system should then do a ROC analysis at each distance we care about
     def compute_result_per_dis(self, batch_handler, plot=True):
         # Legacy plot needs exactly one data point per meter.
+        min_plot = max([-15,int(0.5+min(batch_handler.data_pool['distance']))])
+        max_plot = min([60,int(max(batch_handler.data_pool['distance']))])
+        print "min_plot: " + str(min_plot) + ' max_plot: ' + str(max_plot)
         if plot:
-            bbox_range_plot = np.arange(-35,60,1).tolist()
+            bbox_range_plot = np.arange(min_plot,max_plot,1).tolist()
         else:
-            bbox_range_plot = np.arange(-35, 60, 0.5).tolist()
+            bbox_range_plot = np.arange(min_plot, max_plot, 0.5).tolist()
 
         graph_results = []
         # This could be optimized.
