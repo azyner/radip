@@ -91,9 +91,11 @@ source_list = ['split_20170601-stationary-3-leith-croydon_01.csv',
               'split_20170601-stationary-3-leith-croydon_03.csv',
               'split_20170601-stationary-3-leith-croydon_04.csv',
               'split_20170601-stationary-3-leith-croydon_05.csv']
-source_list = []
+#source_list = []
 for i in range(41):
     source_list.append("split_20170802-stationary-4-leith-croydon_%02d.csv" % (i+1))
+for i in range(35):
+    source_list.append("split_20170804-stationary-5-leith-croydon_%02d.csv" % (i+1))
 
 sourcename = source_list[0]
 
