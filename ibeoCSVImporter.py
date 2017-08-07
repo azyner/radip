@@ -308,7 +308,7 @@ class ibeoCSVImporter:
             cuts = np.where(np.diff(track.Timestamp) > 1)[0]
             if len(cuts) > 0:
                 cuts += 1
-                cuts = np.append(np.insert(cuts, 0, 0), len(track) - 1)
+                cuts = np.append(np.insert(cuts, 0, 0), len(track))
                 for i in range(len(cuts)-1):
                     #check if zero distance is in this sequence
                     if not 0.0 in list(track.iloc[cuts[i]:cuts[i+1]].distance):
