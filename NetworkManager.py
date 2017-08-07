@@ -70,7 +70,7 @@ class NetworkManager:
         # Silence illegal summary names INFO warning.
         # It warns that ':' is illegal. However, its in the variable.name, so I can't avoid it without
         # overly verbose code.
-        #tf.logging.set_verbosity(tf.logging.ERROR)
+        tf.logging.set_verbosity(tf.logging.ERROR)
 
         return
 
