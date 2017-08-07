@@ -287,7 +287,7 @@ class NetworkManager:
 
         output_file(plt_path)
 
-        results_per_dis = self.compute_result_per_dis(batch_handler)
+        results_per_dis = self.compute_result_per_dis(batch_handler, plot=False)
         dis_f1_report = self.compute_distance_f1_report(results_per_dis)
         top_plots = self.draw_bokeh_topographical_plot(results_per_dis, batch_handler)
         linear_plots = self.draw_bokeh_linear_plot(results_per_dis)
@@ -536,7 +536,7 @@ class NetworkManager:
 
                 graph_results.append(mini_batch_frame)
                 batch_counter += 1
-            #print "Time to run dis batches: " + str(time.time() - batch_time)
+            print "Time to run dis batches: " + str(time.time() - batch_time)
 
         #Concat once only, much faster
         graph_results_frame = pd.concat(graph_results)
