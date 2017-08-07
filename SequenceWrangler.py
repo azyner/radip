@@ -60,7 +60,8 @@ class SequenceWrangler:
     def split_into_evaluation_pools(self,trainval_idxs = None, test_idxs = None):
         # Consolidate with get_pools function?
         # self.master_pool should exist by now
-
+        seed = np.random.randint(4294967296)
+        print "Using seed: " + str(seed) + " for test/train split"
         raw_indicies =self.master_pool.track_idx.unique()
 
         # origin_destination_class_list = self.master_pool.track_class.unique()
@@ -80,7 +81,8 @@ class SequenceWrangler:
         if (trainval_idxs is None) and (test_idxs is None):
             self.trainval_idxs, self.test_idxs = train_test_split(raw_indicies,  # BREAK HERE
                                                     test_size=self.test_split,
-                                                    stratify=origin_destination_enc_classes)
+                                                    stratify=origin_destination_enc_classes,
+                                                    random_state=seed)
         else:
             self.trainval_idxs = trainval_idxs
             self.test_idxs = test_idxs
@@ -93,7 +95,7 @@ class SequenceWrangler:
             track_class = self.master_pool[self.master_pool.track_idx==trainval_idx]['track_class'].unique()
             trainval_class.append(track_class[0])
 
-        skf = StratifiedKFold(n_splits=self.n_folds)
+        skf = StratifiedKFold(n_splits=self.n_folds,random_state=seed)
         crossfold_indicies = list(skf.split(self.trainval_idxs, trainval_class))
         crossfold_pool = [[[], []] for x in xrange(self.n_folds)]
         test_pool = []
@@ -289,9 +291,9 @@ class SequenceWrangler:
 
         master_pool = []
         # Don't put everything in the pool, it takes forever.
-        data_columns = ['index', 'ObjectId', 'ObjectAge', 'Timestamp', 'ObjectPredAge', 'Classification','ClassCertainty',
-          'ClassAge', 'ObjBoxCenter_X',  'ObjBoxCenter_Y','ObjBoxSize_X','ObjBoxSize_Y', 'ObjBoxOrientation',
-          'AbsVelocity_X', 'AbsVelocity_Y', 'ObjPrediction', 'Object_X', 'Object_Y', 'uniqueId', 'origin',
+        data_columns = ['index', 'ObjectId', 'Timestamp', 'ObjectPredAge', 'Classification',
+          'ObjBoxOrientation',
+          'Object_X', 'Object_Y', 'uniqueId', 'origin',
           'destination', 'AbsVelocity', 'distance', 'distance_to_exit']
         data_columns.extend(self.parameters['ibeo_data_columns'])
         data_columns = list(set(data_columns))
