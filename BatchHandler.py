@@ -10,6 +10,7 @@ from sklearn import preprocessing
 from sklearn.model_selection import StratifiedShuffleSplit
 from imblearn.over_sampling import RandomOverSampler
 import sys
+import time
 
 class BatchHandler:
     def __init__(self, data_pool, parameters, training):
@@ -249,6 +250,7 @@ class BatchHandler:
             busy_indicator = ['.', 'o', 'O','@', '*']
             batch_counter = 0
             print ''
+            cache_start = time.time()
             for dis in self.d_thresh_range:
                 sys.stdout.write("\rGenerating validation data pool cache...%s" % busy_indicator[batch_counter % len(busy_indicator)])
                 sys.stdout.flush()
@@ -260,6 +262,7 @@ class BatchHandler:
             pool_df = pd.concat(pool_list)
             self.distance_pool_cache[tuple(self.d_thresh_range)] = pool_df
             print ''
+            print "Time for caching: " + str(time.time()-cache_start)
             return pool_df
 
 
