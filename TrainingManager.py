@@ -202,14 +202,25 @@ class TrainingManager:
             # This way all the crossfolds for the same hyperparameters are adjacent in the checkpoint dirs
             log_file_time = str(time.time())
             cf_results_list = []
+            training_batch_handler_cache = {}
+            validation_batch_handler_cache = {}
 
             for train_pool, val_pool in self.cf_pool:
                 cf_fold += 1
                 log_file_name = log_file_time + "-cf-" + str(cf_fold)
 
                 print "Starting crossfold"
-                training_batch_handler = BatchHandler.BatchHandler(train_pool, self.parameter_dict, True)
-                validation_batch_handler = BatchHandler.BatchHandler(val_pool, self.parameter_dict, False)
+                try:
+                    training_batch_handler = training_batch_handler_cache[tuple(train_pool)]
+                except KeyError:
+                    training_batch_handler = BatchHandler.BatchHandler(train_pool, self.parameter_dict, True)
+                    training_batch_handler_cache[tuple(train_pool)] = training_batch_handler
+
+                try:
+                    validation_batch_handler = validation_batch_handler_cache[tuple(validation_batch_handler)]
+                except KeyError:
+                    validation_batch_handler = BatchHandler.BatchHandler(val_pool, self.parameter_dict, False)
+                    validation_batch_handler_cache[tuple(validation_batch_handler)] = validation_batch_handler
 
                 # Add input_size, num_classes
                 self.parameter_dict['input_size'] = training_batch_handler.get_input_size()
