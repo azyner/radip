@@ -58,36 +58,16 @@ class ibeoCSVImporter:
             intersection_rotation = 0
             self.dest_gates = {"north": top_exit, "east": right_exit, "south": low_exit}
             self.origin_gates = {"north": top_enter, "east": right_enter, "south": low_enter}
-        if  '20170601-stationary-3-leith-croydon' in csv_name:
-            top_exit = [-25,-5,-0.5,0.5]
-            top_enter = top_exit
-            right_exit = [-4,-2,-16,-1]
-            right_enter = right_exit
-            left_exit = [-26,-25,-16,-2]
-            left_enter = left_exit
-            intersection_centre = [-14.4,-7.5]
-            intersection_rotation = 0 # 90 degree?
-            self.dest_gates = {"north": left_exit, "east": top_exit, "south": right_exit}
-            self.origin_gates = {"north": left_enter, "east": top_enter, "south": right_enter}
-        if 'stationary-4-leith-croydon' in csv_name:
-            top_exit = [-25, -5, -0.5, 0.5]
-            top_enter = top_exit
-            right_exit = [-4, -2, -16, -1]
-            right_enter = right_exit
-            left_exit = [-26, -25, -16, -2]
-            left_enter = left_exit
-            intersection_centre = [-14.4, -7.5]
-            intersection_rotation = 0  # 90 degree?
-            self.dest_gates = {"north": left_exit, "east": top_exit, "south": right_exit}
-            self.origin_gates = {"north": left_enter, "east": top_enter, "south": right_enter}
-
-        if 'stationary-5-leith-croydon' in csv_name:
-            top_exit = [-25, -5, -0.5, 0.5]
-            top_enter = top_exit
-            right_exit = [-4, -2, -16, -1]
-            right_enter = right_exit
-            left_exit = [-26, -25, -16, -2]
-            left_enter = left_exit
+        if (('20170601-stationary-3-leith-croydon' in csv_name) or
+            ('stationary-4-leith-croydon' in csv_name) or
+            ('stationary-5-leith-croydon' in csv_name)):
+            # left right bottom top
+            top_exit = [-25, -16, 0, 0.5]
+            top_enter = [-12, -6, 0, 0.5]
+            right_exit = [-5.9, -5, -5, 5]
+            right_enter = [-5.9, -5, -17, -10]
+            left_exit = [-24, -23, -16, -10]
+            left_enter = [-24, -23, -6, -0]
             intersection_centre = [-14.4, -7.5]
             intersection_rotation = 0  # 90 degree?
             self.dest_gates = {"north": left_exit, "east": top_exit, "south": right_exit}
