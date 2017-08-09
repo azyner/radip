@@ -99,7 +99,7 @@ for i in range(35):
 
 sourcename = source_list[0]
 
-Wrangler = SequenceWrangler.SequenceWrangler(parameters,sourcename,n_folds=parameters.parameters['n_folds'])
+Wrangler = SequenceWrangler.SequenceWrangler(parameters,source_list,n_folds=parameters.parameters['n_folds'])
 
 if ibeo:
     if not Wrangler.load_from_checkpoint():

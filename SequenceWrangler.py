@@ -34,7 +34,7 @@ class SequenceWrangler:
                        ''.join([x[0] + x[-1] + '-' for x in self.parameters['ibeo_data_columns']]) + \
                        "obs-" + str(self.parameters["observation_steps"]) + \
                        "_pred-" + str(self.parameters["prediction_steps"]) + \
-                        self.sourcename + \
+                        str(hash(tuple(self.sourcename))) + \
                        ".pkl"
         else:
             filename = "pool_ckpt_" +\
