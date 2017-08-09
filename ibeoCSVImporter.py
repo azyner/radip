@@ -255,7 +255,8 @@ class ibeoCSVImporter:
 
     def _trim_tracks(self,long_tracks):
         #Intersection extent buffer.
-        buf = 15
+        intersection_limits = 15
+        dis_after_exit = 5
         trimmed_tracks = []
 
         for track in long_tracks:
@@ -276,10 +277,12 @@ class ibeoCSVImporter:
                              (track.Object_X > (self.dest_gates['south'][1])) |
                              (track.Object_X < (self.dest_gates['north'][0])))
                              ].index,inplace=True)
-            # Or they have left the roundabout proximity
-            track.drop(track[(track.Object_Y > (buf + self.dest_gates['east'][3])) |
-                             (track.Object_X > (buf + self.dest_gates['south'][1])) |
-                             (track.Object_X < (-buf + self.dest_gates['north'][0]))].index,inplace=True)
+            # Or they are not in the roundabout proximity
+            track.drop(track[(track.Object_Y > (intersection_limits + self.dest_gates['east'][3])) |
+                             (track.Object_X > (intersection_limits + self.dest_gates['south'][1])) |
+                             (track.Object_X < (-intersection_limits + self.dest_gates['north'][0]))].index,inplace=True)
+            # Or they have left the roundabout
+            track.drop(track[(track.distance_to_exit > dis_after_exit)].index,inplace=True)
             #track.drop('level_0', axis=1,inplace=True)
             # And now trim everything that is not continuous around distance zero.
             track.reset_index(inplace=True)
