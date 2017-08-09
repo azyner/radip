@@ -173,6 +173,8 @@ class TrainingManager:
         hyperparam_results_list = []
         hyper_time = time.time()
         self.parameter_dict['training_early_stop'] = self.parameter_dict['early_stop_cf']
+        training_batch_handler_cache = {}
+        validation_batch_handler_cache = {}
         while True:
 
             #Select new hyperparameters
@@ -202,8 +204,6 @@ class TrainingManager:
             # This way all the crossfolds for the same hyperparameters are adjacent in the checkpoint dirs
             log_file_time = str(time.time())
             cf_results_list = []
-            training_batch_handler_cache = {}
-            validation_batch_handler_cache = {}
 
             for train_pool, val_pool in self.cf_pool:
                 cf_fold += 1
@@ -211,16 +211,16 @@ class TrainingManager:
 
                 print "Starting crossfold"
                 try:
-                    training_batch_handler = training_batch_handler_cache[tuple(train_pool)]
+                    training_batch_handler = training_batch_handler_cache[hash(tuple(np.sort(train_pool.uniqueId.unique())))]
                 except KeyError:
                     training_batch_handler = BatchHandler.BatchHandler(train_pool, self.parameter_dict, True)
-                    training_batch_handler_cache[tuple(train_pool)] = training_batch_handler
+                    training_batch_handler_cache[hash(tuple(np.sort(train_pool.uniqueId.unique())))] = training_batch_handler
 
                 try:
-                    validation_batch_handler = validation_batch_handler_cache[tuple(validation_batch_handler)]
+                    validation_batch_handler = validation_batch_handler_cache[hash(tuple(np.sort(val_pool.uniqueId.unique())))]
                 except KeyError:
                     validation_batch_handler = BatchHandler.BatchHandler(val_pool, self.parameter_dict, False)
-                    validation_batch_handler_cache[tuple(validation_batch_handler)] = validation_batch_handler
+                    validation_batch_handler_cache[hash(tuple(np.sort(val_pool.uniqueId.unique())))] = validation_batch_handler
 
                 # Add input_size, num_classes
                 self.parameter_dict['input_size'] = training_batch_handler.get_input_size()
