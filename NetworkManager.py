@@ -219,56 +219,52 @@ class NetworkManager:
         batch_handler.data_pool.track_idx.unique()
         data_pool = batch_handler.data_pool
 
-        longest_track_dict = {}
-        for track_class in data_pool['track_class'].unique():
-            #THIS DOES NOT RETURN THE LONGEST TRACK.
-            longest_track_dict[track_class] = data_pool[data_pool['track_class'] == track_class]['track_idx'].mode()
+        for track_origin in results_per_dis_df['origin'].unique():
+            # 1 plot per origin
+            track_origin_df = results_per_dis_df[results_per_dis_df.origin == track_origin]
 
-        for track_class, track_idx in longest_track_dict.iteritems():
-            if "Object_Y" not in self.parameters['ibeo_data_columns'][1]:
-                print "You broke my hack! X and Y need to be the first encoder items."
-                quit()
-            track_idx = track_idx[0]
-
-            x_list=[]
-            y_list=[]
-            acc_list=[]
-
-            track_class_df = results_per_dis_df[(results_per_dis_df.track_class==track_class)]
-            long_track_df = track_class_df[track_class_df['track_idx']==track_idx]
-
-            #Iterate over every row in long_DF
-            #Convert Long_DF to dict.
-            long_track_dict = long_track_df.reset_index(drop=True).to_dict('list')
-            # calculate and assign
-            for d_thresh in long_track_dict['d_thresh']:
-                data_at_range = track_class_df[track_class_df['d_thresh'] == d_thresh]
-                acc = np.average(np.equal(data_at_range['output_idxs'],
-                                          data_at_range['destination_vec']))
-                acc_list.append(acc)
-                #x_list.append(long_track_df[long_track_df['d_thresh']==d_thresh].iloc[0]['Object_X'])
-                #y_list.append(long_track_df[long_track_df['d_thresh'] == d_thresh].iloc[0]['Object_Y'])
-            long_track_dict['Accuracy'] = acc_list
-            long_track_dict['colours'] = [
-                "#%02x%02x%02x" % (int(r), int(g), int(b)) for r, g, b, _ in
-                255 * mpl.cm.viridis(mpl.colors.Normalize()(acc_list))
-            ]
             tooltips = []
-            for name, value in long_track_dict.iteritems():
-                if name in ['Accuracy','Object_X','Object_Y','distance','distance_to_exit','track_idx','uniqueId','Timestamp','AbsVelocity']:
-                    tooltips.append(tuple([name, "@" + name])) # X,Y Vel, Distance to xx, accuracy.
+            for name in ['Accuracy','Object_X','Object_Y','distance','distance_to_exit','AbsVelocity']:
+                   tooltips.append(tuple([name, "@" + name])) # X,Y Vel, Distance to xx, accuracy.
             hover = HoverTool(tooltips=tooltips)
-            p = figure(plot_height=600, plot_width=700, title=track_class, x_range=(-40, 20), y_range=(-30, 30),
-                       tools=[hover,'pan','wheel_zoom','box_zoom','reset','resize'])
-            #Angle is in radians, rotates around anchor
-            #p.image_url([image_filename], x=-89, y=35.4, w=147.45, h=77.0, angle=0, anchor='top_left'
+
+            p = figure(plot_height=500, plot_width=500, title=track_origin, x_range=(-35, 10), y_range=(-30, 15),
+                       tools=[hover, 'pan', 'wheel_zoom', 'box_zoom', 'reset', 'resize'])
+            # Angle is in radians, rotates around anchor
             p.image_url([image_filename], x=-15.275, y=-3.1, w=147.45, h=77.0, angle=0,
                         anchor='center', global_alpha=0.7)
-            plot_source = ColumnDataSource(data=long_track_dict)
-            p.circle(x="Object_X", y='Object_Y', size=4, fill_color="colours", fill_alpha=0.6,line_color="colours",
-                     source=plot_source)
+
+            for destination in track_origin_df['destination'].unique():
+                dest_class_df = track_origin_df[track_origin_df['destination']==destination]
+                x_av = []
+                y_av = []
+                acc = []
+                dis_to_exit_av = []
+                vel_av = []
+                for dis in np.sort(dest_class_df['d_thresh'].unique()):
+                    d_thresh_df = dest_class_df[dest_class_df['d_thresh'] == dis]
+                    x_av.append(np.average(d_thresh_df['Object_X']))
+                    y_av.append(np.average(d_thresh_df['Object_Y']))
+                    vel_av.append(np.average(d_thresh_df['AbsVelocity']))
+                    acc.append(np.average(np.average(np.equal(d_thresh_df['output_idxs'],
+                                                               d_thresh_df['destination_vec']))))
+                    dis_to_exit_av.append(np.average(d_thresh_df['distance_to_exit']))
+
+                    colours= [
+                    "#%02x%02x%02x" % (int(r), int(g), int(b)) for r, g, b, _ in
+                    255 * mpl.cm.plasma(mpl.colors.Normalize()(acc))
+                    ]
+                source_df = pd.DataFrame({"Object_X": x_av,
+                                          "Object_Y": y_av,
+                                          "Accuracy":acc,
+                                          "distance_to_exit":dis_to_exit_av,
+                                          'distance':np.sort(dest_class_df['d_thresh'].unique()),
+                                          'AbsVelocity':vel_av,
+                                          'colours':colours})
+                plot_source = ColumnDataSource(data=source_df)
+                p.circle(x="Object_X", y="Object_Y", size=4, fill_color="colours", fill_alpha=0.6,
+                         line_color="colours", source=plot_source)
             plots.append(p)
-            ideas=None
 
         return plots
 
@@ -547,7 +543,7 @@ class NetworkManager:
 
         return graph_results_frame
 
-    def evaluate_metric(self,results):
+    def evaluate_pdis_metric(self, results):
 
         d_array = []
         for origin in results['origin'].unique():
@@ -575,6 +571,15 @@ class NetworkManager:
                 d_array.append(np.min(perfect_dist_threshold))
 
         return d_array, results['origin'].unique()
+
+    def evaluate_0_acc_metric(self, results):
+        for origin in results['origin'].unique():
+            origin_results = results[results['origin']==origin]
+            origin_0_results = origin_results[origin_results['d_thresh']==0]
+
+
+        return results
+
 
     # Function that passes the entire validation dataset through the network once and only once.
     # Return cumulative accuracy, loss

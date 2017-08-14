@@ -75,7 +75,7 @@ class TrainingManager:
                     # Compute Distance Metric
                     dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
                     #f1_scores = netManager.compute_distance_f1_report(dist_results)
-                    metric_results, metric_labels = netManager.evaluate_metric(dist_results)
+                    metric_results, metric_labels = netManager.evaluate_pdis_metric(dist_results)
 
                     metric_string = " "
                     for metric_idx in range(len(metric_results)):
