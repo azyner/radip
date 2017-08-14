@@ -5,7 +5,7 @@ from sklearn import preprocessing
 import time
 import sys
 import os
-import pickle
+
 
 #Class to take a list of continuous, contiguous data logs that need to be collated and split for the data feeder
 #Is this different to the batch handler?

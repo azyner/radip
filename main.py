@@ -21,7 +21,7 @@ import pandas as pd
 import subprocess
 import shutil
 import ibeoCSVImporter
-import pickle
+import dill as pickle
 
 # I want the logger and the crossfold here
 # This is where the hyperparameter searcher goes
@@ -30,6 +30,7 @@ import pickle
 #checkpoint_dir = "network_plots/20170718-164817/train/best-1500360501.23"
 #checkpoint_dir='network_plots/20170718-192827/train/best-1500370111.66'
 #checkpoint_dir = None
+#checkpoint_dir = 'results/20170814-121457/train/best-1502676987.0'
 if 'checkpoint_dir' in locals():
     test_network_only = True
 else:
@@ -126,14 +127,18 @@ to_pickle['test_idxs'] = Wrangler.test_idxs
 to_pickle['trainval_idxs'] = Wrangler.trainval_idxs
 to_pickle['data_pool'] = Wrangler.get_pool_filename()
 
-with open(os.path.join(parameters.parameters['master_dir'],'data.pkl'),'wb') as pkl_file:
-    pickle.dump(to_pickle, pkl_file)
 
 trainingManager = TrainingManager.TrainingManager(cf_pool, test_pool, parameters.parameters)
-if parameters.parameters['hyper_search_time'] > 0.001:
+if (parameters.parameters['hyper_search_time'] > 0.001) and not test_network_only:
     best_params = trainingManager.run_hyperparameter_search()
+elif test_network_only:
+    best_params = from_pickle['best_params']
 else:
     best_params = parameters.parameters
+
+to_pickle['best_params'] = best_params
+with open(os.path.join(parameters.parameters['master_dir'],'data.pkl'),'wb') as pkl_file:
+    pickle.dump(to_pickle, pkl_file)
 
 print "Crossfolding finished, now training with the best parameters"
 

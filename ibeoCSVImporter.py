@@ -8,7 +8,8 @@ import pandas as pd
 import struct
 from bokeh.plotting import figure, show
 from bokeh.io import output_notebook
-import os, pickle
+import os
+import dill as pickle
 
 class ibeoCSVImporter:
     def __init__(self, parameters, csv_name):
@@ -302,7 +303,6 @@ class ibeoCSVImporter:
                 track.drop('level_0', axis=1, inplace=True)
 
             if len(track) < 30:
-                print "WTF?"
                 continue
 
             trimmed_tracks.append(track)
