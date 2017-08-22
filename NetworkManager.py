@@ -252,7 +252,7 @@ class NetworkManager:
 
                     colours= [
                     "#%02x%02x%02x" % (int(r), int(g), int(b)) for r, g, b, _ in
-                    255 * mpl.cm.plasma(mpl.colors.Normalize()(acc))
+                    255 * mpl.cm.plasma(mpl.colors.Normalize(vmin=0.3,vmax=1.0)(acc))
                     ]
                 source_df = pd.DataFrame({"Object_X": x_av,
                                           "Object_Y": y_av,
