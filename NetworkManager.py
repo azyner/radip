@@ -148,7 +148,7 @@ class NetworkManager:
         return self.model.step(self.sess, X, Y, weights, train_model, summary_writer=summary_writer)
 
     def draw_bokeh_linear_plot(self,graph_results):
-        plot_titles = graph_results['origin'].unique()
+        plot_titles = np.sort(graph_results['origin'].unique())
         plots = []
 
         for origin in plot_titles:
@@ -191,7 +191,7 @@ class NetworkManager:
                     y_data.append(acc)
 
             p1 = figure(title='Origin: ' + origin, x_axis_label='Dis from Ref Line (m)', y_axis_label='Acc.',
-                        plot_width=500, plot_height=500)  # ~half a 1080p screen
+                        plot_width=500, plot_height=500,x_range=(-12, 35), y_range=(0, 1.05),)  # ~half a 1080p screen
             if not f1_labels:
                 p1.line(x_data, y_data, legend="Acc. RNN", line_width=2, color='green')
             else:
@@ -219,7 +219,7 @@ class NetworkManager:
         batch_handler.data_pool.track_idx.unique()
         data_pool = batch_handler.data_pool
 
-        for track_origin in results_per_dis_df['origin'].unique():
+        for track_origin in np.sort(results_per_dis_df['origin'].unique()):
             # 1 plot per origin
             track_origin_df = results_per_dis_df[results_per_dis_df.origin == track_origin]
 
