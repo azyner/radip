@@ -19,5 +19,7 @@ def merge_csvs(csv_name):
             elif fileinput.filelineno() != 1:
                 outfile.write(line)
 
-merge_csvs("best.csv")
 merge_csvs("hyper.csv")
+print "Finished merging hyper.csv"
+merge_csvs("best.csv")
+print "Finished merging best.csv"
