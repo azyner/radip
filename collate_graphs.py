@@ -41,8 +41,10 @@ output_file(plt_path)
 first_key,first_results = list(data_dict.iteritems())[0]
 plot_titles = np.sort(first_results['origin'].unique())
 plots = []
+line_colours = ['Cyan','DarkBlue','Chartreuse', 'SeaGreen','Fuchsia','FireBrick','Black','Pink']
 
 for origin in plot_titles:
+    colour_idx = 0
     print "plotting: " + origin
     plt_title = 'Accuracy as measured relative to 20m mark. Averaged over all tracks'
     p1 = figure(title='Origin: ' + origin, x_axis_label='Dis from Ref Line (m)', y_axis_label='Acc.',
@@ -66,7 +68,8 @@ for origin in plot_titles:
             x_data.append(range_val)
             y_data.append(acc)
 
-        p1.line(x_data, y_data, legend=key_str, line_width=2)
+        p1.line(x_data, y_data, legend=key_str, line_width=2,color=line_colours[colour_idx])
+        colour_idx += 1
 
     p1.legend.location = "bottom_right"
     plots.append(p1)
