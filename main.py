@@ -141,6 +141,7 @@ if (parameters.parameters['hyper_search_time'] > 0.001) and not test_network_onl
     best_params = trainingManager.run_hyperparameter_search()
 elif test_network_only:
     best_params = from_pickle['best_params']
+    best_params['master_dir'] = master_dir
 else:
     best_params = parameters.parameters
 
