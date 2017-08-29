@@ -28,6 +28,7 @@ import time
 import matplotlib as mpl
 from bokeh.models import ColumnDataSource, HoverTool, Div
 import shutil
+import dill as pickle
 
 class NetworkManager:
     def __init__(self, parameters, log_file_name=None):
@@ -284,6 +285,13 @@ class NetworkManager:
         output_file(plt_path)
 
         results_per_dis = self.compute_result_per_dis(batch_handler, plot=False)
+        # Run a model loaded from checkpoint, then save results_per_dis to pickle (dill), with parameters as well.
+        # Then I can pass all those into a directory, and run the plotter again.
+        pkl_path = os.path.join(self.plot_directory, os.path.basename(self.log_file_name) + '.pkl')
+        with open(pkl_path,'wb') as pkl_file:
+            to_pkl = {'parameters': self.parameters,
+                      'results_per_dis': results_per_dis}
+            pickle.dump(to_pkl,pkl_file)
         dis_f1_report = self.compute_distance_f1_report(results_per_dis)
         top_plots = self.draw_bokeh_topographical_plot(results_per_dis, batch_handler)
         linear_plots = self.draw_bokeh_linear_plot(results_per_dis)
