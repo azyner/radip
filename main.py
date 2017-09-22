@@ -31,12 +31,12 @@ import dill as pickle
 #checkpoint_dir='network_plots/20170718-192827/train/best-1500370111.66'
 #checkpoint_dir = None
 #checkpoint_dir = 'results/20170814-121457/train/best-1502676987.0'
-#checkpoint_dir = 'plot_rerun/0/20170828-153955/train/best-1503898884.55'
-#checkpoint_dir = 'plot_rerun/0/20170828-154119/train/best-1503898976.91'
-#checkpoint_dir = 'plot_rerun/1/20170828-154008/train/best-1503898893.34'
-#checkpoint_dir = 'plot_rerun/1/20170828-154046/train/best-1503898934.72'
-#checkpoint_dir = 'plot_rerun/2/20170828-154004/train/best-1503898889.02'
-#checkpoint_dir = 'plot_rerun/2/20170828-154038/train/best-1503898933.15'
+#checkpoint_dir = 'writeup/certainty/paper_4/0/20170828-153955/train/best-1503898884.55'
+#checkpoint_dir = 'writeup/certainty/paper_4/0/20170828-154119/train/best-1503898976.91'
+#checkpoint_dir = 'writeup/certainty/paper_4/1/20170828-154008/train/best-1503898893.34'
+#checkpoint_dir = 'writeup/certainty/paper_4/1/20170828-154046/train/best-1503898934.72'
+#checkpoint_dir = 'writeup/certainty/paper_4/2/20170828-154004/train/best-1503898889.02'
+#checkpoint_dir = 'writeup/certainty/paper_4/2/20170828-154038/train/best-1503898933.15'
 
 
 if 'checkpoint_dir' in locals():

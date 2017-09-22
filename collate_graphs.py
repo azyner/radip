@@ -45,9 +45,9 @@ line_colours = ['Cyan','DarkBlue','Chartreuse', 'SeaGreen','Fuchsia','FireBrick'
 
 for origin in plot_titles:
     colour_idx = 0
-    print "plotting: " + origin
+    print "plotting: " + origin.title()
     plt_title = 'Accuracy as measured relative to 20m mark. Averaged over all tracks'
-    p1 = figure(title='Origin: ' + origin, x_axis_label='Dis from Ref Line (m)', y_axis_label='Acc.',
+    p1 = figure(title='Origin: ' + origin.title(), x_axis_label='Distance from Intersection Entrance (metres)', y_axis_label='Accuracy',
                 plot_width=500, plot_height=500, x_range=(-12, 35), y_range=(0, 1.05), )  # ~half a 1080p screen
 
     for key_str, graph_results in data_dict.iteritems():
