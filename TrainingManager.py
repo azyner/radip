@@ -10,12 +10,13 @@ import sys
 
 
 class TrainingManager:
-    def __init__(self, cf_pool, test_pool, parameter_dict):
+    def __init__(self, cf_pool, test_pool, encoder_means, encoder_stddev, parameter_dict):
         self.cf_pool = cf_pool
         self.test_pool = test_pool
         self.parameter_dict = parameter_dict
         self.hyper_results_logfile = "hyper.csv"
-
+        self.encoder_means = encoder_means
+        self.encoder_stddev = encoder_stddev
         return
 
     def train_network(self,netManager,training_batch_handler,validation_batch_handler,hyper_search=False):
@@ -325,7 +326,7 @@ class TrainingManager:
         self.parameter_dict['num_classes'] = training_batch_handler.get_num_classes()
 
         netManager = NetworkManager.NetworkManager(self.parameter_dict, log_file_name)
-        netManager.build_model()
+        netManager.build_model(self.encoder_means,self.encoder_stddev)
 
         if not test_network_only:
             best_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)

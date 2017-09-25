@@ -94,8 +94,13 @@ class Seq2SeqModel(object):
                                   initializer=tf.constant_initializer(0.1))
             output_projection = (o_w, o_b)
 
+        with tf.variable_scope('input_scaling'):
+            i_s_m = tf.get_variable('in_scale_mean', shape=[self.input_size],trainable=False,initializer=tf.zeros_initializer())
+            i_s_s = tf.get_variable('in_scale_stddev', shape=[self.input_size],trainable=False,initializer=tf.ones_initializer())
+            scaling_layer = (i_s_m,i_s_s)
+            self.scaling_layer = scaling_layer
         with tf.variable_scope('input_embedding_layer'):
-            i_w = tf.get_variable("in_w", [self.input_size, self.embedding_size],
+            i_w = tf.get_variable("in_w", [self.input_size, self.embedding_size], # TODO Why is batch_size not anywhere in shape?
                                   initializer=tf.truncated_normal_initializer(stddev=1.0/np.sqrt(self.embedding_size)))
             i_b = tf.get_variable("in_b", [self.embedding_size],
                                   initializer=tf.constant_initializer(0.1))
@@ -193,7 +198,8 @@ class Seq2SeqModel(object):
             self.encoder_inputs = [tf.nn.dropout(
                                         tf.nn.relu(
                                             nn_ops.xw_plus_b(
-                                                input_timestep, input_layer[0], input_layer[1])),
+                                                input_timestep, # TODO apply normalization here
+                                                input_layer[0], input_layer[1])),
                                         1-parameters['embedding_dropout'])
                                    for
                                    input_timestep in self.observation_inputs[0:-1]]
@@ -203,7 +209,8 @@ class Seq2SeqModel(object):
             self.decoder_inputs = [tf.nn.dropout(
                                         tf.nn.relu(
                                             nn_ops.xw_plus_b(
-                                                self.observation_inputs[-1], input_layer[0], input_layer[1])),
+                                                self.observation_inputs[-1],  # TODO apply normalization here
+                                                input_layer[0], input_layer[1])),
                                         1-parameters['embedding_dropout'])]
 
         # Todo should this have the input layer applied?
@@ -310,6 +317,16 @@ class Seq2SeqModel(object):
         self.summary_op = tf.summary.merge(self.network_summaries)
 
         self.saver = tf.train.Saver(max_to_keep=99999)
+
+        return
+
+    def set_normalization_params(self,session,encoder_means,encoder_stddev):
+        # # Function that manually sets the scaling layer for use in input normalization
+        # session.run(tf.assign(self.scaling_layer[0], encoder_means))
+        # session.run(tf.assign(self.scaling_layer[1], encoder_stddev))
+
+        session.run(self.scaling_layer[0].assign(encoder_means))
+        session.run(self.scaling_layer[1].assign(encoder_stddev))
 
         return
 

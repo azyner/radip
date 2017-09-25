@@ -25,6 +25,9 @@ class SequenceWrangler:
         self.sourcename = sourcename
         self.trainval_idxs = None
         self.test_idxs = None
+        self.encoder_means = None
+        self.encoder_vars = None
+        self.encoder_stddev = None
         return
 
     def get_pool_filename(self):
@@ -60,8 +63,28 @@ class SequenceWrangler:
     def split_into_evaluation_pools(self,trainval_idxs = None, test_idxs = None):
         # Consolidate with get_pools function?
         # self.master_pool should exist by now
+        # TODO Here print normalization numbers.
+        #I'll then add a get/set call for these numbers to be added to the network.
         seed = np.random.randint(4294967296)
         print "Using seed: " + str(seed) + " for test/train split"
+
+        encoder_pool = []
+        for encoder_data in self.master_pool.encoder_sample.iteritems():
+            encoder_values = encoder_data[1]
+            encoder_pool.append(encoder_values[0])
+            last_encoder = encoder_values
+        encoder_pool.extend(encoder_values[1:])
+        encoder_pool = np.array(encoder_pool)
+
+        #Compute averages here
+        self.encoder_means = np.mean(encoder_pool, axis=0)
+        self.encoder_vars = np.var(encoder_pool, axis=0)
+        self.encoder_stddev = np.std(encoder_pool, axis=0)
+
+        print "Encoder means: " + str(self.encoder_means)
+        print "Encoder vars: " + str(self.encoder_vars)
+        print "Encoder standard deviations: " + str(self.encoder_stddev)
+
         raw_indicies =self.master_pool.track_idx.unique()
 
         # origin_destination_class_list = self.master_pool.track_class.unique()
@@ -207,7 +230,8 @@ class SequenceWrangler:
         # Code that transforms the big dataframe into the input data list style for encoder/decoder
         # DOES NOT DO TRACK SPLITTING. Len output shoulbe be equal to len input
 
-        ''''level_0', u'index', u'ObjectId', u'Flags',
+        '''
+        'level_0', u'index', u'ObjectId', u'Flags',
         u'trackedByStationaryModel', u'mobile', u'motionModelValidated',
         u'ObjectAge', u'Timestamp', u'ObjectPredAge', u'Classification',
         u'ClassCertainty', u'ClassAge', u'ObjBoxCenter_X', u'ObjBoxCenter_Y',
@@ -238,7 +262,6 @@ class SequenceWrangler:
         labelling_df = pd.concat(labelling_list)
         destinations = labelling_df["destination"].unique()
         origins = labelling_df["origin"].unique()
-
 
         # Convert destination into a list of indicies
         des_encoder = preprocessing.LabelEncoder()

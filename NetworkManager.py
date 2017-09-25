@@ -75,7 +75,7 @@ class NetworkManager:
 
         return
 
-    def build_model(self):
+    def build_model(self,encoder_means=None, encoder_stddev=None):
         tf.reset_default_graph()
         self.device = tf.device(self.parameters['device'])
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9,allow_growth=True)
@@ -94,8 +94,18 @@ class NetworkManager:
             self.model.saver.restore(self.sess, ckpt.model_checkpoint_path)
         else:
             print("Created model with fresh parameters.")
+            if encoder_means is None or encoder_stddev is None:
+                print "Error! New model needs input scaling parameters for input normalization"
+                exit(1)
+            #Get scaling factors
+
             self.model = Seq2SeqModel(self.parameters)
+            # IMPORTANT set norm params must occur after init, otherwise the values get clobbered
             self.sess.run(tf.global_variables_initializer())
+            self.model.set_normalization_params(self.sess,encoder_means,encoder_stddev)
+
+            print self.model.scaling_layer[0].eval(session=self.sess)
+            print self.model.scaling_layer[1].eval(session=self.sess)
 
         if self.summaries_dir is not None:
             self.train_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'train'),
