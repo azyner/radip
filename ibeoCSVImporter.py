@@ -92,8 +92,6 @@ class ibeoCSVImporter:
 
         print "origin | destination"
         print summary_df
-        #TODO Write function that strips out any classes of size 1 as they break the stratitifer. Eg. rare u-turns.
-
 
     def _in_box(self, point, extent):
         """Return if a point is within a spatial extent."""
@@ -308,7 +306,6 @@ class ibeoCSVImporter:
             trimmed_tracks.append(track)
         return trimmed_tracks
 
-    #TODO I want forward distance from entrance, and distance to exit.
     def _calculate_intersection_distance(self, labelled_track_list):
         base_idx = len(self.labelled_track_list)
         for track_idx in range(len(labelled_track_list)):

@@ -410,7 +410,6 @@ class NetworkManager:
         # Maybe at the end of training I want a ROC curve on the confidence threshold.
         # Right now I want an F1 score with a default threshold.
 
-        # FIXME can I get classes a better way?
         classes = dist_results.origin.unique()
         f1_df_list = []
 
@@ -508,7 +507,7 @@ class NetworkManager:
 
                 #TODO Param this:
                 output_samples = []
-                num_samples = 1 #FIXME squeeze breaks if num_samples is 1
+                num_samples = 1
                 for _ in range(num_samples):
                     acc, loss, outputs = self.model.step(self.sess, val_x, val_y,
                                                          val_weights, False, summary_writer=None)
@@ -585,9 +584,7 @@ class NetworkManager:
             origin_results = results[results['origin']==origin]
             origin_0_results = origin_results[origin_results['d_thresh']==0]
 
-
         return results
-
 
     # Function that passes the entire validation dataset through the network once and only once.
     # Return cumulative accuracy, loss

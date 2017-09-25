@@ -8,8 +8,6 @@ import time
 # Will complain in the following conditions:
 #   results is not empty. Experiments should run in a clean results folder
 
-# TODO read args from cmd line.
-
 import argparse
 
 parser = argparse.ArgumentParser(description='Spawn N TF workers (main.py) and N tensorboard programs.')

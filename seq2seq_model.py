@@ -37,9 +37,6 @@ class Seq2SeqModel(object):
         #
         # This MDN format is then either used for the loss, or is sampled to get a real value
 
-        #TODO Tuesday: use model_type = 'MDN' | 'classifier' to split the two models.
-        # Also try and fix how the loopback function sample is not being used as the output sample.
-
         #TODO Reorganise code using namespace for better readability
         self.parameters = parameters
         self.max_gradient_norm = parameters['max_gradient_norm']
@@ -67,9 +64,9 @@ class Seq2SeqModel(object):
         self.network_summaries = []
         keep_prob = 1-self.dropout_prob
 
-        # TODO Placeholder until I implement MDN
+        # Feed future data is to be used during sequence generation. It allows real data to be passed at times t++
+        # instead of the generated output. For training only, I may not use it at all.
         feed_future_data = False
-
 
         if parameters['model_type'] == 'classifier' and self.prediction_steps > 1:
             raise Exception("Error. Classifier model can only have 1 prediction step")
