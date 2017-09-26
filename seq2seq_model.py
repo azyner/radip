@@ -100,7 +100,7 @@ class Seq2SeqModel(object):
             scaling_layer = (i_s_m,i_s_s)
             self.scaling_layer = scaling_layer
         with tf.variable_scope('input_embedding_layer'):
-            i_w = tf.get_variable("in_w", [self.input_size, self.embedding_size], # TODO Why is batch_size not anywhere in shape?
+            i_w = tf.get_variable("in_w", [self.input_size, self.embedding_size], # Remember, batch_size is automatic
                                   initializer=tf.truncated_normal_initializer(stddev=1.0/np.sqrt(self.embedding_size)))
             i_b = tf.get_variable("in_b", [self.embedding_size],
                                   initializer=tf.constant_initializer(0.1))
@@ -144,8 +144,10 @@ class Seq2SeqModel(object):
 
             # Apply input layer
             prev = tf.nn.dropout(
-                tf.nn.relu(nn_ops.xw_plus_b(prev, input_layer[0], input_layer[1]),name="Loopback_Input"),
-                                 1-parameters['embedding_dropout'])
+                tf.nn.relu(nn_ops.xw_plus_b(
+                    tf.divide(tf.subtract(prev, scaling_layer[0]), scaling_layer[1]), # Input scaling
+                    input_layer[0], input_layer[1]),name="Loopback_Input"),
+                1-parameters['embedding_dropout'])
 
             return prev
 
@@ -198,18 +200,23 @@ class Seq2SeqModel(object):
             self.encoder_inputs = [tf.nn.dropout(
                                         tf.nn.relu(
                                             nn_ops.xw_plus_b(
-                                                input_timestep, # TODO apply normalization here
+                                                tf.divide(
+                                                    tf.subtract(
+                                                        input_timestep, scaling_layer[0]),
+                                                    scaling_layer[1]),  # Input scaling
                                                 input_layer[0], input_layer[1])),
                                         1-parameters['embedding_dropout'])
-                                   for
-                                   input_timestep in self.observation_inputs[0:-1]]
+                                   for input_timestep in self.observation_inputs[0:-1]]
 
         #decoder inputs are the last observation and all but the last future
         with tf.variable_scope('decoder_inputs'):
             self.decoder_inputs = [tf.nn.dropout(
                                         tf.nn.relu(
                                             nn_ops.xw_plus_b(
-                                                self.observation_inputs[-1],  # TODO apply normalization here
+                                                tf.divide(
+                                                    tf.subtract(
+                                                        self.observation_inputs[-1], scaling_layer[0]),
+                                                    scaling_layer[1]),
                                                 input_layer[0], input_layer[1])),
                                         1-parameters['embedding_dropout'])]
 

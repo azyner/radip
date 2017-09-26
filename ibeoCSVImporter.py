@@ -19,7 +19,7 @@ class ibeoCSVImporter:
         self.labelled_track_list = []
         # Check if I have cached this already
         # name it after the last csv in csv_name
-        cache_name = hash(tuple(csv_name))
+        cache_name = abs(hash(tuple(csv_name)))
         file_path = 'data/' + str(cache_name) + ".pkl"
         if not os.path.isfile(file_path):
             for csv_file in csv_name:

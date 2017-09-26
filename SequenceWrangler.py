@@ -335,8 +335,7 @@ class SequenceWrangler:
             destination_vec = des_encoder.transform([destination])
             data_for_encoders = self._extract_ibeo_data_for_encoders(single_track)
 
-            data_for_encoders = np.divide(np.subtract(data_for_encoders,encoder_means),encoder_stddev)
-
+            # Do not scale here. Scaling is to be done as the first network layer.
             df_template = _generate_ibeo_template(track_raw_idx, origin + "-" + destination, origin, destination,
                                                   destination_vec)
             # Instead, I am going to give the new track slicer a list for distance, as I have pre-computed it.
