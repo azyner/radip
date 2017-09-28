@@ -131,16 +131,22 @@ class Seq2SeqModel(object):
             return nn_ops.xw_plus_b(output, output_projection[0], output_projection[1],name="output_projection")
 
         #The loopback function needs to be a sampling function, it does not generate loss.
-        def simple_loop_function(prev, _):
+        def simple_loop_function(prev, i):
             '''function that loops the data from the output of the LSTM to the input
             of the LSTM for the next timestep. So it needs to apply the output layers/function
             to generate the data at that timestep, and then'''
+            # I might need to do some hacking with i.
             if output_projection is not None:
                 #Output layer
                 prev = output_function(prev)
             if self.model_type == 'MDN':
                 # Sample to generate output
-                prev = MDN.sample(prev)
+                new = MDN.sample(prev)
+                # Simple hack for now as I cannot get t-1 data for t_0 derivatives easily due to scoping problems.
+                # new has shape 256,2 - it needs 256,4
+                prev = tf.concat([new,tf.zeros(new.shape,dtype=tf.float32)],1)
+                # prev = MDN.compute_derivates(prev,new,parameters['input_columns'])
+
 
             # Apply input layer
             prev = tf.nn.dropout(
@@ -249,7 +255,7 @@ class Seq2SeqModel(object):
         # There's this corner alg that Social LSTM refernces, but I haven't looked into it.
         # NOTE - there is a good cost function for the MDN (MLE), this is different to the track accuracy metric (above)
         if self.model_type == 'MDN':
-            self.losses = tf.nn.seq2seq.sequence_loss(self.model_output, targets, self.target_weights,
+            self.losses = tf.contrib.legacy_seq2seq.sequence_loss(self.model_output, targets, self.target_weights,
                                                       #softmax_loss_function=lambda x, y: mse(x,y))
                                                   softmax_loss_function=MDN.lossfunc_wrapper)
             self.losses = self.losses / self.batch_size

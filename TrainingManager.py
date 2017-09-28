@@ -39,9 +39,16 @@ class TrainingManager:
                 step_start_time = time.time()
                 batch_frame = training_batch_handler.get_minibatch()
                 # print "Time to get batch: " + str(time.time()-step_start_time)
-                train_x, _, weights, train_y = training_batch_handler.format_minibatch_data(batch_frame['encoder_sample'],
-                                                                                            batch_frame['dest_1_hot'],
-                                                                                            batch_frame['padding'])
+
+                train_x, train_future, weights, train_labels = \
+                training_batch_handler.format_minibatch_data(
+                    batch_frame['encoder_sample'],
+                    batch_frame['dest_1_hot'] if self.parameter_dict['model_type'] == 'classifier' else
+                    batch_frame['decoder_sample'] if self.parameter_dict['model_type'] == 'MDN' else exit(2),
+                    batch_frame['padding'])
+                train_y = train_labels if self.parameter_dict['model_type'] == 'classifier' else \
+                          train_future if self.parameter_dict['model_type'] == 'MDN' else exit(3)
+
                 accuracy, step_loss, _ = netManager.run_training_step(train_x, train_y, weights, True)
                 # print "Time to step: " + str(time.time() - step_start_time)
 
@@ -75,7 +82,8 @@ class TrainingManager:
                 sys.stdout.flush()
 
                 # TODO make this run every n minutes, not a multiple of steps. Also add duration reporting to console
-                if ((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run:
+                if (((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run)\
+                        and self.parameter_dict['model_type'] == 'classifier':
                     # Compute Distance Metric
                     dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
                     #f1_scores = netManager.compute_distance_f1_report(dist_results)
@@ -91,6 +99,9 @@ class TrainingManager:
                         netManager.log_graphs_to_tensorboard(graphs)
                     netManager.log_metric_to_tensorboard(metric_results)
                     sys.stdout.write("p_dis" + metric_string)
+                elif (((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run)\
+                    and self.parameter_dict['model_type'] == 'MDN':
+                    print "Write graphing functions here."
                 sys.stdout.write("\r\n")
                 sys.stdout.flush()
 

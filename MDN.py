@@ -26,11 +26,12 @@ def get_lossfunc(z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr, x1_data, x2_dat
     return tf.reduce_sum(result)
 
 
-def lossfunc_wrapper(prediction, ground_truth):
+def lossfunc_wrapper(ground_truth, prediction):
+    # TODO only compare first two digits
     z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr = get_mixture_coef(prediction)
     #HACK to force NaN's so I can write a catcher
     #z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr = tf.split(1,6,prediction)
-    x1_data, x2_data = tf.split(axis=1,num_or_size_splits=2,value=ground_truth)
+    x1_data, x2_data, heading, speed = tf.split(axis=1,num_or_size_splits=4,value=ground_truth)
     return get_lossfunc(z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr, x1_data, x2_data)
 
 
@@ -44,7 +45,7 @@ def get_mixture_coef(output):
     # process output z's into MDN paramters
     # softmax all the pi's:
     max_pi = tf.reduce_max(z_pi, 1, keep_dims=True)
-    z_pi = tf.sub(z_pi, max_pi)
+    z_pi = tf.subtract(z_pi, max_pi)
     z_pi = tf.exp(z_pi)
     normalize_pi = tf.reciprocal(tf.reduce_sum(z_pi, 1, keep_dims=True))
     z_pi = tf.multiply(normalize_pi, z_pi)
@@ -90,7 +91,6 @@ def sample(output):
         #THIS CREATES A 2x2x11
         # I need a 11x2x2
 
-        #TODO THURSDAY
         covUL = tf.expand_dims(tf.square(s1),1)
         covUR = tf.expand_dims(tf.multiply(rho,tf.multiply(s1,s2)),1)
         covLL = tf.expand_dims(tf.multiply(rho,tf.multiply(s1,s2)),1)
@@ -109,20 +109,19 @@ def sample(output):
 
         #See https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Drawing_values_from_the_distribution
         #step 2
-        #TODO DEBUG
+
         batch_size = tf.shape(mu1)
         #batch_size = mu1.get_shape()
         convar = tf.constant([2])
         random_shape = tf.concat(axis=0,values=[convar,batch_size])
-        #TODO batch?
+
         z = tf.expand_dims(tf.transpose(tf.random_normal(random_shape)),2)
-        #/TODO
+
         L = tf.cholesky(cov)
         mean = tf.concat(axis=1,values=[tf.expand_dims(mu1,1),
                             tf.expand_dims(mu2,1)])
         Lz = tf.squeeze(tf.matmul(L,z),[2])
         x = tf.add(mean,Lz)
-
 
         return x
 
@@ -135,7 +134,7 @@ def sample(output):
     # 3 - reduce-sum
     #Because the documentation for gather_nd is easier to read than tf.gather
     batch_range = tf.expand_dims(tf.range(0,idx.get_shape()[0]),1)
-    batch_idx = tf.concat(1,[batch_range,idx])
+    batch_idx = tf.concat(values=[batch_range,idx],axis=1)
     next = sample_gaussian_2d(tf.gather_nd(o_mu1,batch_idx),
                               tf.gather_nd(o_mu2,batch_idx),
                               tf.gather_nd(o_sigma1,batch_idx),
@@ -143,3 +142,25 @@ def sample(output):
                               tf.gather_nd(o_corr,batch_idx))
 
     return next
+
+def compute_derivates(output_prev, output_current, network_input_columns):
+    #['easting', 'northing', 'heading', 'speed']
+    # Assume the first two are x and y
+    if network_input_columns[2] is not 'heading' or \
+        network_input_columns[3] is not 'speed':
+        print "not implemented yet"
+        exit()
+
+    # column 2 is heading, so do some trig,
+    #
+    # column 3 is speed, so its just a subtraction and vector magnitude
+    x_p, y_p, heading_p, speed_p = tf.split(output_prev, 4, axis=0)
+    x_c, y_c = tf.split(output_current, 2, axis=0)
+    pos_d_i = tf.complex(tf.subtract(x_p,x_c), tf.subtract(y_p, y_c))  # Define x,y as a complex number
+    pos_d = tf.abs(pos_d_i)  # Use abs to get magnitude
+    print "Warning, velocity loopback generator assumes 25 Hz timesteps"
+    v_c = tf.multiply(pos_d,25) # delta * 25 = number of meters per second
+    h_c = tf.atan2(tf.subtract(x_p,x_c),tf.subtract(y_p, y_c))
+    output_with_extras = tf.concat([x_c,y_c,h_c,v_c],axis=0)
+
+    return output_with_extras

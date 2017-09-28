@@ -508,11 +508,16 @@ class NetworkManager:
                 #TODO check if mini_batch_frame is empty here. If I have no data at all for this range.
                 if mini_batch_frame is None:
                     break
-                val_x, _, val_weights, val_y = \
+                val_x, val_future, val_weights, val_labels = \
                     batch_handler.format_minibatch_data(mini_batch_frame['encoder_sample'],
-                                                        mini_batch_frame['dest_1_hot'],
+                                                        mini_batch_frame['dest_1_hot'] if
+                                                        self.parameters['model_type'] == 'classifier' else
+                                                        mini_batch_frame['decoder_sample'] if
+                                                        self.parameters['model_type'] == 'MDN' else exit(2),
                                                         mini_batch_frame['padding'])
                 valid_data = np.logical_not(mini_batch_frame['padding'].values)
+                val_y = val_labels if self.parameters['model_type'] == 'classifier' else \
+                          val_future if self.parameters['model_type'] == 'MDN' else exit(3)
                 #print "Time to get minibatch: " + str(time.time()-batch_time)
 
                 #TODO Param this:
@@ -603,6 +608,7 @@ class NetworkManager:
         batch_losses = []
         total_correct = 0
         total_valid = 0
+        all_averages = []
         while not batch_complete:
             #val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_sequential_minibatch()
             if 'QUICK_VALBATCH' in os.environ or quick:
@@ -613,21 +619,30 @@ class NetworkManager:
             else:
                 mini_batch_frame,batch_complete = batch_handler.get_sequential_minibatch()
 
-            val_x, _, val_weights, val_y = batch_handler.format_minibatch_data(mini_batch_frame['encoder_sample'],
-                                                                               mini_batch_frame['dest_1_hot'],
-                                                                               mini_batch_frame['padding'])
+            val_x, val_future, val_weights, val_labels = batch_handler.format_minibatch_data(
+                mini_batch_frame['encoder_sample'],
+                mini_batch_frame['dest_1_hot'] if self.parameters['model_type'] == 'classifier' else
+                mini_batch_frame['decoder_sample'] if self.parameters['model_type'] == 'MDN' else exit(2),
+                mini_batch_frame['padding'])
             valid_data = np.logical_not(mini_batch_frame['padding'].values)
+            val_y = val_labels if self.parameters['model_type'] == 'classifier' else \
+                val_future if self.parameters['model_type'] == 'MDN' else exit(3)
             acc, loss, outputs = self.model.step(self.sess, val_x, val_y, val_weights, False, summary_writer=summary_writer)
 
-            output_idxs = np.argmax(outputs[0][valid_data], axis=1)
-            y_idxs = np.argmax(np.array(val_y)[0][valid_data], axis=1)
-            num_correct = np.sum(np.equal(output_idxs,y_idxs)*1)
-            num_valid = np.sum(valid_data*1)
-            total_correct += num_correct
-            total_valid += num_valid
-            batch_losses.append(loss)
+            if self.parameters['model_type'] == 'classifier':
+                output_idxs = np.argmax(outputs[0][valid_data], axis=1)
+                y_idxs = np.argmax(np.array(val_y)[0][valid_data], axis=1)
+                num_correct = np.sum(np.equal(output_idxs,y_idxs)*1)
+                num_valid = np.sum(valid_data*1)
+                total_correct += num_correct
+                total_valid += num_valid
+                batch_losses.append(loss)
+                all_averages.append(acc)
 
-        batch_acc = np.float32(total_correct) / np.float32(total_valid)
+        if self.parameters['model_type'] == 'classifier':
+            batch_acc = np.float32(total_correct) / np.float32(total_valid)
+        else:
+            batch_acc = np.mean(all_averages)
 
         return batch_acc, np.average(batch_losses), None
 
