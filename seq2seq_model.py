@@ -141,11 +141,13 @@ class Seq2SeqModel(object):
                 prev = output_function(prev)
             if self.model_type == 'MDN':
                 # Sample to generate output
-                new = MDN.sample(prev)
+                sampled = MDN.sample(prev)
                 # TODO Apply output scaling here
                 # Simple hack for now as I cannot get t-1 data for t_0 derivatives easily due to scoping problems.
-                # new has shape 256,2 - it needs 256,4
-                prev = tf.concat([new,tf.zeros(new.shape,dtype=tf.float32)],1)
+                # sampled has shape 256,2 - it needs 256,4
+                resized = tf.concat([sampled,tf.zeros(sampled.shape,dtype=tf.float32)],1)
+                rescaled = tf.add(tf.multiply(resized,scaling_layer[1]),scaling_layer[0])
+                prev = rescaled
                 # prev = MDN.compute_derivates(prev,new,parameters['input_columns'])
 
 
@@ -188,7 +190,15 @@ class Seq2SeqModel(object):
                 self.target_weights.append(tf.placeholder(dtype, shape=[self.batch_size],
                                                         name="weight{0}".format(i)))
             #targets are just the future data
-            targets = [self.future_inputs[i] for i in xrange(len(self.future_inputs))]
+            # Rescale gt data x1 and x2 such that the MDN is judged in smaller unit scale dimensions
+            # This is because I do not expect the network to figure out the scaling, and so the Mixture is in unit size scale
+            # So the GT must be brought down to meet it.
+            targets\
+                = [tf.divide(tf.subtract(self.future_inputs[i], scaling_layer[0]), scaling_layer[1])
+                   for i in xrange(len(self.future_inputs))]
+
+
+            #targets = tf.divide(tf.subtract(targets_full_scale, scaling_layer[0]), scaling_layer[1])
 
         if self.model_type == 'classifier':
             # Add a single target. Name is target0 for continuity

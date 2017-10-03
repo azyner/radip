@@ -101,7 +101,7 @@ class TrainingManager:
                     sys.stdout.write("p_dis" + metric_string)
                 elif (((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run)\
                     and self.parameter_dict['model_type'] == 'MDN':
-                    print "Write graphing functions here."
+                    #print "Write PNG graphing functions here."
                     metric_results = -999
                 sys.stdout.write("\r\n")
                 sys.stdout.flush()
@@ -245,7 +245,8 @@ class TrainingManager:
                 self.parameter_dict['num_classes'] = training_batch_handler.get_num_classes()
 
                 netManager = NetworkManager.NetworkManager(self.parameter_dict, log_file_name)
-                netManager.build_model()
+                netManager.build_model(self.encoder_means,self.encoder_stddev)
+
                 try:
                     cf_results = self.train_network(netManager,training_batch_handler,validation_batch_handler,hyper_search=True)
                 except tf.errors.InvalidArgumentError:
@@ -343,18 +344,23 @@ class TrainingManager:
         self.parameter_dict['num_classes'] = training_batch_handler.get_num_classes()
 
         netManager = NetworkManager.NetworkManager(self.parameter_dict, log_file_name)
-        netManager.build_model(self.encoder_means,self.encoder_stddev)
+
 
         if not test_network_only:
+            netManager.build_model(self.encoder_means, self.encoder_stddev)
             best_results = self.train_network(netManager,training_batch_handler,validation_batch_handler)
         else:
+            # We are loading a network from a checkpoint
+            netManager.build_model()
             best_results = {}
         best_results['test_accuracy'], best_results['test_loss'] = self.test_network(netManager,test_batch_handler)
 
         print "Drawing html graph"
         #netManager.draw_html_graphs(netManager.compute_result_per_dis(test_batch_handler))
-
-        netManager.draw_categorical_html_graphs(test_batch_handler)
+        if self.parameter_dict['model_type'] == 'categorical':
+            netManager.draw_categorical_html_graphs(test_batch_handler)
+        else:
+            netManager.draw_generative_html_graphs(test_batch_handler)
 
         # FIXME maybe this needs its own function?
         for key, value in best_results.iteritems():
