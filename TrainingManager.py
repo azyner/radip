@@ -95,13 +95,14 @@ class TrainingManager:
                         metric_string += "%0.1f " % metric_results[metric_idx]
                     # DOn't log hyper search graphs, it explodes the log directory.
                     if not hyper_search:
-                        graphs = netManager.draw_png_graphs_perf_dist(dist_results)
+                        graphs = netManager.draw_categorical_png_graphs_perf_dist(dist_results)
                         netManager.log_graphs_to_tensorboard(graphs)
                     netManager.log_metric_to_tensorboard(metric_results)
                     sys.stdout.write("p_dis" + metric_string)
                 elif (((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run)\
                     and self.parameter_dict['model_type'] == 'MDN':
                     print "Write graphing functions here."
+                    metric_results = -999
                 sys.stdout.write("\r\n")
                 sys.stdout.flush()
 
@@ -167,12 +168,14 @@ class TrainingManager:
         fold_results['validation_accuracy'] = val_accuracy
         fold_results['validation_loss'] = val_step_loss
 
-        for class_idx in range(len(metric_results)):
-            key_str = 'perfect_distance_' + str(class_idx)
-            fold_results[key_str] = metric_results[class_idx]
+        if self.parameter_dict['model_type'] == 'classifier':
+            for class_idx in range(len(metric_results)):
+                key_str = 'perfect_distance_' + str(class_idx)
+                fold_results[key_str] = metric_results[class_idx]
 
-        fold_results['perfect_distance'] = np.max(metric_results) #worst distance
-
+            fold_results['perfect_distance'] = np.max(metric_results) #worst distance
+        else:
+            fold_results['perfect_distance'] = 0
         return fold_results
 
     def test_network(self,netManager,test_batch_handler):
@@ -261,7 +264,10 @@ class TrainingManager:
 
                 # plot
                 print "Drawing html graph"
-                netManager.draw_html_graphs(validation_batch_handler)
+                if self.parameter_dict['model_type'] == 'categorical':
+                    netManager.draw_categorical_html_graphs(validation_batch_handler)
+                else:
+                    netManager.draw_generative_html_graphs(validation_batch_handler)
                 # netManager.draw_html_graphs(
                 #     netManager.compute_distance_f1_report(
                 #         netManager.compute_result_per_dis(
@@ -348,7 +354,7 @@ class TrainingManager:
         print "Drawing html graph"
         #netManager.draw_html_graphs(netManager.compute_result_per_dis(test_batch_handler))
 
-        netManager.draw_html_graphs(test_batch_handler)
+        netManager.draw_categorical_html_graphs(test_batch_handler)
 
         # FIXME maybe this needs its own function?
         for key, value in best_results.iteritems():

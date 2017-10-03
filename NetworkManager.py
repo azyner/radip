@@ -75,7 +75,7 @@ class NetworkManager:
 
         return
 
-    def build_model(self,encoder_means=None, encoder_stddev=None):
+    def build_model(self):
         tf.reset_default_graph()
         self.device = tf.device(self.parameters['device'])
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9,allow_growth=True)
@@ -94,18 +94,8 @@ class NetworkManager:
             self.model.saver.restore(self.sess, ckpt.model_checkpoint_path)
         else:
             print("Created model with fresh parameters.")
-            if encoder_means is None or encoder_stddev is None:
-                print "Error! New model needs input scaling parameters for input normalization"
-                exit(1)
-            #Get scaling factors
-
             self.model = Seq2SeqModel(self.parameters)
-            # IMPORTANT set norm params must occur after init, otherwise the values get clobbered
             self.sess.run(tf.global_variables_initializer())
-            self.model.set_normalization_params(self.sess,encoder_means,encoder_stddev)
-
-            print self.model.scaling_layer[0].eval(session=self.sess)
-            print self.model.scaling_layer[1].eval(session=self.sess)
 
         if self.summaries_dir is not None:
             self.train_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'train'),
@@ -158,7 +148,7 @@ class NetworkManager:
         self.global_state_cached = False
         return self.model.step(self.sess, X, Y, weights, train_model, summary_writer=summary_writer)
 
-    def draw_bokeh_linear_plot(self,graph_results):
+    def draw_categorical_bokeh_linear_plot(self, graph_results):
         plot_titles = np.sort(graph_results['origin'].unique())
         plots = []
 
@@ -221,7 +211,7 @@ class NetworkManager:
             plots.append(p1)
         return plots
 
-    def draw_bokeh_topographical_plot(self, results_per_dis_df, batch_handler):
+    def draw_categorical_bokeh_topographical_plot(self, results_per_dis_df, batch_handler):
         image_filename = 'leith-croydon.png'
         if not os.path.exists(os.path.join(self.plot_directory,image_filename)):
             shutil.copy(os.path.join('images',image_filename),os.path.join(self.plot_directory,image_filename))
@@ -279,7 +269,7 @@ class NetworkManager:
 
         return plots
 
-    def draw_html_graphs(self, batch_handler):
+    def draw_categorical_html_graphs(self, batch_handler):
 
         if not os.path.exists(self.plot_directory):
             os.makedirs(self.plot_directory)
@@ -303,8 +293,8 @@ class NetworkManager:
                       'results_per_dis': results_per_dis}
             pickle.dump(to_pkl,pkl_file)
         dis_f1_report = self.compute_distance_f1_report(results_per_dis)
-        top_plots = self.draw_bokeh_topographical_plot(results_per_dis, batch_handler)
-        linear_plots = self.draw_bokeh_linear_plot(results_per_dis)
+        top_plots = self.draw_categorical_bokeh_topographical_plot(results_per_dis, batch_handler)
+        linear_plots = self.draw_categorical_bokeh_linear_plot(results_per_dis)
 
         #topographical_plots = self.draw_bokeh_topographical_plot(graph_results)
 
@@ -321,7 +311,7 @@ class NetworkManager:
 
         return
 
-    def draw_png_graphs_perf_dist(self, graph_results):
+    def draw_categorical_png_graphs_perf_dist(self, graph_results):
         fig_dir = self.plot_directory + "_img"
         if not os.path.exists(fig_dir):
             os.makedirs(fig_dir)
@@ -416,10 +406,88 @@ class NetworkManager:
     #
     #     return
 
+    def draw_generative_html_graphs(self, batch_handler):
+
+        if not os.path.exists(self.plot_directory):
+            os.makedirs(self.plot_directory)
+        plt_path = os.path.join(self.plot_directory, os.path.basename(self.log_file_name) + '.html')
+        # If I am running this many times, make new filenames
+        if os.path.exists(plt_path):
+            path_idx = 1
+            while os.path.exists(plt_path):
+                plt_path = os.path.join(self.plot_directory,
+                                        os.path.basename(self.log_file_name) + "-%02d" % path_idx + '.html')
+                path_idx += 1
+
+        output_file(plt_path)
+
+        #results_per_dis = self.compute_result_per_dis(batch_handler, plot=False)
+        # Get some results here
+        # I am going to run a single full sequence on a batch. Then pick first N sequences to create N graphs.
+
+        #Get results:
+        batch_frame = batch_handler.get_minibatch()
+        graph_x, graph_future, weights, graph_labels = \
+            batch_handler.format_minibatch_data(
+                batch_frame['encoder_sample'],
+                batch_frame['decoder_sample'],
+                batch_frame['padding'])
+        train_y = graph_future
+        return_val = self.model.step(self.sess, graph_x, train_y, weights, False, summary_writer=None)
+        acc = return_val[0]
+        loss = return_val[1]
+        model_outputs = return_val[2:]
+        observations = batch_frame['encoder_sample'].as_matrix()
+        predictions = np.swapaxes(np.squeeze(np.array(model_outputs),axis=0),0,1)
+        ground_truths = batch_frame['decoder_sample'].as_matrix()
+        print "Break here"
+        print predictions
+
+        image_filename = 'leith-croydon.png'
+        if not os.path.exists(os.path.join(self.plot_directory, image_filename)):
+            shutil.copy(os.path.join('images', image_filename), os.path.join(self.plot_directory, image_filename))
+
+        plots = []
+        for obs, preds, gt in zip(observations,predictions,ground_truths):
+            #New plot
+            p = figure(plot_height=500, plot_width=500, title="Generative track testing",
+                       x_range=(-35, 10), y_range=(-30, 15))
+            p.image_url([image_filename], x=-15.275, y=-3.1, w=147.45, h=77.0, angle=0,
+                    anchor='center', global_alpha=0.7)
+
+            p.line(gt[:,0],gt[:,1],line_color='blue',legend='Ground_truth')
+            p.line(obs[:,0],obs[:,1],line_color='green',legend='observation')
+            p.line(preds[:,0],preds[:,1],line_color='red',legend='prediction')
+
+            plots.append([p])
+
+
+
+        # Plot results:
+        #top_plots = self.draw_categorical_bokeh_topographical_plot(outputs, batch_handler)
+        #linear_plots = self.draw_categorical_bokeh_linear_plot(outputs)
+
+        #topographical_plots = self.draw_bokeh_topographical_plot(graph_results)
+
+        # Dump all the metadata to a big string.
+        label_str = ""
+        for key, value in self.parameters.iteritems():
+            label_str += str(key) + ': ' + str(value) + "\r\n"
+        paragraph_1 = PreText(text=label_str)
+
+        plots.append([widgetbox(paragraph_1, width=800)])
+        #l = layout([top_plots, linear_plots, [widgetbox(paragraph_1, width=800)]])
+        save(layout(plots))
+        # show(widgetbox(button_1, width=300))
+
+        return
+
+
     def compute_distance_f1_report(self, dist_results):
         # Maybe at the end of training I want a ROC curve on the confidence threshold.
         # Right now I want an F1 score with a default threshold.
 
+        # FIXME can I get classes a better way?
         classes = dist_results.origin.unique()
         f1_df_list = []
 
@@ -599,7 +667,9 @@ class NetworkManager:
             origin_results = results[results['origin']==origin]
             origin_0_results = origin_results[origin_results['d_thresh']==0]
 
+
         return results
+
 
     # Function that passes the entire validation dataset through the network once and only once.
     # Return cumulative accuracy, loss
@@ -611,7 +681,7 @@ class NetworkManager:
         all_averages = []
         while not batch_complete:
             #val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_sequential_minibatch()
-            if 'QUICK_VALBATCH' in os.environ or quick:
+            if 'QUICK_VALBATCH' in os.environ or quick or self.parameters['model_type']=='MDN':
                 # Run one regular batch. Debug mode takes longer, and there are ~30,000 val samples
                 mini_batch_frame = batch_handler.get_minibatch()
                 batch_complete = True

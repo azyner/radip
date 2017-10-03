@@ -26,7 +26,10 @@ def get_lossfunc(z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr, x1_data, x2_dat
     return tf.reduce_sum(result)
 
 
-def lossfunc_wrapper(ground_truth, prediction):
+def lossfunc_wrapper(labels, logits):
+    # Because the library cannot believe seq2seq without logits is a thing.
+    ground_truth = labels
+    prediction = logits
     # TODO only compare first two digits
     z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr = get_mixture_coef(prediction)
     #HACK to force NaN's so I can write a catcher

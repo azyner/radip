@@ -142,6 +142,7 @@ class Seq2SeqModel(object):
             if self.model_type == 'MDN':
                 # Sample to generate output
                 new = MDN.sample(prev)
+                # TODO Apply output scaling here
                 # Simple hack for now as I cannot get t-1 data for t_0 derivatives easily due to scoping problems.
                 # new has shape 256,2 - it needs 256,4
                 prev = tf.concat([new,tf.zeros(new.shape,dtype=tf.float32)],1)
