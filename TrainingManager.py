@@ -58,6 +58,7 @@ class TrainingManager:
                 step_time += (time.time() - step_start_time) / steps_per_checkpoint
                 loss += step_loss / steps_per_checkpoint
                 current_step += 1
+                netManager.decay_learning_rate()  # decay every step by 0.9999 as per sketchrnn
 
             #### TENSORBOARD LOGGING
             if current_step % (steps_per_checkpoint/10) == 0 or \
@@ -69,6 +70,12 @@ class TrainingManager:
                 val_accuracy, val_step_loss, _ = netManager.run_validation(validation_batch_handler,
                                                                         summary_writer=netManager.val_writer,
                                                                            quick=(not final_run))
+                sys.stdout.write("\rg_step %06d lr %.1e step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f "
+                       % (netManager.get_global_step(),
+                          netManager.get_learning_rate(),
+                          step_time, loss, val_step_loss, accuracy, val_accuracy))
+                sys.stdout.flush()
+
                 #print "valbatch Time: " + str(time.time()-val_time)
 
             #### EVALUATION / CHECKPOINTING
@@ -117,7 +124,7 @@ class TrainingManager:
                 training_log_df = training_log_df.append(results_dict,ignore_index=True)
 
                 ### Decay learning rate checks
-                netManager.decay_learning_rate() # decay every step by 0.9999 as per sketchrnn
+
                 # if (len(previous_losses) > self.parameter_dict['decrement_steps']-1
                 #         and
                 #         loss > 0.99*(max(previous_losses))): #0.95 is float fudge factor

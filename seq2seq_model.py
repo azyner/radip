@@ -59,7 +59,7 @@ class Seq2SeqModel(object):
         self.global_step = tf.Variable(0, trainable=False,name="Global_step")
 
         self.learning_rate = tf.Variable(float(parameters['learning_rate']), trainable=False, name="Learning_rate")
-        min_rate = parameters['learning_rate']
+        min_rate = parameters['learning_rate'] * 0.001
         self.learning_rate_decay_op = self.learning_rate.assign(
             (parameters['learning_rate'] - min_rate) *
             (parameters['learning_rate_decay_factor']**tf.cast(self.global_step,tf.float32) + min_rate))
