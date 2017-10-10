@@ -117,15 +117,16 @@ class TrainingManager:
                 training_log_df = training_log_df.append(results_dict,ignore_index=True)
 
                 ### Decay learning rate checks
-                if (len(previous_losses) > self.parameter_dict['decrement_steps']-1
-                        and
-                        loss > 0.99*(max(previous_losses))): #0.95 is float fudge factor
-                    netManager.decay_learning_rate()
-                    previous_losses = []
-                previous_losses.append(loss)
-                previous_losses = previous_losses[-self.parameter_dict['decrement_steps']:]
-                previous_val_losses.append(val_step_loss)
-                previous_val_losses = previous_val_losses[-self.parameter_dict['decrement_steps']:]
+                netManager.decay_learning_rate() # decay every step by 0.9999 as per sketchrnn
+                # if (len(previous_losses) > self.parameter_dict['decrement_steps']-1
+                #         and
+                #         loss > 0.99*(max(previous_losses))): #0.95 is float fudge factor
+                #     netManager.decay_learning_rate()
+                #     previous_losses = []
+                # previous_losses.append(loss)
+                # previous_losses = previous_losses[-self.parameter_dict['decrement_steps']:]
+                # previous_val_losses.append(val_step_loss)
+                # previous_val_losses = previous_val_losses[-self.parameter_dict['decrement_steps']:]
 
                 ##### Training stop conditions:
                 if final_run:
