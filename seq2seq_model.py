@@ -58,8 +58,10 @@ class Seq2SeqModel(object):
         self.num_classes = parameters['num_classes']
 
         self.learning_rate = tf.Variable(float(parameters['learning_rate']), trainable=False, name="Learning_rate")
+        min_rate = parameters['learning_rate']
         self.learning_rate_decay_op = self.learning_rate.assign(
-        self.learning_rate * parameters['learning_rate_decay_factor'])
+            (parameters['learning_rate'] - min_rate) *
+            (parameters['learning_rate_decay_factor']**self.global_step + min_rate))
         self.global_step = tf.Variable(0, trainable=False,name="Global_step")
         self.network_summaries = []
         keep_prob = 1-self.dropout_prob
