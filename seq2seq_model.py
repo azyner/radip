@@ -132,6 +132,17 @@ class Seq2SeqModel(object):
         def output_function(output):
             return nn_ops.xw_plus_b(output, output_projection[0], output_projection[1],name="output_projection")
 
+        def _condition_sampled_output(MDN_samples):
+            # Simple hack for now as I cannot get t-1 data for t_0 derivatives easily due to scoping problems.
+            # sampled has shape 256,2 - it needs 256,4
+            if MDN_samples.shape[1] < scaling_layer[0].shape[0]:
+                resized = tf.concat([MDN_samples, tf.zeros(
+                    [MDN_samples.shape[0], scaling_layer[0].shape[0] - MDN_samples.shape[1]], dtype=tf.float32)], 1)
+            else:
+                resized = MDN_samples
+            rescaled = tf.add(tf.multiply(resized, scaling_layer[1]), scaling_layer[0])
+            return rescaled
+
         #The loopback function needs to be a sampling function, it does not generate loss.
         def simple_loop_function(prev, i):
             '''function that loops the data from the output of the LSTM to the input
@@ -144,14 +155,8 @@ class Seq2SeqModel(object):
             if self.model_type == 'MDN':
                 # Sample to generate output
                 sampled = MDN.sample(prev)
-                # TODO Apply output scaling here
-                # Simple hack for now as I cannot get t-1 data for t_0 derivatives easily due to scoping problems.
-                # sampled has shape 256,2 - it needs 256,4
-                resized = tf.concat([sampled,tf.zeros(sampled.shape,dtype=tf.float32)],1)
-                rescaled = tf.add(tf.multiply(resized,scaling_layer[1]),scaling_layer[0])
-                prev = rescaled
+                prev = _condition_sampled_output(sampled)
                 # prev = MDN.compute_derivates(prev,new,parameters['input_columns'])
-
 
             # Apply input layer
             prev = tf.nn.dropout(
@@ -253,10 +258,11 @@ class Seq2SeqModel(object):
         # sample being used in the loopback function.
         if output_projection is not None:
             self.model_output = [output_function(output) for output in self.LSTM_output]
-            if self.model_type == 'MDN':
-                self.MDN_sample = [MDN.sample(x) for x in self.model_output]
         else:
             self.model_output = self.LSTM_output
+        if self.model_type == 'MDN':
+            self.MDN_sampled_output = [_condition_sampled_output(MDN.sample(x))  # Apply output scaling
+                                       for x in self.model_output]
 
         def mse(x, y):
             return tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(y, x))))
@@ -404,7 +410,7 @@ class Seq2SeqModel(object):
             output_feed = [self.accuracy, self.losses]# Loss for this batch.
             if self.model_type == 'MDN':
                 for l in xrange(self.prediction_steps):  # Output logits.
-                    output_feed.append(self.MDN_sample[l])
+                    output_feed.append(self.MDN_sampled_output[l])
             if self.model_type == 'classifier':
                 output_feed.append(self.model_output[0]) # TODO add a softmax here as it is done in the loss funciton.
 
