@@ -68,7 +68,7 @@ class Seq2SeqModel(object):
 
         # Feed future data is to be used during sequence generation. It allows real data to be passed at times t++
         # instead of the generated output. For training only, I may not use it at all.
-        feed_future_data = False
+        feed_future_data = parameters['feed_future_data']
 
         if parameters['model_type'] == 'classifier' and self.prediction_steps > 1:
             raise Exception("Error. Classifier model can only have 1 prediction step")
@@ -140,9 +140,18 @@ class Seq2SeqModel(object):
                     [MDN_samples.shape[0], scaling_layer[0].shape[0] - MDN_samples.shape[1]], dtype=tf.float32)], 1)
             else:
                 resized = MDN_samples
-            rescaled = tf.add(tf.multiply(resized, scaling_layer[1]), scaling_layer[0])
-            return rescaled
+            upscaled = tf.add(tf.multiply(resized, scaling_layer[1]), scaling_layer[0])
+            return upscaled
 
+        def _apply_scaling_and_input_layer(input_data):
+            return tf.nn.dropout(tf.nn.relu(
+                                            nn_ops.xw_plus_b(
+                                                tf.divide(
+                                                    tf.subtract(
+                                                        input_data, scaling_layer[0]),
+                                                    scaling_layer[1]),  # Input scaling
+                                                input_layer[0], input_layer[1])),
+                                        1-parameters['embedding_dropout'])
         #The loopback function needs to be a sampling function, it does not generate loss.
         def simple_loop_function(prev, i):
             '''function that loops the data from the output of the LSTM to the input
@@ -159,12 +168,7 @@ class Seq2SeqModel(object):
                 # prev = MDN.compute_derivates(prev,new,parameters['input_columns'])
 
             # Apply input layer
-            prev = tf.nn.dropout(
-                tf.nn.relu(nn_ops.xw_plus_b(
-                    tf.divide(tf.subtract(prev, scaling_layer[0]), scaling_layer[1]), # Input scaling
-                    input_layer[0], input_layer[1]),name="Loopback_Input"),
-                1-parameters['embedding_dropout'])
-
+            prev = _apply_scaling_and_input_layer(prev)
             return prev
 
         # The seq2seq function: we use embedding for the input and attention.
@@ -221,31 +225,16 @@ class Seq2SeqModel(object):
         #Leave the last observation as the first input to the decoder
         #self.encoder_inputs = self.observation_inputs[0:-1]
         with tf.variable_scope('encoder_inputs'):
-            self.encoder_inputs = [tf.nn.dropout(
-                                        tf.nn.relu(
-                                            nn_ops.xw_plus_b(
-                                                tf.divide(
-                                                    tf.subtract(
-                                                        input_timestep, scaling_layer[0]),
-                                                    scaling_layer[1]),  # Input scaling
-                                                input_layer[0], input_layer[1])),
-                                        1-parameters['embedding_dropout'])
+            self.encoder_inputs = [_apply_scaling_and_input_layer(input_timestep)
                                    for input_timestep in self.observation_inputs[0:-1]]
 
         #decoder inputs are the last observation and all but the last future
         with tf.variable_scope('decoder_inputs'):
-            self.decoder_inputs = [tf.nn.dropout(
-                                        tf.nn.relu(
-                                            nn_ops.xw_plus_b(
-                                                tf.divide(
-                                                    tf.subtract(
-                                                        self.observation_inputs[-1], scaling_layer[0]),
-                                                    scaling_layer[1]),
-                                                input_layer[0], input_layer[1])),
-                                        1-parameters['embedding_dropout'])]
+            self.decoder_inputs = [_apply_scaling_and_input_layer(self.observation_inputs[-1])]
 
         # Todo should this have the input layer applied?
-            self.decoder_inputs.extend([self.future_inputs[i] for i in xrange(len(self.future_inputs) - 1)])
+            self.decoder_inputs.extend([_apply_scaling_and_input_layer(self.future_inputs[i])
+                                        for i in xrange(len(self.future_inputs) - 1)])
 
         with tf.variable_scope('seq_rnn'):
             self.LSTM_output, self.internal_states = seq2seq_f(self.encoder_inputs, self.decoder_inputs, feed_future_data)
