@@ -489,6 +489,59 @@ class NetworkManager:
 
         return
 
+    def draw_generative_png_graphs(self, batch_handler):
+        fig_dir = self.plot_directory + "_img"
+        if not os.path.exists(fig_dir):
+            os.makedirs(fig_dir)
+
+        #Get results:
+        batch_frame = batch_handler.get_minibatch()
+        graph_x, graph_future, weights, graph_labels = \
+            batch_handler.format_minibatch_data(
+                batch_frame['encoder_sample'],
+                batch_frame['decoder_sample'],
+                batch_frame['padding'])
+        train_y = graph_future
+        return_val = self.model.step(self.sess, graph_x, train_y, weights, False, summary_writer=None)
+        acc = return_val[0]
+        loss = return_val[1]
+        model_outputs = return_val[2:]
+        observations = batch_frame['encoder_sample'].as_matrix()
+        predictions = np.swapaxes(np.squeeze(np.array(model_outputs),axis=0),0,1)
+        ground_truths = batch_frame['decoder_sample'].as_matrix()
+
+        graph_list = []
+        graph_number = 0
+        for obs, preds, gt in zip(observations, predictions, ground_truths):
+            graph_number += 1
+            if graph_number > 3:
+                break
+
+            legend_str = []
+            fig = plt.figure(figsize=self.plt_size)
+            plt.plot(gt[:,0], gt[:,1], 'b-')
+            legend_str.append(['Ground Truth'])
+            plt.plot(obs[:,0], obs[:,1], 'g-')
+            legend_str.append(['Observations'])
+            plt.plot(preds[:,0], preds[:,1], 'r-')
+            legend_str.append(['Predictions'])
+
+
+            fig_path = os.path.join(self.plot_directory + "_img", self.log_file_name + '-' +
+                                    str(self.get_global_step()) + '-' + str(graph_number) + '.png')
+            plt.savefig(fig_path, bbox_inches='tight')
+
+            fig.canvas.draw()
+            fig_s = fig.canvas.tostring_rgb()
+            fig_data = np.fromstring(fig_s,np.uint8)
+            fig_data = fig_data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            s = StringIO.StringIO()
+            plt.imsave(s, fig_data,format='png')
+            fig_data = s.getvalue()
+            graph_list.append(fig_data)
+            plt.close()
+
+        return graph_list
 
     def compute_distance_f1_report(self, dist_results):
         # Maybe at the end of training I want a ROC curve on the confidence threshold.
