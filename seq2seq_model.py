@@ -267,7 +267,7 @@ class Seq2SeqModel(object):
                                                       #softmax_loss_function=lambda x, y: mse(x,y))
                                                   softmax_loss_function=MDN.lossfunc_wrapper)
             self.losses = self.losses / self.batch_size
-            self.accuracy = self.losses #TODO placeholder, use MSE or something visually intuitive
+            self.accuracy = -self.losses #TODO placeholder, use MSE or something visually intuitive
         if self.model_type == 'classifier':
             #embedding_regularizer = tf.reduce_sum(tf.abs(i_w),name="Embedding_L1_reg") # Only regularize embedding layer
             embedding_regularizer = tf.contrib.layers.l1_regularizer(parameters['reg_embedding_beta'])

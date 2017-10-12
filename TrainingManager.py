@@ -134,8 +134,8 @@ class TrainingManager:
                 #     previous_losses = []
                 # previous_losses.append(loss)
                 # previous_losses = previous_losses[-self.parameter_dict['decrement_steps']:]
-                # previous_val_losses.append(val_step_loss)
-                # previous_val_losses = previous_val_losses[-self.parameter_dict['decrement_steps']:]
+                previous_val_losses.append(val_step_loss)
+                previous_val_losses = previous_val_losses[-self.parameter_dict['decrement_steps']:]
 
                 ##### Training stop conditions:
                 if final_run:

@@ -766,8 +766,8 @@ class NetworkManager:
                 num_valid = np.sum(valid_data*1)
                 total_correct += num_correct
                 total_valid += num_valid
-                batch_losses.append(loss)
-                all_averages.append(acc)
+            batch_losses.append(loss)
+            all_averages.append(acc)
 
         if self.parameters['model_type'] == 'classifier':
             batch_acc = np.float32(total_correct) / np.float32(total_valid)
