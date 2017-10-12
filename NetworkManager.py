@@ -514,7 +514,7 @@ class NetworkManager:
         graph_number = 0
         for obs, preds, gt in zip(observations, predictions, ground_truths):
             graph_number += 1
-            if graph_number > 3:
+            if graph_number > 10:
                 break
 
             legend_str = []
