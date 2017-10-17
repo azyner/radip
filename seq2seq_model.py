@@ -130,13 +130,9 @@ class Seq2SeqModel(object):
         #self._RNN_layers = tensorflow.contrib.rnn.DropoutWrapper(self._RNN_layers,output_keep_prob=keep_prob)
 
         def output_function(output):
-            return tf.nn.dropout(
-                tf.nn.relu(
-                    nn_ops.xw_plus_b(
+            return  nn_ops.xw_plus_b(
                         output, output_projection[0], output_projection[1],name="output_projection"
                     )
-                )
-                , 0.5)
 
         def _condition_sampled_output(MDN_samples):
             # Simple hack for now as I cannot get t-1 data for t_0 derivatives easily due to scoping problems.
