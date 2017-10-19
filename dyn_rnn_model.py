@@ -70,8 +70,8 @@ class DynamicRnnSeq2Seq(object):
         # instead of the generated output. For training only, I may not use it at all.
         feed_future_data = parameters['feed_future_data']
 
-        if parameters['model_type'] == 'classifier' and self.prediction_steps > 1:
-            raise Exception("Error. Classifier model can only have 1 prediction step")
+        if parameters['model_type'] == 'classifier':
+            raise Exception("Error")
 
         #if feed_future_data and not train:
         #    print "Warning, feeding the model future sequence data (feed_forward) is not recommended when the model is not training."
@@ -81,8 +81,7 @@ class DynamicRnnSeq2Seq(object):
         #  non RNN layers / functions
         if self.model_type == 'MDN':
             n_out = 6*self.num_mixtures
-        if self.model_type=='classifier':
-            n_out = parameters['num_classes']
+
 
         ############## LAYERS ###################################
 
@@ -108,23 +107,29 @@ class DynamicRnnSeq2Seq(object):
                                   initializer=tf.constant_initializer(0.1))
             input_layer = (i_w, i_b)
 
-        # def _generate_rnn_layer():
-        #     if parameters['RNN_cell'] == "LSTMCell":
-        #         return tf.contrib.rnn.DropoutWrapper(
-        #                         tf.contrib.rnn.LSTMCell(self.rnn_size,state_is_tuple=True,
-        #                                                 use_peepholes=parameters['peephole_connections'])
-        #                         ,output_keep_prob=keep_prob)
-        #     if parameters['RNN_cell'] == "BN_LSTMCell":
-        #         return tf.contrib.rnn.DropoutWrapper(
-        #                         BN_LSTMCell(self.rnn_size,is_training=True,
-        #                                                 use_peepholes=parameters['peephole_connections'])
-        #                         ,output_keep_prob=keep_prob)
 
-        #
-        # if self.num_layers > 1:
-        #     self._RNN_layers = tf.contrib.rnn.MultiRNNCell([_generate_rnn_layer() for _ in range(self.num_layers)],state_is_tuple=True)
-        # else:
-        #     self._RNN_layers = _generate_rnn_layer()
+        # TODO
+        """uses TensorArray for the input and outputs, in which Tensor must be in [time, batch_size, input_depth] shape.
+         This is different from the shape we are familiar with, i.e. [batch_size, time, input_depth]. """
+
+
+        def _generate_rnn_layer():
+            if parameters['RNN_cell'] == "LSTMCell":
+                return tf.contrib.rnn.DropoutWrapper(
+                                tf.contrib.rnn.LSTMCell(self.rnn_size,state_is_tuple=True,
+                                                        use_peepholes=parameters['peephole_connections'])
+                                ,output_keep_prob=keep_prob)
+            if parameters['RNN_cell'] == "BN_LSTMCell":
+                return tf.contrib.rnn.DropoutWrapper(
+                                BN_LSTMCell(self.rnn_size,is_training=True,
+                                                        use_peepholes=parameters['peephole_connections'])
+                                ,output_keep_prob=keep_prob)
+
+
+        if self.num_layers > 1:
+            self._RNN_layers = tf.contrib.rnn.MultiRNNCell([_generate_rnn_layer() for _ in range(self.num_layers)],state_is_tuple=True)
+        else:
+            self._RNN_layers = _generate_rnn_layer()
 
         # Don't double dropout
         #self._RNN_layers = tensorflow.contrib.rnn.DropoutWrapper(self._RNN_layers,output_keep_prob=keep_prob)
@@ -139,6 +144,7 @@ class DynamicRnnSeq2Seq(object):
                 , 0.5)
 
         def _condition_sampled_output(MDN_samples):
+            # TODO Should not be needed, as it will occur later outside tensorflow - not anymore! I'm using raw_rnn now
             # Simple hack for now as I cannot get t-1 data for t_0 derivatives easily due to scoping problems.
             # sampled has shape 256,2 - it needs 256,4
             if MDN_samples.shape[1] < scaling_layer[0].shape[0]:
@@ -177,16 +183,73 @@ class DynamicRnnSeq2Seq(object):
         #     prev = _apply_scaling_and_input_layer(prev)
         #     return prev
 
+
+        (emit_ta, final_state, final_loop_state) = tf.nn.raw_rnn(cell=,loop_fn=)
+        # emit_ta: Tensor Array of the RNN output
+        # final_state: `The final cell state' -- no shit. I think this is the internal c state?
+        # Final loop state: No idea. I'm confused as to why I get `final' values at declaration of an RNN. I haven't
+        # even told it the number of recursions yet, therefore the use of `final' is undefined, and should be punished.
+
+        """ To be replaced """
         # The seq2seq function: we use embedding for the input and attention.
-        # def seq2seq_f(encoder_inputs, decoder_inputs, feed_forward):
-        #     if not feed_forward: #feed last output as next input
-        #         loopback_function = simple_loop_function
-        #     else:
-        #         loopback_function = None #feed correct input
-        #     #return basic_rnn_seq2seq_with_loop_function(encoder_inputs,decoder_inputs,cell,
-        #     #                                                         loop_function=loopback_function,dtype=dtype)
-        #     return seq2seq.tied_rnn_seq2seq(encoder_inputs,decoder_inputs,self._RNN_layers,
-        #                                     loop_function=loopback_function,dtype=dtype)
+        def seq2seq_f(encoder_inputs, decoder_inputs, feed_forward):
+            if not feed_forward: #feed last output as next input
+                loopback_function = simple_loop_function
+            else:
+                loopback_function = None #feed correct input
+
+            # returns (self.LSTM_output, self.internal_states)
+            #return seq2seq.tied_rnn_seq2seq(encoder_inputs,decoder_inputs,self._RNN_layers,
+            #                                loop_function=loopback_function,dtype=dtype)
+            with tf.variable_scope('Encoder'):
+                # NOTE I can use MultiRNNCell in the first arg.
+                encoder_outputs, last_enc_state = tf.nn.dynamic_rnn(self._RNN_layers,
+                                                                    inputs=encoder_inputs,
+                                                                    dtype=tf.float32)
+
+            """This was always the biggest side-loading hack.  Because I cannot give an initial state to the decoder
+            raw_rnn, its done in the loop function by defining the function here, and pulling variables traditionally 
+             outside of functional scope into the function.
+             IMPORTANT - the first call to this function is BEFORE the first node, s.t. the cell_output is None check 
+             then sets the initial params."""
+            def loop_fn(time, cell_output, cell_state, loop_state):
+                emit_output = cell_output
+
+                if cell_output is None:
+                    # Set initial params
+                    next_cell_state = last_enc_state
+                    # I have defined last 'encoder input' as actually the first decoder input. It is data for time T_0
+                    next_sampled_onehot = encoder_inputs[-1]
+                    next_loop_state = output_ta
+                else:
+                    next_cell_state = cell_state
+                    next_sampled_input = get_sample(cell_output)
+                    # next_sampled_onehot = tf.nn.embedding_lookup(embeddings, next_sampled_input)
+
+                    next_loop_state = loop_state.write(time - 1, next_sampled_input)  # Why time-1?
+
+                elements_finished = (
+                    time >= cur_batch_time)  # whether or not this RNN in the batch has declared itself done
+                next_input = next_sampled_onehot  # That dotted loopy line in the diagram. Don't forget the application of
+                # the input layer, and to up and down scale.
+
+                return (elements_finished, next_input, next_cell_state, emit_output, next_loop_state)
+
+            with tf.variable_scope('Decoder'):
+                from tensorflow.python.ops.rnn import _transpose_batch_time
+                emit_ta, final_state, loop_state_ta = tf.nn.raw_rnn(self._RNN_layers, loop_fn)
+                Output_sampled = _transpose_batch_time(loop_state_ta.stack())
+
+
+
+
+
+        # 784 is data dimensionality
+        output_ta = (tf.TensorArray(size=784, dtype=tf.float32),
+                     tf.TensorArray(size=784, dtype=tf.float32))
+
+
+
 
 
         ################# FEEDS SECTION #######################
@@ -195,8 +258,8 @@ class DynamicRnnSeq2Seq(object):
         self.future_inputs = []
         self.target_weights = []
         targets = []
-        targets_sparse = []
 
+        # TODO REFACTOR the new RNN may not need this unrolling, check the input space
         for i in xrange(self.observation_steps):  # Last bucket is the biggest one.
             self.observation_inputs.append(tf.placeholder(tf.float32, shape=[self.batch_size, self.input_size],
                                                           name="observation{0}".format(i)))
@@ -216,22 +279,12 @@ class DynamicRnnSeq2Seq(object):
                 = [tf.divide(tf.subtract(self.future_inputs[i], scaling_layer[0]), scaling_layer[1])
                    for i in xrange(len(self.future_inputs))]
 
-
-            #targets = tf.divide(tf.subtract(targets_full_scale, scaling_layer[0]), scaling_layer[1])
-
-        if self.model_type == 'classifier':
-            # Add a single target. Name is target0 for continuity
-            target = tf.placeholder(tf.int32, shape=[self.batch_size, self.num_classes],
-                                                         name="target".format(i))
-            targets_sparse.append(tf.squeeze(tf.argmax(target,1),name="Sq_"+target.op.name))
-            self.target_weights.append(tf.ones([self.batch_size],name="weight".format(i)))
-            targets = [target]
-
         #Hook for the input_feed
         self.target_inputs = targets
 
         #Leave the last observation as the first input to the decoder
         #self.encoder_inputs = self.observation_inputs[0:-1]
+        # TODO REFACTOR the new RNN may not need this unrolling, check the input space
         with tf.variable_scope('encoder_inputs'):
             self.encoder_inputs = [_apply_scaling_and_input_layer(input_timestep)
                                    for input_timestep in self.observation_inputs[0:-1]]
@@ -271,36 +324,15 @@ class DynamicRnnSeq2Seq(object):
         # There's this corner alg that Social LSTM refernces, but I haven't looked into it.
         # NOTE - there is a good cost function for the MDN (MLE), this is different to the track accuracy metric (above)
         if self.model_type == 'MDN':
+            # TODO REPLACE LOSS FUNCTION
             self.losses = tf.contrib.legacy_seq2seq.sequence_loss(self.model_output, targets, self.target_weights,
                                                       #softmax_loss_function=lambda x, y: mse(x,y))
                                                   softmax_loss_function=MDN.lossfunc_wrapper)
             self.losses = self.losses / self.batch_size
             self.accuracy = -self.losses #TODO placeholder, use MSE or something visually intuitive
         if self.model_type == 'classifier':
-            #embedding_regularizer = tf.reduce_sum(tf.abs(i_w),name="Embedding_L1_reg") # Only regularize embedding layer
-            embedding_regularizer = tf.contrib.layers.l1_regularizer(parameters['reg_embedding_beta'])
-            reg_loss = tf.contrib.layers.apply_regularization(embedding_regularizer,[i_w])
-            # Don't forget that sequence loss uses sparse targets
-            l2_reg_list = [o_w]
-            # So there should be L2 applied to the recurrent weights, and the input weights... maybe. -- hyperparam this.
-            # I assume multi_rnn_cell/cell_0/lstm_cell/weights is the recurrent, and w_i_diag is the input weights
-            if parameters['l2_recurrent_decay']:
-                l2_reg_list.extend([x for x in tf.trainable_variables() if ('weight' in x.name) and ('rnn_cell') in x.name])
-            if parameters['l2_lstm_input_decay']:
-                l2_reg_list.extend([x for x in tf.trainable_variables() if ('w_i_diag' in x.name) and ('rnn_cell') in x.name])
+          raise Exception # This model is MDN only
 
-            embedding_regularizer = tf.contrib.layers.l2_regularizer(parameters['l2_reg_beta'])
-            reg_loss += tf.contrib.layers.apply_regularization(embedding_regularizer, l2_reg_list)
-
-            self.losses = (tf.contrib.legacy_seq2seq.sequence_loss(self.model_output, targets_sparse, self.target_weights)
-                           + reg_loss)
-
-            #TODO I have to take into account padding here - not a huge issue as I do take it into account in the report
-            # and there is no padding during training.
-            #squeeze away output to remove a single element list (It would be longer if classifier was allowed 2+ timesteps
-            correct_prediction = tf.equal(tf.argmax(tf.squeeze(self.model_output), 1), targets_sparse,
-                                          name="Correct_prediction")
-            self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32),name="Accuracy")
 
 
 ############# OPTIMIZER SECTION ########################
@@ -360,6 +392,21 @@ class DynamicRnnSeq2Seq(object):
 
         return
 
+    """ REFACTORING This is where I need to be specific about input formats, as well as differentiating between the 
+    model architecture for training, and the model architecture for generation. Most notably, the generation 
+    architecture will need multiple calls to sess.run() as the loopback function will be done manually outside of 
+    tensorflow scope. This is done for two reasons, first, I am mimicking previous work done in google's sketch-rnn, so
+    I can make some assumptions on generation methods. Second, it allows me to better manipulate the Mixture Density
+    Network.
+    
+    Training is done for the entire length, not just t+1, but the loss is done as a statistical fit. Also, the future 
+    decoder feed is always real data, never sampled. 
+    
+    I need to read up on dynamic rnn. I wonder if I can snapshot the model over multiple sess.run steps, to do the full
+    sampling. I doubt it.
+    READ https://hanxiao.github.io/2017/08/16/Why-I-use-raw-rnn-Instead-of-dynamic-rnn-in-Tensorflow-So-Should-You-0/
+    
+    """
     def step(self, session, observation_inputs, future_inputs, target_weights, train_model, summary_writer=None):
         """Run a step of the model feeding the given inputs.
         Args:
