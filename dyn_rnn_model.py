@@ -9,6 +9,7 @@ from tensorflow.python.framework import ops
 from tensorflow.python.ops import clip_ops
 import tensorflow.contrib.layers
 from recurrent_batchnorm_tensorflow.BN_LSTMCell import BN_LSTMCell
+import tensorflow.contrib.seq2seq
 
 
 class DynamicRnnSeq2Seq(object):
@@ -183,35 +184,34 @@ class DynamicRnnSeq2Seq(object):
         #     prev = _apply_scaling_and_input_layer(prev)
         #     return prev
 
+        """This was always the biggest side-loading hack.  Because I cannot give an initial state to the decoder
+        raw_rnn, its done in the loop function by defining the function here, and pulling variables traditionally 
+         outside of functional scope into the function.
+         IMPORTANT - the first call to this function is BEFORE the first node, s.t. the cell_output is None check 
+         then sets the initial params.
 
-        (emit_ta, final_state, final_loop_state) = tf.nn.raw_rnn(cell=,loop_fn=)
-        # emit_ta: Tensor Array of the RNN output
-        # final_state: `The final cell state' -- no shit. I think this is the internal c state?
-        # Final loop state: No idea. I'm confused as to why I get `final' values at declaration of an RNN. I haven't
-        # even told it the number of recursions yet, therefore the use of `final' is undefined, and should be punished.
+         Loss function - How can I implement this? It needs to go into the loopback function.
+         This is because the sequence length is undefined (even though it isn't) and so my standard loss functions are 
+         not working."""
 
-        """ To be replaced """
-        # The seq2seq function: we use embedding for the input and attention.
+        """ Its better to read the simple implementation of dyn_rnn in 
+        https://www.tensorflow.org/api_docs/python/tf/nn/raw_rnn. I can just declare some TensorArrays and fill
+         them in the middle of the loop."""
+
+        output_ta = tf.TensorArray(size=self.prediction_steps, dtype=tf.float32)
+
         def seq2seq_f(encoder_inputs, decoder_inputs, feed_forward):
-            if not feed_forward: #feed last output as next input
-                loopback_function = simple_loop_function
-            else:
-                loopback_function = None #feed correct input
-
             # returns (self.LSTM_output, self.internal_states)
-            #return seq2seq.tied_rnn_seq2seq(encoder_inputs,decoder_inputs,self._RNN_layers,
-            #                                loop_function=loopback_function,dtype=dtype)
-            with tf.variable_scope('Encoder'):
-                # NOTE I can use MultiRNNCell in the first arg.
+
+            """ First this runs the encoder, then it saves the last internal RNN c state, and passes that into the
+            loop parameter as the initial condition. Then it runs the decoder."""
+
+            with tf.variable_scope('seq2seq_encoder'):
+                # So I have a list of len(time) of Tensors of shape (batch, RNN dim)
                 encoder_outputs, last_enc_state = tf.nn.dynamic_rnn(self._RNN_layers,
-                                                                    inputs=encoder_inputs,
+                                                                    inputs=tf.stack(encoder_inputs,axis=0),
                                                                     dtype=tf.float32)
 
-            """This was always the biggest side-loading hack.  Because I cannot give an initial state to the decoder
-            raw_rnn, its done in the loop function by defining the function here, and pulling variables traditionally 
-             outside of functional scope into the function.
-             IMPORTANT - the first call to this function is BEFORE the first node, s.t. the cell_output is None check 
-             then sets the initial params."""
             def loop_fn(time, cell_output, cell_state, loop_state):
                 emit_output = cell_output
 
@@ -219,37 +219,35 @@ class DynamicRnnSeq2Seq(object):
                     # Set initial params
                     next_cell_state = last_enc_state
                     # I have defined last 'encoder input' as actually the first decoder input. It is data for time T_0
-                    next_sampled_onehot = encoder_inputs[-1]
-                    next_loop_state = output_ta
+                    next_input = encoder_inputs[-1] # Encoder inputs already have input layer applied
+                    next_loop_state = output_ta # I could use this for data from time T-1. Its just a parameter
+                                            # For use with persistence within the loop> If I make this a TensorArray
+                    #  I can progressively fill it, and then analyze later for a loss function or plotting or someting
                 else:
                     next_cell_state = cell_state
-                    next_sampled_input = get_sample(cell_output)
-                    # next_sampled_onehot = tf.nn.embedding_lookup(embeddings, next_sampled_input)
-
+                    projected_ouput = output_function(cell_output)
+                    sampled = MDN.sample(projected_ouput)
+                    next_sampled_input = _condition_sampled_output(sampled)
                     next_loop_state = loop_state.write(time - 1, next_sampled_input)  # Why time-1?
+                    next_input = _apply_scaling_and_input_layer(next_sampled_input)  # That dotted loopy line in the diagram
 
                 elements_finished = (
-                    time >= cur_batch_time)  # whether or not this RNN in the batch has declared itself done
-                next_input = next_sampled_onehot  # That dotted loopy line in the diagram. Don't forget the application of
-                # the input layer, and to up and down scale.
+                    time >= self.prediction_steps)  # whether or not this RNN in the batch has declared itself done
 
                 return (elements_finished, next_input, next_cell_state, emit_output, next_loop_state)
 
-            with tf.variable_scope('Decoder'):
+            if not feed_forward: #feed last output as next input
+                loopback_function = loop_fn
+            else:
+                loopback_function = None #feed correct input
+
+            with tf.variable_scope('seq2seq_decoder'):
                 from tensorflow.python.ops.rnn import _transpose_batch_time
-                emit_ta, final_state, loop_state_ta = tf.nn.raw_rnn(self._RNN_layers, loop_fn)
-                Output_sampled = _transpose_batch_time(loop_state_ta.stack())
+                emit_ta, final_state, loop_state_ta = tf.nn.raw_rnn(self._RNN_layers, loopback_function)
+                # Here emit_ta should contain all the MDN's for each timestep. To confirm.
+                output_sampled = _transpose_batch_time(loop_state_ta.stack())
 
-
-
-
-
-        # 784 is data dimensionality
-        output_ta = (tf.TensorArray(size=784, dtype=tf.float32),
-                     tf.TensorArray(size=784, dtype=tf.float32))
-
-
-
+            return output_sampled, final_state
 
 
         ################# FEEDS SECTION #######################
@@ -297,6 +295,8 @@ class DynamicRnnSeq2Seq(object):
             self.decoder_inputs.extend([_apply_scaling_and_input_layer(self.future_inputs[i])
                                         for i in xrange(len(self.future_inputs) - 1)])
 
+        #### SEQ2SEQ function HERE
+
         with tf.variable_scope('seq_rnn'):
             self.LSTM_output, self.internal_states = seq2seq_f(self.encoder_inputs, self.decoder_inputs, feed_future_data)
 
@@ -306,13 +306,14 @@ class DynamicRnnSeq2Seq(object):
         # BUG This is incorrect -- technically.
         # Because MDN.sample() is a random function, this sample is not the
         # sample being used in the loopback function.
-        if output_projection is not None:
-            self.model_output = [output_function(output) for output in self.LSTM_output]
-        else:
-            self.model_output = self.LSTM_output
-        if self.model_type == 'MDN':
-            self.MDN_sampled_output = [_condition_sampled_output(MDN.sample(x))  # Apply output scaling
-                                       for x in self.model_output]
+        """ Now in the loopback function """
+        # if output_projection is not None:
+        #     self.model_output = [output_function(output) for output in self.LSTM_output]
+        # else:
+        self.model_output = self.LSTM_output
+        # if self.model_type == 'MDN':
+        #     self.MDN_sampled_output = [_condition_sampled_output(MDN.sample(x))  # Apply output scaling
+        #                                for x in self.model_output]
 
         def mse(x, y):
             return tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(y, x))))
@@ -333,7 +334,7 @@ class DynamicRnnSeq2Seq(object):
         if self.model_type == 'classifier':
           raise Exception # This model is MDN only
 
-
+        tf.nn.sigmoid_cross_entropy_with_logits
 
 ############# OPTIMIZER SECTION ########################
         # Gradients and SGD update operation for training the model.
