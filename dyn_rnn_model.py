@@ -198,10 +198,15 @@ class DynamicRnnSeq2Seq(object):
         https://www.tensorflow.org/api_docs/python/tf/nn/raw_rnn. I can just declare some TensorArrays and fill
          them in the middle of the loop."""
 
-        output_ta = tf.TensorArray(size=self.prediction_steps, dtype=tf.float32)
+        output_ta = (tf.TensorArray(size=self.prediction_steps, dtype=tf.float32), #Sampled output
+                     tf.TensorArray(size=self.prediction_steps, dtype=tf.float32)) # loss
 
         def seq2seq_f(encoder_inputs, decoder_inputs, feed_forward):
             # returns (self.LSTM_output, self.internal_states)
+            decoder_input_ta = tf.TensorArray(dtype=tf.float32, size=len(decoder_inputs))
+
+            for j in range(len(decoder_inputs)):
+                decoder_input_ta = decoder_input_ta.write(j, decoder_inputs[j])
 
             """ First this runs the encoder, then it saves the last internal RNN c state, and passes that into the
             loop parameter as the initial condition. Then it runs the decoder."""
@@ -209,7 +214,7 @@ class DynamicRnnSeq2Seq(object):
             with tf.variable_scope('seq2seq_encoder'):
                 # So I have a list of len(time) of Tensors of shape (batch, RNN dim)
                 encoder_outputs, last_enc_state = tf.nn.dynamic_rnn(self._RNN_layers,
-                                                                    inputs=tf.stack(encoder_inputs,axis=0),
+                                                                    inputs=tf.stack(encoder_inputs,axis=1),
                                                                     dtype=tf.float32)
 
             def loop_fn(time, cell_output, cell_state, loop_state):
@@ -228,26 +233,36 @@ class DynamicRnnSeq2Seq(object):
                     projected_ouput = output_function(cell_output)
                     sampled = MDN.sample(projected_ouput)
                     next_sampled_input = _condition_sampled_output(sampled)
-                    next_loop_state = loop_state.write(time - 1, next_sampled_input)  # Why time-1?
+                    # Why time-1?
                     next_input = _apply_scaling_and_input_layer(next_sampled_input)  # That dotted loopy line in the diagram
 
+                    """LOSS"""
+                    # compare decoder[time-1] to projected_output
+                    # loss = MDN.lossfunc_wrapper(decoder_inputs[time-1],projected_ouput)
+                        #TypeError: list indices must be integers, not Tensor
+                    # WHAT?!
+                    loss = MDN.lossfunc_wrapper(decoder_input_ta.read(time - 1),projected_ouput)
+                    next_loop_state = (loop_state[0].write(time - 1, next_sampled_input),
+                                       loop_state[1].write(time - 1, loss))
+
                 elements_finished = (
-                    time >= self.prediction_steps)  # whether or not this RNN in the batch has declared itself done
+                    time >= self.prediction_steps)    # whether or not this RNN in the batch has declared itself done
 
                 return (elements_finished, next_input, next_cell_state, emit_output, next_loop_state)
 
-            if not feed_forward: #feed last output as next input
-                loopback_function = loop_fn
-            else:
-                loopback_function = None #feed correct input
+            # if not feed_forward: #feed last output as next input
+            #     loopback_function = loop_fn
+            # else:
+            #     loopback_function = None #feed correct input
 
             with tf.variable_scope('seq2seq_decoder'):
                 from tensorflow.python.ops.rnn import _transpose_batch_time
-                emit_ta, final_state, loop_state_ta = tf.nn.raw_rnn(self._RNN_layers, loopback_function)
+                emit_ta, final_state, loop_state_ta = tf.nn.raw_rnn(self._RNN_layers, loop_fn)
                 # Here emit_ta should contain all the MDN's for each timestep. To confirm.
-                output_sampled = _transpose_batch_time(loop_state_ta.stack())
+                output_sampled = _transpose_batch_time(loop_state_ta[0].stack())
+                losses = _transpose_batch_time(loop_state_ta[1].stack())
 
-            return output_sampled, final_state
+            return output_sampled, tf.reduce_sum(losses,axis=1), final_state
 
 
         ################# FEEDS SECTION #######################
@@ -298,7 +313,7 @@ class DynamicRnnSeq2Seq(object):
         #### SEQ2SEQ function HERE
 
         with tf.variable_scope('seq_rnn'):
-            self.LSTM_output, self.internal_states = seq2seq_f(self.encoder_inputs, self.decoder_inputs, feed_future_data)
+            self.LSTM_output, self.losses, self.internal_states = seq2seq_f(self.encoder_inputs, self.target_inputs, feed_future_data)
 
         # self.outputs is a list of len(prediction_steps) containing [size batch x rnn_size]
         # The output projection below reduces this to:
@@ -311,6 +326,8 @@ class DynamicRnnSeq2Seq(object):
         #     self.model_output = [output_function(output) for output in self.LSTM_output]
         # else:
         self.model_output = self.LSTM_output
+        self.MDN_sampled_output = self.model_output
+
         # if self.model_type == 'MDN':
         #     self.MDN_sampled_output = [_condition_sampled_output(MDN.sample(x))  # Apply output scaling
         #                                for x in self.model_output]
@@ -326,10 +343,10 @@ class DynamicRnnSeq2Seq(object):
         # NOTE - there is a good cost function for the MDN (MLE), this is different to the track accuracy metric (above)
         if self.model_type == 'MDN':
             # TODO REPLACE LOSS FUNCTION
-            self.losses = tf.contrib.legacy_seq2seq.sequence_loss(self.model_output, targets, self.target_weights,
-                                                      #softmax_loss_function=lambda x, y: mse(x,y))
-                                                  softmax_loss_function=MDN.lossfunc_wrapper)
-            self.losses = self.losses / self.batch_size
+            # self.losses = tf.contrib.legacy_seq2seq.sequence_loss(self.model_output, targets, self.target_weights,
+            #                                           #softmax_loss_function=lambda x, y: mse(x,y))
+            #                                       softmax_loss_function=MDN.lossfunc_wrapper)
+            self.losses = tf.reduce_sum(self.losses) / self.batch_size
             self.accuracy = -self.losses #TODO placeholder, use MSE or something visually intuitive
         if self.model_type == 'classifier':
           raise Exception # This model is MDN only

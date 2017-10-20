@@ -23,7 +23,8 @@ def get_lossfunc(z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr, x1_data, x2_dat
     result1 = tf.reduce_sum(result1, 1, keep_dims=True)
     result = -tf.log(tf.maximum(result1, 1e-20))  # at the beginning, some errors are exactly zero.
 
-    return tf.reduce_sum(result)
+    return result
+    #return tf.reduce_sum(result)
 
 
 def lossfunc_wrapper(labels, logits):

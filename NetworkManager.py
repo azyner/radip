@@ -29,6 +29,7 @@ import matplotlib as mpl
 from bokeh.models import ColumnDataSource, HoverTool, Div
 import shutil
 import dill as pickle
+from dyn_rnn_model import DynamicRnnSeq2Seq
 
 class NetworkManager:
     def __init__(self, parameters, log_file_name=None):
@@ -90,7 +91,7 @@ class NetworkManager:
             print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
             #tf.train.import_meta_graph(ckpt.model_checkpoint_path + ".meta")
             #saver = tf.train.Saver()
-            self.model = Seq2SeqModel(self.parameters)
+            self.model = DynamicRnnSeq2Seq(self.parameters)
             self.model.saver.restore(self.sess, ckpt.model_checkpoint_path)
         else:
             print("Created model with fresh parameters.")
@@ -99,7 +100,7 @@ class NetworkManager:
                 exit(1)
                 # Get scaling factors
 
-            self.model = Seq2SeqModel(self.parameters)
+            self.model = DynamicRnnSeq2Seq(self.parameters)
             # IMPORTANT set norm params must occur after init, otherwise the values get clobbered
             self.sess.run(tf.global_variables_initializer())
             self.model.set_normalization_params(self.sess, encoder_means, encoder_stddev)
