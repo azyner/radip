@@ -230,7 +230,6 @@ class DynamicRnnSeq2Seq(object):
                     projected_output = output_function(cell_output)
                     sampled = MDN.sample(projected_output)
                     next_sampled_input = _condition_sampled_output(sampled)
-                    # Why time-1?
                     next_input = _apply_scaling_and_input_layer(next_sampled_input)  # That dotted loopy line in the diagram
 
                     """LOSS"""
@@ -259,7 +258,7 @@ class DynamicRnnSeq2Seq(object):
                 output_sampled = _transpose_batch_time(loop_state_ta[0].stack())
                 losses = _transpose_batch_time(loop_state_ta[1].stack())
 
-            return output_sampled, tf.reduce_sum(losses,axis=1), final_state
+            return output_sampled, tf.reduce_sum(losses,axis=1)/len(self.decoder_inputs), final_state
 
 
         ################# FEEDS SECTION #######################
@@ -310,29 +309,8 @@ class DynamicRnnSeq2Seq(object):
         #### SEQ2SEQ function HERE
 
         with tf.variable_scope('seq_rnn'):
-            self.LSTM_output, self.losses, self.internal_states =\
+            self.MDN_sampled_output, self.losses, self.internal_states =\
                 seq2seq_f(self.encoder_inputs, self.decoder_inputs, self.target_inputs, feed_future_data)
-
-        # self.outputs is a list of len(prediction_steps) containing [size batch x rnn_size]
-        # The output projection below reduces this to:
-        #                 a list of len(prediction_steps) containing [size batch x input_size]
-        # BUG This is incorrect -- technically.
-        # Because MDN.sample() is a random function, this sample is not the
-        # sample being used in the loopback function.
-        """ Now in the loopback function """
-        # if output_projection is not None:
-        #     self.model_output = [output_function(output) for output in self.LSTM_output]
-        # else:
-        self.model_output = self.LSTM_output
-        self.MDN_sampled_output = self.model_output
-
-        # if self.model_type == 'MDN':
-        #     self.MDN_sampled_output = [_condition_sampled_output(MDN.sample(x))  # Apply output scaling
-        #                                for x in self.model_output]
-
-        def mse(x, y):
-            return tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(y, x))))
-
 
 ########### EVALUATOR / LOSS SECTION ###################
         # TODO There are several types of cost functions to compare tracks. Implement many
@@ -463,10 +441,9 @@ class DynamicRnnSeq2Seq(object):
         else:
             output_feed = [self.accuracy, self.losses]# Loss for this batch.
             if self.model_type == 'MDN':
-                for l in xrange(self.prediction_steps):  # Output logits.
-                    output_feed.append(self.MDN_sampled_output[l])
-            if self.model_type == 'classifier':
-                output_feed.append(self.model_output[0]) # TODO add a softmax here as it is done in the loss funciton.
+                output_feed.append(self.MDN_sampled_output)
+                #for l in xrange(self.prediction_steps):  # Output logits.
+
 
         outputs = session.run(output_feed, input_feed)
         if summary_writer is not None:
@@ -476,4 +453,5 @@ class DynamicRnnSeq2Seq(object):
         if train_model:
             return outputs[3], outputs[2], None  # accuracy, loss, no outputs.
         else:
-            return outputs[0], outputs[1], outputs[2:]  # accuracy, loss, outputs
+            model_outputs = np.swapaxes(np.squeeze(np.array(outputs[2:]),axis=0),0,1).tolist() #Unstack. Ugly formatting for legacy
+            return outputs[0], outputs[1],  model_outputs  # accuracy, loss, outputs

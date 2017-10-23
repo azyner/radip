@@ -137,8 +137,8 @@ def sample(output):
     # 2 - multiply
     # 3 - reduce-sum
     #Because the documentation for gather_nd is easier to read than tf.gather
-    batch_range = tf.expand_dims(tf.range(0,idx.get_shape()[0]),1)
-    batch_idx = tf.concat(values=[batch_range,idx],axis=1)
+    batch_range = tf.expand_dims(tf.range(0,idx.get_shape()[0]),1) # make the first idx for batch_idx a self refencing idx
+    batch_idx = tf.concat(values=[batch_range,idx],axis=1)         # then add the MDN idx.
     next = sample_gaussian_2d(tf.gather_nd(o_mu1,batch_idx),
                               tf.gather_nd(o_mu2,batch_idx),
                               tf.gather_nd(o_sigma1,batch_idx),
