@@ -197,20 +197,21 @@ class DynamicRnnSeq2Seq(object):
         output_ta = (tf.TensorArray(size=self.prediction_steps, dtype=tf.float32), #Sampled output
                      tf.TensorArray(size=self.prediction_steps, dtype=tf.float32)) # loss
 
-        def seq2seq_f(encoder_inputs, decoder_inputs, feed_forward):
+        def seq2seq_f(encoder_inputs, decoder_inputs, targets, feed_forward):
             # returns (self.LSTM_output, self.internal_states)
-            decoder_input_ta = tf.TensorArray(dtype=tf.float32, size=len(decoder_inputs))
+            target_input_ta = tf.TensorArray(dtype=tf.float32, size=len(targets))
 
             for j in range(len(decoder_inputs)):
-                decoder_input_ta = decoder_input_ta.write(j, decoder_inputs[j])
+                target_input_ta = target_input_ta.write(j, targets[j])
 
             """ First this runs the encoder, then it saves the last internal RNN c state, and passes that into the
             loop parameter as the initial condition. Then it runs the decoder."""
 
             with tf.variable_scope('seq2seq_encoder'):
                 # So I have a list of len(time) of Tensors of shape (batch, RNN dim)
+                reordered_encoder_inputs = tf.stack(encoder_inputs,axis=1)
                 encoder_outputs, last_enc_state = tf.nn.dynamic_rnn(self._RNN_layers,
-                                                                    inputs=tf.stack(encoder_inputs,axis=1),
+                                                                    inputs=reordered_encoder_inputs,
                                                                     dtype=tf.float32)
 
             def loop_fn(time, cell_output, cell_state, loop_state):
@@ -220,14 +221,14 @@ class DynamicRnnSeq2Seq(object):
                     # Set initial params
                     next_cell_state = last_enc_state
                     # I have defined last 'encoder input' as actually the first decoder input. It is data for time T_0
-                    next_input = encoder_inputs[-1] # Encoder inputs already have input layer applied
+                    next_input = decoder_inputs[0] # Encoder inputs already have input layer applied
                     next_loop_state = output_ta # I could use this for data from time T-1. Its just a parameter
                                             # For use with persistence within the loop> If I make this a TensorArray
                     #  I can progressively fill it, and then analyze later for a loss function or plotting or someting
                 else:
                     next_cell_state = cell_state
-                    projected_ouput = output_function(cell_output)
-                    sampled = MDN.sample(projected_ouput)
+                    projected_output = output_function(cell_output)
+                    sampled = MDN.sample(projected_output)
                     next_sampled_input = _condition_sampled_output(sampled)
                     # Why time-1?
                     next_input = _apply_scaling_and_input_layer(next_sampled_input)  # That dotted loopy line in the diagram
@@ -237,7 +238,7 @@ class DynamicRnnSeq2Seq(object):
                     # loss = MDN.lossfunc_wrapper(decoder_inputs[time-1],projected_ouput)
                         #TypeError: list indices must be integers, not Tensor
                     # WHAT?!
-                    loss = MDN.lossfunc_wrapper(decoder_input_ta.read(time - 1),projected_ouput)
+                    loss = MDN.lossfunc_wrapper(target_input_ta.read(time - 1), projected_output)
                     next_loop_state = (loop_state[0].write(time - 1, next_sampled_input),
                                        loop_state[1].write(time - 1, loss))
 
@@ -309,7 +310,8 @@ class DynamicRnnSeq2Seq(object):
         #### SEQ2SEQ function HERE
 
         with tf.variable_scope('seq_rnn'):
-            self.LSTM_output, self.losses, self.internal_states = seq2seq_f(self.encoder_inputs, self.target_inputs, feed_future_data)
+            self.LSTM_output, self.losses, self.internal_states =\
+                seq2seq_f(self.encoder_inputs, self.decoder_inputs, self.target_inputs, feed_future_data)
 
         # self.outputs is a list of len(prediction_steps) containing [size batch x rnn_size]
         # The output projection below reduces this to:
@@ -347,8 +349,6 @@ class DynamicRnnSeq2Seq(object):
         if self.model_type == 'classifier':
           raise Exception # This model is MDN only
 
-        tf.nn.sigmoid_cross_entropy_with_logits
-
 ############# OPTIMIZER SECTION ########################
         # Gradients and SGD update operation for training the model.
         tvars = tf.trainable_variables()
@@ -366,8 +366,7 @@ class DynamicRnnSeq2Seq(object):
         self.gradient_norms.append(norm)
 
         gradients = zip(clipped_gradients, tvars)
-        self.updates.append(opt.apply_gradients(
-            gradients, global_step=self.global_step))
+        self.updates.append(opt.apply_gradients(gradients, global_step=self.global_step))
 
 ############# LOGGING SECTION ###########################
         for gradient, variable in gradients:  #plot the gradient of each trainable variable
@@ -396,11 +395,8 @@ class DynamicRnnSeq2Seq(object):
 
         return
 
-    def set_normalization_params(self,session,encoder_means,encoder_stddev):
+    def set_normalization_params(self, session, encoder_means, encoder_stddev):
         # # Function that manually sets the scaling layer for use in input normalization
-        # session.run(tf.assign(self.scaling_layer[0], encoder_means))
-        # session.run(tf.assign(self.scaling_layer[1], encoder_stddev))
-
         session.run(self.scaling_layer[0].assign(encoder_means))
         session.run(self.scaling_layer[1].assign(encoder_stddev))
 
