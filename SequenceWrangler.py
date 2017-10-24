@@ -199,24 +199,28 @@ class SequenceWrangler:
 
         # For all tracks
         for track_raw_idx in range(len(raw_sequences)):
-            # if track_raw_idx > 10:
-            #    break
-            # Lookup the index in the original collection
-            # Get data
-            # print "Wrangling track: " + str(track_raw_idx)
-            wrangle_time = time.time()
-            single_track = raw_sequences[track_raw_idx]
-            df_template = _generate_template(track_raw_idx, raw_classes[track_raw_idx],
-                                             origin[track_raw_idx],
-                                             dest_raw_classes[track_raw_idx],
-                                             self.des_classes[track_raw_idx])
-            track_pool = self._track_slicer(single_track,
-                                            self.parameters['observation_steps'],
-                                            self.parameters['prediction_steps'],
-                                            df_template,
-                                            bbox=20)  # FIXME parameters.bbox)
+            try:
+                # if track_raw_idx > 10:
+                #    break
+                # Lookup the index in the original collection
+                # Get data
+                # print "Wrangling track: " + str(track_raw_idx)
+                wrangle_time = time.time()
+                single_track = raw_sequences[track_raw_idx]
+                df_template = _generate_template(track_raw_idx, raw_classes[track_raw_idx],
+                                                 origin[track_raw_idx],
+                                                 dest_raw_classes[track_raw_idx],
+                                                 self.des_classes[track_raw_idx])
+                track_pool = self._track_slicer(single_track,
+                                                self.parameters['observation_steps'],
+                                                self.parameters['prediction_steps'],
+                                                df_template,
+                                                bbox=20)  # FIXME parameters.bbox)
 
-            master_pool.append(track_pool)
+                master_pool.append(track_pool)
+            except ValueError:
+                print "Warning, track discarded as it did not meet minimum length requirements"
+                continue
 
         self.master_pool = pd.concat(master_pool)
         if not os.path.exists(self.pool_dir):
