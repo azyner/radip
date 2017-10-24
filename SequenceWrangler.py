@@ -332,28 +332,30 @@ class SequenceWrangler:
             #rint "Wrangling track: " + str(track_raw_idx) + " of: " + str(len(ibeo_track_list))
             sys.stdout.write("\rWrangling track:  %04d of %04d " % (track_raw_idx, len(ibeo_track_list)))
             sys.stdout.flush()
-            wrangle_time = time.time()
-            single_track = ibeo_track_list[track_raw_idx]
-            origin = single_track.iloc[0]['origin']
-            destination = single_track.iloc[0]['destination']
-            destination_vec = des_encoder.transform([destination])
-            data_for_encoders = self._extract_ibeo_data_for_encoders(single_track)
+            try:
+                wrangle_time = time.time()
+                single_track = ibeo_track_list[track_raw_idx]
+                origin = single_track.iloc[0]['origin']
+                destination = single_track.iloc[0]['destination']
+                destination_vec = des_encoder.transform([destination])
+                data_for_encoders = self._extract_ibeo_data_for_encoders(single_track)
 
-            # Do not scale here. Scaling is to be done as the first network layer.
-            df_template = _generate_ibeo_template(track_raw_idx, origin + "-" + destination, origin, destination,
-                                                  destination_vec)
-            # Instead, I am going to give the new track slicer a list for distance, as I have pre-computed it.
-            track_pool = self._track_slicer(data_for_encoders,
-                                            self.parameters['observation_steps'],
-                                            self.parameters['prediction_steps'],
-                                            df_template, # Metadata that is static across the whole track
-                                            distance=single_track['distance'],#metadata that changes in the track.
-                                            distance_to_exit=single_track['distance_to_exit'],
-                                            additional_df=single_track[data_columns]) #Everything else. Useful for post network analysis
-
-
-            master_pool.append(track_pool)
-            #print "wrangle time: " + str(time.time()-wrangle_time)
+                # Do not scale here. Scaling is to be done as the first network layer.
+                df_template = _generate_ibeo_template(track_raw_idx, origin + "-" + destination, origin, destination,
+                                                      destination_vec)
+                # Instead, I am going to give the new track slicer a list for distance, as I have pre-computed it.
+                track_pool = self._track_slicer(data_for_encoders,
+                                                self.parameters['observation_steps'],
+                                                self.parameters['prediction_steps'],
+                                                df_template, # Metadata that is static across the whole track
+                                                distance=single_track['distance'],#metadata that changes in the track.
+                                                distance_to_exit=single_track['distance_to_exit'],
+                                                additional_df=single_track[data_columns]) #Everything else. Useful for post network analysis
+                master_pool.append(track_pool)
+                #print "wrangle time: " + str(time.time()-wrangle_time)
+            except ValueError:
+                print "Warning, track discarded as it did not meet minimum length requirements"
+            continue
         sys.stdout.write("\t\t\t\t%4s" % "[ OK ]")
         sys.stdout.write("\r\n")
         sys.stdout.flush()
