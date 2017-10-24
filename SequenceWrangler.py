@@ -326,6 +326,7 @@ class SequenceWrangler:
         data_columns = list(set(data_columns))
 
         # For all tracks
+        discarded_tracks = 0
         for track_raw_idx in range(len(ibeo_track_list)):
             # Lookup the index in the original collection
             # Get data
@@ -355,10 +356,12 @@ class SequenceWrangler:
                 #print "wrangle time: " + str(time.time()-wrangle_time)
             except ValueError:
                 print "Warning, track discarded as it did not meet minimum length requirements"
-            continue
+                discarded_tracks +=1
+                continue
         sys.stdout.write("\t\t\t\t%4s" % "[ OK ]")
         sys.stdout.write("\r\n")
         sys.stdout.flush()
+        print "Discarded " + str(discarded_tracks) + " tracks"
 
         self.master_pool = pd.concat(master_pool)
 
