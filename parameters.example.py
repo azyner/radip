@@ -72,6 +72,6 @@ parameters['debug'] = False  # Skip the metric computation to hasten looptime
 # IBEO
 parameters['ibeo_data_columns'] = ["Object_X","Object_Y","ObjBoxOrientation","AbsVelocity_X","AbsVelocity_Y","ObjectPredAge"]
 parameters["data_format"] = "ibeo" # OR 'legacy'
-
+parameters["use_scaling"] = True
 #C hange this to 1 or zero to set the GPU to use
 #os.environ["CUDA_VISIBLE_DEVICES"]="1"

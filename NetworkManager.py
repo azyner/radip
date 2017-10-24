@@ -103,8 +103,13 @@ class NetworkManager:
             self.model = DynamicRnnSeq2Seq(self.parameters)
             # IMPORTANT set norm params must occur after init, otherwise the values get clobbered
             self.sess.run(tf.global_variables_initializer())
-            self.model.set_normalization_params(self.sess, encoder_means, encoder_stddev)
+            if self.parameters['use_scaling']:
+                self.model.set_normalization_params(self.sess, encoder_means, encoder_stddev)
+            else:
+                self.model.set_normalization_params(self.sess, [0]*len(encoder_means), [1]*len(encoder_stddev))
+            print "Scaling layer means"
             print self.model.scaling_layer[0].eval(session=self.sess)
+            print "Scaling layer standard dev"
             print self.model.scaling_layer[1].eval(session=self.sess)
 
         if self.summaries_dir is not None:
