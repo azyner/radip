@@ -140,7 +140,7 @@ class DynamicRnnSeq2Seq(object):
                         output, output_projection[0], output_projection[1],name="output_projection"
                     )
 
-        def _condition_sampled_output(MDN_samples):
+        def _pad_missing_output_with_zeros(MDN_samples):
             # TODO Should not be needed, as it will occur later outside tensorflow - not anymore! I'm using raw_rnn now
             # Simple hack for now as I cannot get t-1 data for t_0 derivatives easily due to scoping problems.
             # sampled has shape 256,2 - it needs 256,4
@@ -149,8 +149,11 @@ class DynamicRnnSeq2Seq(object):
                     [MDN_samples.shape[0], scaling_layer[0].shape[0] - MDN_samples.shape[1]], dtype=tf.float32)], 1)
             else:
                 resized = MDN_samples
-            upscaled = tf.add(tf.multiply(resized, scaling_layer[1]), scaling_layer[0])
-            return upscaled
+            return resized
+
+        def _upscale_sampled_output(sample):
+            return tf.add(tf.multiply(sample, scaling_layer[1]), scaling_layer[0])
+
 
         def _apply_scaling_and_input_layer(input_data):
             return tf.nn.dropout(tf.nn.relu(
@@ -195,9 +198,10 @@ class DynamicRnnSeq2Seq(object):
          them in the middle of the loop."""
 
         output_ta = (tf.TensorArray(size=self.prediction_steps, dtype=tf.float32), #Sampled output
-                     tf.TensorArray(size=self.prediction_steps, dtype=tf.float32)) # loss
+                     tf.TensorArray(size=self.prediction_steps, dtype=tf.float32), # loss
+                     tf.TensorArray(size=self.prediction_steps+1, dtype=tf.float32)) # time-1 for derivative loopback
 
-        def seq2seq_f(encoder_inputs, decoder_inputs, targets, feed_forward):
+        def seq2seq_f(encoder_inputs, decoder_inputs, targets, last_input, feed_forward):
             # returns (self.LSTM_output, self.internal_states)
             target_input_ta = tf.TensorArray(dtype=tf.float32, size=len(targets))
 
@@ -221,25 +225,27 @@ class DynamicRnnSeq2Seq(object):
                     # Set initial params
                     next_cell_state = last_enc_state
                     # I have defined last 'encoder input' as actually the first decoder input. It is data for time T_0
-                    next_input = decoder_inputs[0] # Encoder inputs already have input layer applied
-                    next_loop_state = output_ta # I could use this for data from time T-1. Its just a parameter
-                                            # For use with persistence within the loop> If I make this a TensorArray
-                    #  I can progressively fill it, and then analyze later for a loss function or plotting or someting
+                    next_input = decoder_inputs[0]  # Encoder inputs already have input layer applied
+                    next_loop_state = (output_ta[0],
+                                       output_ta[1],
+                                       output_ta[2].write(time, last_input))
                 else:
                     next_cell_state = cell_state
                     projected_output = output_function(cell_output)
                     sampled = MDN.sample(projected_output)
-                    next_sampled_input = _condition_sampled_output(sampled)
+                    if self.parameters['input_mask'][2:4] == [0,0]:
+                        next_sampled_input = _pad_missing_output_with_zeros(sampled)
+                    else:
+                        next_sampled_input = MDN.compute_derivates(loop_state[2].read(time-1), sampled,
+                                                                   self.parameters['input_columns'])
+                    next_sampled_input = _upscale_sampled_output(next_sampled_input)
                     next_input = _apply_scaling_and_input_layer(next_sampled_input)  # That dotted loopy line in the diagram
 
-                    """LOSS"""
-                    # compare decoder[time-1] to projected_output
-                    # loss = MDN.lossfunc_wrapper(decoder_inputs[time-1],projected_ouput)
-                        #TypeError: list indices must be integers, not Tensor
-                    # WHAT?!
                     loss = MDN.lossfunc_wrapper(target_input_ta.read(time - 1), projected_output)
                     next_loop_state = (loop_state[0].write(time - 1, next_sampled_input),
-                                       loop_state[1].write(time - 1, loss))
+                                       loop_state[1].write(time - 1, loss),
+                                       loop_state[2].write(time, next_sampled_input))
+                                        #Its an off by one error I'd rather solve with a new array for readability
 
                 elements_finished = (
                     time >= self.prediction_steps)    # whether or not this RNN in the batch has declared itself done
@@ -310,7 +316,8 @@ class DynamicRnnSeq2Seq(object):
 
         with tf.variable_scope('seq_rnn'):
             self.MDN_sampled_output, self.losses, self.internal_states =\
-                seq2seq_f(self.encoder_inputs, self.decoder_inputs, self.target_inputs, feed_future_data)
+                seq2seq_f(self.encoder_inputs, self.decoder_inputs, self.target_inputs, self.observation_inputs[-1],
+                          feed_future_data)
 
 ########### EVALUATOR / LOSS SECTION ###################
         # TODO There are several types of cost functions to compare tracks. Implement many

@@ -158,13 +158,13 @@ def compute_derivates(output_prev, output_current, network_input_columns):
     # column 2 is heading, so do some trig,
     #
     # column 3 is speed, so its just a subtraction and vector magnitude
-    x_p, y_p, heading_p, speed_p = tf.split(output_prev, 4, axis=0)
-    x_c, y_c = tf.split(output_current, 2, axis=0)
+    x_p, y_p, heading_p, speed_p = tf.split(output_prev, 4, axis=1)
+    x_c, y_c = tf.split(output_current, 2, axis=1)
     pos_d_i = tf.complex(tf.subtract(x_p,x_c), tf.subtract(y_p, y_c))  # Define x,y as a complex number
     pos_d = tf.abs(pos_d_i)  # Use abs to get magnitude
     print "Warning, velocity loopback generator assumes 25 Hz timesteps"
     v_c = tf.multiply(pos_d,25) # delta * 25 = number of meters per second
     h_c = tf.atan2(tf.subtract(x_p,x_c),tf.subtract(y_p, y_c))
-    output_with_extras = tf.concat([x_c,y_c,h_c,v_c],axis=0)
+    output_with_extras = tf.concat([x_c,y_c,h_c,v_c],axis=1)
 
     return output_with_extras
