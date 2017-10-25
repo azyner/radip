@@ -69,7 +69,7 @@ class DynamicRnnSeq2Seq(object):
 
         # Feed future data is to be used during sequence generation. It allows real data to be passed at times t++
         # instead of the generated output. For training only, I may not use it at all.
-        feed_future_data = parameters['feed_future_data']
+        self.feed_future_data = tf.Variable(parameters['feed_future_data'], trainable=False, dtype=tf.bool, name="Future_data_feed_training")
 
         if parameters['model_type'] == 'classifier':
             raise Exception("Error")
@@ -239,12 +239,15 @@ class DynamicRnnSeq2Seq(object):
                         next_sampled_input = MDN.compute_derivates(loop_state[2].read(time-1), sampled,
                                                                    self.parameters['input_columns'])
                     next_sampled_input = _upscale_sampled_output(next_sampled_input)
-                    next_input = _apply_scaling_and_input_layer(next_sampled_input)  # That dotted loopy line in the diagram
+                    prev_target_ta = target_input_ta.read(time - 1) # Only allowed to call read() once. Dunno why.
+                    next_datapoint = tf.cond(feed_forward, lambda: prev_target_ta, lambda: next_sampled_input)
+                    next_input = _apply_scaling_and_input_layer(next_datapoint)
+                    # That dotted loopy line in the diagram
 
-                    loss = MDN.lossfunc_wrapper(target_input_ta.read(time - 1), projected_output)
+                    loss = MDN.lossfunc_wrapper(prev_target_ta, projected_output)
                     next_loop_state = (loop_state[0].write(time - 1, next_sampled_input),
                                        loop_state[1].write(time - 1, loss),
-                                       loop_state[2].write(time, next_sampled_input))
+                                       loop_state[2].write(time, next_datapoint))
                                         #Its an off by one error I'd rather solve with a new array for readability
 
                 elements_finished = (
@@ -317,7 +320,7 @@ class DynamicRnnSeq2Seq(object):
         with tf.variable_scope('seq_rnn'):
             self.MDN_sampled_output, self.losses, self.internal_states =\
                 seq2seq_f(self.encoder_inputs, self.decoder_inputs, self.target_inputs, self.observation_inputs[-1],
-                          feed_future_data)
+                          self.feed_future_data)
 
 ########### EVALUATOR / LOSS SECTION ###################
         # TODO There are several types of cost functions to compare tracks. Implement many
@@ -441,11 +444,15 @@ class DynamicRnnSeq2Seq(object):
 
         # Output feed: depends on whether we do a backward step or not.
         if train_model:
+            session.run(tf.assign(self.feed_future_data, self.parameters['feed_future_data']))
+
+
             output_feed = (self.updates +  # Update Op that does SGD. #This is the learning flag
                          self.gradient_norms +  # Gradient norm.
                          [self.losses] +
                            [self.accuracy])  # Loss for this batch.
         else:
+            session.run(tf.assign(self.feed_future_data, False))
             output_feed = [self.accuracy, self.losses]# Loss for this batch.
             if self.model_type == 'MDN':
                 output_feed.append(self.MDN_sampled_output)
