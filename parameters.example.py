@@ -45,6 +45,7 @@ parameters['hyper_reg_l2_beta_args'] = None #(-5, -1)  # 10^X # OR None
 
 ##### SINGLE RUN
 parameters["learning_rate"] = 0.01
+parameters['learning_rate_min'] = 0.00001
 parameters["rnn_size"] = 128
 parameters["learning_rate_decay_factor"] = 0.1
 parameters['reg_embedding_beta'] = 0
