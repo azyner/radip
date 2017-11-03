@@ -147,7 +147,8 @@ def sample(output):
 
     return next
 
-def compute_derivates(output_prev, output_current, network_input_columns, velocity_threshold=2.0):
+def compute_derivates(output_prev, output_current, network_input_columns,
+                      velocity_threshold=tf.constant(2.0,dtype=tf.float32)):
     #['easting', 'northing', 'heading', 'speed']
     # Assume the first two are x and y
     if network_input_columns[2] is not 'heading' or \
@@ -168,7 +169,7 @@ def compute_derivates(output_prev, output_current, network_input_columns, veloci
     # TODO Element wise, I have to condition on speed. If < 2m/s (hyperparameter?) use old heading, else compute heading
     # I don't want to use tf.cond as it does not perform element-wise logic.
     # So I'm going to construct this fundamentally - MUltiply by zero or one and sum
-    use_old_speed = tf.less(v_c, tf.constant(velocity_threshold,dtype=tf.float32)) # Broadcasting will upsize the scalar to a vector
+    use_old_speed = tf.less(v_c, velocity_threshold) # Broadcasting will upsize the scalar to a vector
     use_new_speed = tf.logical_not(use_old_speed)
     use_old_speed, use_new_speed = (tf.to_float(use_old_speed),tf.to_float(use_new_speed))
     new_speed = tf.add(tf.multiply(use_old_speed,speed_p), tf.multiply(use_new_speed,v_c))

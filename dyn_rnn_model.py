@@ -154,6 +154,10 @@ class DynamicRnnSeq2Seq(object):
         def _upscale_sampled_output(sample):
             return tf.add(tf.multiply(sample, scaling_layer[1]), scaling_layer[0])
 
+        def _scale_vel_thresh(velocity_thresh):
+            _, _, _, speed_sub = tf.split(self.scaling_layer[0], 4, axis=0)
+            _, _, _, speed_div = tf.split(self.scaling_layer[1], 4, axis=0)
+            return tf.divide(tf.subtract(tf.constant(velocity_thresh, dtype=tf.float32), speed_sub), speed_div)
 
         def _apply_scaling_and_input_layer(input_data):
             return tf.nn.dropout(tf.nn.relu(
@@ -237,7 +241,8 @@ class DynamicRnnSeq2Seq(object):
                         next_sampled_input = _pad_missing_output_with_zeros(sampled)
                     else:
                         next_sampled_input = MDN.compute_derivates(loop_state[2].read(time-1), sampled,
-                                                                   self.parameters['input_columns'])
+                                                                   self.parameters['input_columns'],
+                                                                   _scale_vel_thresh(self.parameters['velocity_threshold']))
                     next_sampled_input = _upscale_sampled_output(next_sampled_input)
                     prev_target_ta = target_input_ta.read(time - 1) # Only allowed to call read() once. Dunno why.
                     next_datapoint = tf.cond(feed_forward, lambda: prev_target_ta, lambda: next_sampled_input)
