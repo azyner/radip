@@ -69,7 +69,7 @@ class DynamicRnnSeq2Seq(object):
 
         # Feed future data is to be used during sequence generation. It allows real data to be passed at times t++
         # instead of the generated output. For training only, I may not use it at all.
-        # self.feed_future_data = tf.Variable(parameters['feed_future_data'], trainable=False, dtype=tf.bool, name="Future_data_feed_training")
+        self.first_loss_only = tf.Variable(parameters['first_loss_only'], trainable=False, dtype=tf.bool, name="use_first_loss_only_during_training")
 
         if parameters['model_type'] == 'classifier':
             raise Exception("Error")
@@ -335,11 +335,18 @@ class DynamicRnnSeq2Seq(object):
         # There's this corner alg that Social LSTM refernces, but I haven't looked into it.
         # NOTE - there is a good cost function for the MDN (MLE), this is different to the track accuracy metric (above)
         if self.model_type == 'MDN':
-            # TODO REPLACE LOSS FUNCTION
-            # self.losses = tf.contrib.legacy_seq2seq.sequence_loss(self.model_output, targets, self.target_weights,
-            #                                           #softmax_loss_function=lambda x, y: mse(x,y))
-            #                                       softmax_loss_function=MDN.lossfunc_wrapper)
-            self.losses = tf.reduce_sum(self.losses) / self.batch_size
+            loss_value = tf.Variable(0, dtype=tf.float32)
+
+            def sum_all_losses():
+                with tf.control_dependencies([tf.assign(loss_value, tf.reduce_sum(self.losses))]):
+                    return loss_value
+
+            def sum_first_loss():
+                with tf.control_dependencies([tf.assign(loss_value, tf.reduce_sum(self.losses[0]))]):
+                    return loss_value
+
+            self.losses = tf.cond(self.first_loss_only, sum_all_losses, sum_first_loss) / self.batch_size
+
             self.accuracy = -self.losses #TODO placeholder, use MSE or something visually intuitive
         if self.model_type == 'classifier':
           raise Exception # This model is MDN only
@@ -454,7 +461,7 @@ class DynamicRnnSeq2Seq(object):
             if self.parameters['feed_future_data']:
                 print "Error, feed_future_data not implemented. It must be set to false. Exiting..."
                 quit()
-            #session.run(tf.assign(self.feed_future_data, self.parameters['feed_future_data']))
+            session.run(tf.assign(self.first_loss_only, self.parameters['first_loss_only']))
 
 
             output_feed = (self.updates +  # Update Op that does SGD. #This is the learning flag
@@ -462,7 +469,7 @@ class DynamicRnnSeq2Seq(object):
                          [self.losses] +
                            [self.accuracy])  # Loss for this batch.
         else:
-            #session.run(tf.assign(self.feed_future_data, False))
+            session.run(tf.assign(self.first_loss_only, False))
             output_feed = [self.accuracy, self.losses]# Loss for this batch.
             if self.model_type == 'MDN':
                 output_feed.append(self.MDN_sampled_output)

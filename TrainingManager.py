@@ -143,7 +143,8 @@ class TrainingManager:
                 # Check for significant divergence of val_loss and train_loss
                 model_is_overfit = False
                 if (loss < (val_step_loss)*0.9 and  # train / val have diverged
-                    val_step_loss > 0.95*max(previous_val_losses)):  # val is ~increasing
+                    val_step_loss > 0.95*max(previous_val_losses) and
+                    not self.parameter_dict['first_loss_only']):  # val is ~increasing
                     overfitting_steps += 1
                     print "Warning, overfitting detected. Will stop training if it continues"
                     if overfitting_steps > 20:
