@@ -57,6 +57,7 @@ class DynamicRnnSeq2Seq(object):
         self.num_mixtures = parameters['num_mixtures']
         self.model_type = parameters['model_type']
         self.num_classes = parameters['num_classes']
+        self.first_loss_only =  parameters['first_loss_only']
         self.global_step = tf.Variable(0, trainable=False,name="Global_step")
 
         self.learning_rate = tf.Variable(float(parameters['learning_rate']), trainable=False, name="Learning_rate")
@@ -67,22 +68,14 @@ class DynamicRnnSeq2Seq(object):
         self.network_summaries = []
         keep_prob = 1-self.dropout_prob
 
-        # Feed future data is to be used during sequence generation. It allows real data to be passed at times t++
-        # instead of the generated output. For training only, I may not use it at all.
-        self.first_loss_only = tf.Variable(parameters['first_loss_only'], trainable=False, dtype=tf.bool, name="use_first_loss_only_during_training")
-
         if parameters['model_type'] == 'classifier':
             raise Exception("Error")
-
-        #if feed_future_data and not train:
-        #    print "Warning, feeding the model future sequence data (feed_forward) is not recommended when the model is not training."
 
         # The output of the multiRNN is the size of rnn_size, and it needs to match the input size, or loopback makes
         #  no sense. Here a single layer without activation function is used, but it can be any number of
         #  non RNN layers / functions
         if self.model_type == 'MDN':
             n_out = 6*self.num_mixtures
-
 
         ############## LAYERS ###################################
 
@@ -107,12 +100,6 @@ class DynamicRnnSeq2Seq(object):
             i_b = tf.get_variable("in_b", [self.embedding_size],
                                   initializer=tf.constant_initializer(0.1))
             input_layer = (i_w, i_b)
-
-
-        # TODO
-        """uses TensorArray for the input and outputs, in which Tensor must be in [time, batch_size, input_depth] shape.
-         This is different from the shape we are familiar with, i.e. [batch_size, time, input_depth]. """
-
 
         def _generate_rnn_layer():
             if parameters['RNN_cell'] == "LSTMCell":
@@ -168,24 +155,6 @@ class DynamicRnnSeq2Seq(object):
                                                     scaling_layer[1]),  # Input scaling
                                                 input_layer[0], input_layer[1])),
                                         1-parameters['embedding_dropout'])
-        #The loopback function needs to be a sampling function, it does not generate loss.
-        # def simple_loop_function(prev, i):
-        #     '''function that loops the data from the output of the LSTM to the input
-        #     of the LSTM for the next timestep. So it needs to apply the output layers/function
-        #     to generate the data at that timestep, and then'''
-        #     # I might need to do some hacking with i.
-        #     if output_projection is not None:
-        #         #Output layer
-        #         prev = output_function(prev)
-        #     if self.model_type == 'MDN':
-        #         # Sample to generate output
-        #         sampled = MDN.sample(prev)
-        #         prev = _condition_sampled_output(sampled)
-        #         # prev = MDN.compute_derivates(prev,new,parameters['input_columns'])
-        #
-        #     # Apply input layer
-        #     prev = _apply_scaling_and_input_layer(prev)
-        #     return prev
 
         """This was always the biggest side-loading hack.  Because I cannot give an initial state to the decoder
         raw_rnn, its done in the loop function by defining the function here, and pulling variables traditionally 
@@ -263,11 +232,6 @@ class DynamicRnnSeq2Seq(object):
 
                 return (elements_finished, next_input, next_cell_state, emit_output, next_loop_state)
 
-            # if not feed_forward: #feed last output as next input
-            #     loopback_function = loop_fn
-            # else:
-            #     loopback_function = None #feed correct input
-
             with tf.variable_scope('seq2seq_decoder'):
                 from tensorflow.python.ops.rnn import _transpose_batch_time
                 emit_ta, final_state, loop_state_ta = tf.nn.raw_rnn(self._RNN_layers, loop_fn)
@@ -335,43 +299,47 @@ class DynamicRnnSeq2Seq(object):
         # There's this corner alg that Social LSTM refernces, but I haven't looked into it.
         # NOTE - there is a good cost function for the MDN (MLE), this is different to the track accuracy metric (above)
         if self.model_type == 'MDN':
-            loss_value = tf.Variable(0, dtype=tf.float32)
+            self.full_losses = tf.reduce_sum(self.losses) / self.batch_size
+            self.first_loss_losses = tf.reduce_sum(self.losses[0])
 
-            def sum_all_losses():
-                with tf.control_dependencies([tf.assign(loss_value, tf.reduce_sum(self.losses))]):
-                    return loss_value
-
-            def sum_first_loss():
-                with tf.control_dependencies([tf.assign(loss_value, tf.reduce_sum(self.losses[0]))]):
-                    return loss_value
-
-            self.losses = tf.cond(self.first_loss_only, sum_all_losses, sum_first_loss) / self.batch_size
-
-            self.accuracy = -self.losses #TODO placeholder, use MSE or something visually intuitive
+            self.full_accuracy = -self.full_losses #TODO placeholder, use MSE or something visually intuitive
+            self.first_loss_accuracy = -self.first_loss_losses
         if self.model_type == 'classifier':
           raise Exception # This model is MDN only
 
 ############# OPTIMIZER SECTION ########################
         # Gradients and SGD update operation for training the model.
+        # Here we split the model into training and validation/testing (inference)
+        # This allows for slightly different loss functions.
+        # The original Alex Graves 2014 paper and the sketch-rnn architectures only do loss on t+1.
+        # and they do inference for all time, so I'd like to try that.
+        # Because training only occurs in the training section, there is no inference graidents, etc. ONly inference
+        # loss and `accuracy'
+
         tvars = tf.trainable_variables()
-        #if train:
-        # I don't see the difference here, as during testing the updates are not run
-        self.gradient_norms = []
-        self.updates = []
+        self.first_loss_gradient_norms = []
+        self.first_loss_updates = []
+        self.full_gradient_norms = []
+        self.full_updates = []
         #opt = tf.train.AdadeltaOptimizer(self.learning_rate)
         opt = tf.train.AdamOptimizer(self.learning_rate)
         #opt = tf.train.RMSPropOptimizer(self.learning_rate)
         #opt = tf.train.GradientDescentOptimizer(self.learning_rate)
-        gradients = tf.gradients(self.losses, tvars)
-        clipped_gradients, norm = tf.clip_by_global_norm(gradients, self.max_gradient_norm)
 
-        self.gradient_norms.append(norm)
+        first_loss_gradients = tf.gradients(self.first_loss_losses, tvars)
+        clipped_first_loss_gradients, first_loss_norm = tf.clip_by_global_norm(first_loss_gradients, self.max_gradient_norm)
+        self.first_loss_gradient_norms.append(first_loss_norm)
+        first_loss_gradients = zip(clipped_first_loss_gradients, tvars)
+        self.first_loss_updates.append(opt.apply_gradients(first_loss_gradients, global_step=self.global_step))
 
-        gradients = zip(clipped_gradients, tvars)
-        self.updates.append(opt.apply_gradients(gradients, global_step=self.global_step))
+        full_gradients = tf.gradients(self.full_losses, tvars)
+        clipped_full_gradients, full_norm = tf.clip_by_global_norm(full_gradients, self.max_gradient_norm)
+        self.full_gradient_norms.append(full_norm)
+        full_gradients = zip(clipped_full_gradients, tvars)
+        self.full_updates.append(opt.apply_gradients(full_gradients, global_step=self.global_step))
 
 ############# LOGGING SECTION ###########################
-        for gradient, variable in gradients:  #plot the gradient of each trainable variable
+        for gradient, variable in full_gradients:  #plot the gradient of each trainable variable
             if variable.name.find("seq_rnn/combined_tied_rnn_seq2seq/tied_rnn_seq2seq/MultiRNNCell") == 0:
                 var_log_name = variable.name[64:] #Make the thing readable in Tensorboard
             else:
@@ -388,8 +356,10 @@ class DynamicRnnSeq2Seq(object):
                 self.network_summaries.append(
                     tf.summary.histogram(var_log_name + "/gradient_norm", clip_ops.global_norm([grad_values])))
 
-        self.network_summaries.append(tf.summary.scalar('Loss', self.losses))
-        self.network_summaries.append(tf.summary.scalar('Learning Rate', self.learning_rate))
+        if self.first_loss_only:
+            self.network_summaries.append(tf.summary.scalar('Training_Loss', self.first_loss_losses))
+        self.network_summaries.append(tf.summary.scalar('Learning_Rate', self.learning_rate))
+        self.network_summaries.append(tf.summary.scalar('Loss', self.full_losses))
 
         self.summary_op = tf.summary.merge(self.network_summaries)
 
@@ -435,7 +405,7 @@ class DynamicRnnSeq2Seq(object):
             target_weights disagrees with bucket size for the specified bucket_id.
         """
 
-        ## Batch Norm Changes
+        # Batch Norm Changes
         # The cell should be a drop in replacement above.
         # The tricky part here is that I need to update the state: BN_LSTM.is_training = train_model
         # I should be able to loop over all BN_LSTM Cells in the graph somehow.
@@ -455,26 +425,25 @@ class DynamicRnnSeq2Seq(object):
                 input_feed[self.target_inputs[0].name] = future_inputs[0]
                 input_feed[self.target_weights[0].name] = target_weights[0]
 
-
         # Output feed: depends on whether we do a backward step or not.
         if train_model:
             if self.parameters['feed_future_data']:
                 print "Error, feed_future_data not implemented. It must be set to false. Exiting..."
                 quit()
-            session.run(tf.assign(self.first_loss_only, self.parameters['first_loss_only']))
-
-
-            output_feed = (self.updates +  # Update Op that does SGD. #This is the learning flag
-                         self.gradient_norms +  # Gradient norm.
-                         [self.losses] +
-                           [self.accuracy])  # Loss for this batch.
+            if self.first_loss_only:
+                output_feed = (self.first_loss_updates +  # Update Op that does SGD. #This is the learning flag
+                             self.first_loss_gradient_norms +  # Gradient norm.
+                             [self.first_loss_losses] +
+                               [self.first_loss_accuracy])  # Loss for this batch.
+            else:
+                output_feed = (self.full_updates +  # Update Op that does SGD. #This is the learning flag
+                               self.full_gradient_norms +  # Gradient norm.
+                               [self.full_losses] +
+                               [self.full_accuracy])  # Loss for this batch.
         else:
-            session.run(tf.assign(self.first_loss_only, False))
-            output_feed = [self.accuracy, self.losses]# Loss for this batch.
+            output_feed = [self.full_accuracy, self.full_losses]  # Loss for this batch.
             if self.model_type == 'MDN':
                 output_feed.append(self.MDN_sampled_output)
-                #for l in xrange(self.prediction_steps):  # Output logits.
-
 
         outputs = session.run(output_feed, input_feed)
         if summary_writer is not None:
@@ -486,3 +455,4 @@ class DynamicRnnSeq2Seq(object):
         else:
             model_outputs = np.swapaxes(np.squeeze(np.array(outputs[2:]),axis=0),0,1).tolist() #Unstack. Ugly formatting for legacy
             return outputs[0], outputs[1],  model_outputs  # accuracy, loss, outputs
+
