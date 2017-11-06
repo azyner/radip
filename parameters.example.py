@@ -57,6 +57,7 @@ parameters["n_folds"] = 5
 parameters["input_columns"] = ['easting', 'northing', 'heading', 'speed']
 parameters["prediction_steps"] = 0
 parameters["feed_future_data"] = False
+parameters['first_loss_only'] = True
 parameters["max_gradient_norm"] = 10.0
 parameters["random_bias"] = 0
 parameters["subsample"] = 1
