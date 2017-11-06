@@ -69,7 +69,7 @@ class DynamicRnnSeq2Seq(object):
 
         # Feed future data is to be used during sequence generation. It allows real data to be passed at times t++
         # instead of the generated output. For training only, I may not use it at all.
-        self.feed_future_data = tf.Variable(parameters['feed_future_data'], trainable=False, dtype=tf.bool, name="Future_data_feed_training")
+        # self.feed_future_data = tf.Variable(parameters['feed_future_data'], trainable=False, dtype=tf.bool, name="Future_data_feed_training")
 
         if parameters['model_type'] == 'classifier':
             raise Exception("Error")
@@ -201,11 +201,14 @@ class DynamicRnnSeq2Seq(object):
         https://www.tensorflow.org/api_docs/python/tf/nn/raw_rnn. I can just declare some TensorArrays and fill
          them in the middle of the loop."""
 
-        output_ta = (tf.TensorArray(size=self.prediction_steps, dtype=tf.float32), #Sampled output
-                     tf.TensorArray(size=self.prediction_steps, dtype=tf.float32), # loss
-                     tf.TensorArray(size=self.prediction_steps+1, dtype=tf.float32)) # time-1 for derivative loopback
+        output_ta = (tf.TensorArray(size=self.prediction_steps, dtype=tf.float32),  # Sampled output
+                     tf.TensorArray(size=self.prediction_steps, dtype=tf.float32),  # loss
+                     tf.TensorArray(size=self.prediction_steps+1, dtype=tf.float32))    # time-1 for derivative loopback
+                                                                                        # Its either real or generated
+                                                                                        # depending on feed_future_data
+                                                                                        # (always false for now)
 
-        def seq2seq_f(encoder_inputs, decoder_inputs, targets, last_input, feed_forward):
+        def seq2seq_f(encoder_inputs, decoder_inputs, targets, last_input):
             # returns (self.LSTM_output, self.internal_states)
             target_input_ta = tf.TensorArray(dtype=tf.float32, size=len(targets))
 
@@ -245,7 +248,7 @@ class DynamicRnnSeq2Seq(object):
                                                                    _scale_vel_thresh(self.parameters['velocity_threshold']))
                     next_sampled_input = _upscale_sampled_output(next_sampled_input)
                     prev_target_ta = target_input_ta.read(time - 1) # Only allowed to call read() once. Dunno why.
-                    next_datapoint = tf.cond(feed_forward, lambda: prev_target_ta, lambda: next_sampled_input)
+                    next_datapoint = next_sampled_input # tf.cond(feed_forward, lambda: prev_target_ta, lambda: next_sampled_input)
                     next_input = _apply_scaling_and_input_layer(next_datapoint)
                     # That dotted loopy line in the diagram
 
@@ -324,8 +327,7 @@ class DynamicRnnSeq2Seq(object):
 
         with tf.variable_scope('seq_rnn'):
             self.MDN_sampled_output, self.losses, self.internal_states =\
-                seq2seq_f(self.encoder_inputs, self.decoder_inputs, self.target_inputs, self.observation_inputs[-1],
-                          self.feed_future_data)
+                seq2seq_f(self.encoder_inputs, self.decoder_inputs, self.target_inputs, self.observation_inputs[-1])
 
 ########### EVALUATOR / LOSS SECTION ###################
         # TODO There are several types of cost functions to compare tracks. Implement many
@@ -449,7 +451,10 @@ class DynamicRnnSeq2Seq(object):
 
         # Output feed: depends on whether we do a backward step or not.
         if train_model:
-            session.run(tf.assign(self.feed_future_data, self.parameters['feed_future_data']))
+            if self.parameters['feed_future_data']:
+                print "Error, feed_future_data not implemented. It must be set to false. Exiting..."
+                quit()
+            #session.run(tf.assign(self.feed_future_data, self.parameters['feed_future_data']))
 
 
             output_feed = (self.updates +  # Update Op that does SGD. #This is the learning flag
@@ -457,7 +462,7 @@ class DynamicRnnSeq2Seq(object):
                          [self.losses] +
                            [self.accuracy])  # Loss for this batch.
         else:
-            session.run(tf.assign(self.feed_future_data, False))
+            #session.run(tf.assign(self.feed_future_data, False))
             output_feed = [self.accuracy, self.losses]# Loss for this batch.
             if self.model_type == 'MDN':
                 output_feed.append(self.MDN_sampled_output)
