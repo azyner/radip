@@ -139,7 +139,7 @@ class DynamicRnnSeq2Seq(object):
             return resized
 
         def _upscale_sampled_output(sample):
-            return tf.add(tf.multiply(sample, scaling_layer[1]), scaling_layer[0])
+            return tf.add(tf.multiply(sample, scaling_layer[1][0:2]), scaling_layer[0][0:2])
 
         def _scale_vel_thresh(velocity_thresh):
             _, _, _, speed_sub = tf.split(self.scaling_layer[0], 4, axis=0)
@@ -209,13 +209,14 @@ class DynamicRnnSeq2Seq(object):
                     next_cell_state = cell_state
                     projected_output = output_function(cell_output)
                     sampled = MDN.sample(projected_output)
+                    upscale_sampled = _upscale_sampled_output(sampled)
                     if self.parameters['input_mask'][2:4] == [0,0]:
-                        next_sampled_input = _pad_missing_output_with_zeros(sampled)
+                        next_sampled_input = _pad_missing_output_with_zeros(upscale_sampled)
                     else:
-                        next_sampled_input = MDN.compute_derivates(loop_state[2].read(time-1), sampled,
+                        next_sampled_input = MDN.compute_derivates(loop_state[2].read(time-1), upscale_sampled,
                                                                    self.parameters['input_columns'],
-                                                                   _scale_vel_thresh(self.parameters['velocity_threshold']))
-                    next_sampled_input = _upscale_sampled_output(next_sampled_input)
+                                                                   self.parameters['velocity_threshold'])
+                    #next_sampled_input = _upscale_sampled_output(next_sampled_input)
                     prev_target_ta = target_input_ta.read(time - 1) # Only allowed to call read() once. Dunno why.
                     next_datapoint = next_sampled_input # tf.cond(feed_forward, lambda: prev_target_ta, lambda: next_sampled_input)
                     next_input = _apply_scaling_and_input_layer(next_datapoint)
