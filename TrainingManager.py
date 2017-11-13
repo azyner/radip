@@ -155,7 +155,11 @@ class TrainingManager:
                 learning_rate_too_low = (netManager.get_learning_rate() <
                                          self.parameter_dict['loss_decay_cutoff'] *
                                          self.parameter_dict['learning_rate'])
+                if learning_rate_too_low:
+                    print "Stopping due to low learning rate"
                 out_of_time = time.time() - fold_time > 60 * self.parameter_dict['training_early_stop']
+                if out_of_time:
+                    print "Stopping due to time cutoff"
 
                 if learning_rate_too_low or out_of_time or model_is_overfit:
                     # Lookup best model based on val_step_loss

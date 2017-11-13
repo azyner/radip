@@ -63,8 +63,8 @@ class DynamicRnnSeq2Seq(object):
         self.learning_rate = tf.Variable(float(parameters['learning_rate']), trainable=False, name="Learning_rate")
         min_rate = parameters['learning_rate_min']
         self.learning_rate_decay_op = self.learning_rate.assign(
-            (parameters['learning_rate'] - min_rate) *
-            (parameters['learning_rate_decay_factor']**tf.cast(self.global_step,tf.float32) + min_rate))
+            ((parameters['learning_rate'] - min_rate) *
+            (parameters['learning_rate_decay_factor']**tf.cast(self.global_step,tf.float32))) + min_rate)
         self.network_summaries = []
         keep_prob = 1-self.dropout_prob
 
