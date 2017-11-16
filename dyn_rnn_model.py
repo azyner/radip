@@ -10,6 +10,7 @@ from tensorflow.python.ops import clip_ops
 import tensorflow.contrib.layers
 from recurrent_batchnorm_tensorflow.BN_LSTMCell import BN_LSTMCell
 import tensorflow.contrib.seq2seq
+import rnn as sketch_rnn
 
 
 class DynamicRnnSeq2Seq(object):
@@ -112,7 +113,18 @@ class DynamicRnnSeq2Seq(object):
                                 BN_LSTMCell(self.rnn_size,is_training=True,
                                                         use_peepholes=parameters['peephole_connections'])
                                 ,output_keep_prob=keep_prob)
-
+            if parameters['RNN_cell'] == "sketch_LSTM":
+                return sketch_rnn.LSTMCell(self.rnn_size,
+                                           use_recurrent_dropout=True,
+                                           dropout_keep_prob=keep_prob)
+            if parameters['RNN_cell'] == "sketch_layer_norm":
+                return sketch_rnn.LayerNormLSTMCell(self.rnn_size,
+                                                    use_recurrent_dropout=True,
+                                                    dropout_keep_prob=keep_prob)
+            if parameters['RNN_cell'] == "sketch_hyper":
+                return sketch_rnn.HyperLSTMCell(self.rnn_size,
+                                                use_recurrent_dropout=True,
+                                                dropout_keep_prob=keep_prob)
 
         if self.num_layers > 1:
             self._RNN_layers = tf.contrib.rnn.MultiRNNCell([_generate_rnn_layer() for _ in range(self.num_layers)],state_is_tuple=True)
