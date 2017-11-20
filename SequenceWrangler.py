@@ -65,7 +65,7 @@ class SequenceWrangler:
         # self.master_pool should exist by now
         # TODO Here print normalization numbers.
         #I'll then add a get/set call for these numbers to be added to the network.
-        seed = np.random.randint(4294967296)
+        seed = 42296 #np.random.randint(4294967296)
         print "Using seed: " + str(seed) + " for test/train split"
 
         encoder_pool = []
