@@ -92,15 +92,12 @@ def sample(output):
     def sample_gaussian_2d(mu1, mu2, s1, s2, rho):
         # mean = [mu1, mu2]
         #cov = [[s1 * s1, rho * s1 * s2], [rho * s1 * s2, s2 * s2]]
-        #THIS CREATES A 2x2x11
-        # I need a 11x2x2
 
         covUL = tf.expand_dims(tf.square(s1),1)
         covUR = tf.expand_dims(tf.multiply(rho,tf.multiply(s1,s2)),1)
         covLL = tf.expand_dims(tf.multiply(rho,tf.multiply(s1,s2)),1)
         covLR = tf.expand_dims(tf.square(s2),1)
 
-        #WRONG this makes size 22, I want 11,2
         covU = tf.expand_dims(tf.concat(axis=1,values=[covUL,covUR]),2)
         covL = tf.expand_dims(tf.concat(axis=1,values=[covLL,covLR]),2)
         cov = tf.concat(axis=2,values=[covU,covL])
@@ -178,3 +175,14 @@ def compute_derivates(output_prev, output_current, network_input_columns,
     output_with_extras = tf.concat([x_c,y_c,new_heading,v_c],axis=1)
 
     return output_with_extras
+
+
+def upscale_and_resolve_mixtures(output, scaling_layer):
+    z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr = get_mixture_coef(output)
+    z_mu1 = tf.add(tf.multiply(z_mu1, scaling_layer[1][0]), scaling_layer[0][0])
+    z_mu2 = tf.add(tf.multiply(z_mu2, scaling_layer[1][1]), scaling_layer[0][1])
+
+    z_sigma1 = tf.multiply(z_sigma1, scaling_layer[1][0])
+    z_sigma2 = tf.multiply(z_sigma2, scaling_layer[1][1])
+
+    return tf.concat([z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr],axis=1)

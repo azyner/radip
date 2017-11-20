@@ -184,8 +184,8 @@ class DynamicRnnSeq2Seq(object):
 
         output_ta = (tf.TensorArray(size=self.prediction_steps, dtype=tf.float32),  # Sampled output
                      tf.TensorArray(size=self.prediction_steps, dtype=tf.float32),  # loss
-                     tf.TensorArray(size=self.prediction_steps+1, dtype=tf.float32))    # time-1 for derivative loopback
-                                                                                        # Its either real or generated
+                     tf.TensorArray(size=self.prediction_steps+1, dtype=tf.float32),   # time-1 for derivative loopback
+                     tf.TensorArray(size=self.prediction_steps, dtype=tf.float32)) # MDN outputs # Its either real or generated
                                                                                         # depending on feed_future_data
                                                                                         # (always false for now)
 
@@ -216,7 +216,8 @@ class DynamicRnnSeq2Seq(object):
                     next_input = decoder_inputs[0]  # Encoder inputs already have input layer applied
                     next_loop_state = (output_ta[0],
                                        output_ta[1],
-                                       output_ta[2].write(time, last_input))
+                                       output_ta[2].write(time, last_input),
+                                       output_ta[3])
                 else:
                     next_cell_state = cell_state
                     projected_output = output_function(cell_output)
@@ -237,7 +238,8 @@ class DynamicRnnSeq2Seq(object):
                     loss = MDN.lossfunc_wrapper(prev_target_ta, projected_output)
                     next_loop_state = (loop_state[0].write(time - 1, next_sampled_input),
                                        loop_state[1].write(time - 1, loss),
-                                       loop_state[2].write(time, next_datapoint))
+                                       loop_state[2].write(time, next_datapoint),
+                                       loop_state[3].write(time - 1, MDN.upscale_and_resolve_mixtures(projected_output, scaling_layer)))
                                         #Its an off by one error I'd rather solve with a new array for readability
 
                 elements_finished = (
@@ -251,8 +253,9 @@ class DynamicRnnSeq2Seq(object):
                 # Here emit_ta should contain all the MDN's for each timestep. To confirm.
                 output_sampled = _transpose_batch_time(loop_state_ta[0].stack())
                 losses = _transpose_batch_time(loop_state_ta[1].stack())
+                MDN_output = _transpose_batch_time(loop_state_ta[3].stack())
 
-            return output_sampled, tf.reduce_sum(losses,axis=1)/len(self.decoder_inputs), final_state
+            return output_sampled, tf.reduce_sum(losses,axis=1)/len(self.decoder_inputs), final_state, MDN_output
 
 
         ################# FEEDS SECTION #######################
@@ -303,7 +306,7 @@ class DynamicRnnSeq2Seq(object):
         #### SEQ2SEQ function HERE
 
         with tf.variable_scope('seq_rnn'):
-            self.MDN_sampled_output, self.losses, self.internal_states =\
+            self.MDN_sampled_output, self.losses, self.internal_states, self.MDN_mixture_output =\
                 seq2seq_f(self.encoder_inputs, self.decoder_inputs, self.target_inputs, self.observation_inputs[-1])
 
 ########### EVALUATOR / LOSS SECTION ###################
@@ -457,6 +460,7 @@ class DynamicRnnSeq2Seq(object):
             output_feed = [self.full_accuracy, self.full_losses]  # Loss for this batch.
             if self.model_type == 'MDN':
                 output_feed.append(self.MDN_sampled_output)
+                output_feed.append(self.MDN_mixture_output)
 
         outputs = session.run(output_feed, input_feed)
         if summary_writer is not None:
@@ -464,8 +468,8 @@ class DynamicRnnSeq2Seq(object):
             summary_str = session.run(self.summary_op,input_feed)
             summary_writer.add_summary(summary_str, self.global_step.eval(session=session))
         if train_model:
-            return outputs[3], outputs[2], None  # accuracy, loss, no outputs.
+            return outputs[3], outputs[2], None, None  # accuracy, loss, no outputs.
         else:
-            model_outputs = np.swapaxes(np.squeeze(np.array(outputs[2:]),axis=0),0,1).tolist() #Unstack. Ugly formatting for legacy
-            return outputs[0], outputs[1],  model_outputs  # accuracy, loss, outputs
+            model_sampled_outputs = np.swapaxes(np.array(outputs[2]),0,1).tolist() #Unstack. Ugly formatting for legacy
+            return outputs[0], outputs[1],  model_sampled_outputs, outputs[3]  # accuracy, loss, outputs, mixtures
 

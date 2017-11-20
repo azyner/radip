@@ -49,7 +49,7 @@ class TrainingManager:
                 train_y = train_labels if self.parameter_dict['model_type'] == 'classifier' else \
                           train_future if self.parameter_dict['model_type'] == 'MDN' else exit(3)
 
-                accuracy, step_loss, _ = netManager.run_training_step(train_x, train_y, weights, True)
+                accuracy, step_loss, _, _ = netManager.run_training_step(train_x, train_y, weights, True)
                 # print "Time to step: " + str(time.time() - step_start_time)
 
                 # Periodically, run without training for the summary logs
@@ -64,10 +64,10 @@ class TrainingManager:
             if current_step % (steps_per_checkpoint/10) == 0 or \
                 current_step % steps_per_checkpoint == 0 or \
                 final_run:
-                train_acc, train_step_loss, _ = netManager.run_training_step(train_x, train_y, weights, False,
+                train_acc, train_step_loss, _, _ = netManager.run_training_step(train_x, train_y, weights, False,
                                                                                 summary_writer=netManager.train_writer)
                 #val_time = time.time()
-                val_accuracy, val_step_loss, _ = netManager.run_validation(validation_batch_handler,
+                val_accuracy, val_step_loss, _, _ = netManager.run_validation(validation_batch_handler,
                                                                         summary_writer=netManager.val_writer,
                                                                            quick=(not final_run))
                 sys.stdout.write("\rg_step %06d lr %.1e step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f "
@@ -106,7 +106,7 @@ class TrainingManager:
                         netManager.log_graphs_to_tensorboard(graphs)
                     netManager.log_metric_to_tensorboard(metric_results)
                     sys.stdout.write("p_dis" + metric_string)
-                elif (((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run)\
+                elif (((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*1) == 0) or final_run)\
                     and self.parameter_dict['model_type'] == 'MDN':
                     #print "Write PNG graphing functions here."
                     graphs = netManager.draw_generative_png_graphs(validation_batch_handler)
@@ -198,7 +198,7 @@ class TrainingManager:
         #  and only once). Graphs are generated. Make it easy to generate many graphs as this will be helpful for the
         # sequence generation model
 
-        test_accuracy, test_loss, _ = netManager.run_validation(test_batch_handler,quick=False)
+        test_accuracy, test_loss, _, _ = netManager.run_validation(test_batch_handler,quick=False)
 
         return test_accuracy, test_loss
 

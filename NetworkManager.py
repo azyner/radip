@@ -8,9 +8,7 @@
 # Should it handle the entirety of crossfolding?
 # I don't think so, that should go into another class maybe
 import matplotlib
-
 matplotlib.use('Agg')
-
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from seq2seq_model import Seq2SeqModel
@@ -30,6 +28,10 @@ from bokeh.models import ColumnDataSource, HoverTool, Div
 import shutil
 import dill as pickle
 from dyn_rnn_model import DynamicRnnSeq2Seq
+import scipy
+
+
+
 
 class NetworkManager:
     def __init__(self, parameters, log_file_name=None):
@@ -451,7 +453,8 @@ class NetworkManager:
         return_val = self.model.step(self.sess, graph_x, train_y, weights, False, summary_writer=None)
         acc = return_val[0]
         loss = return_val[1]
-        model_outputs = return_val[2:]
+        model_outputs = return_val[2]
+        mixtures = return_val[3]
         observations = batch_frame['encoder_sample'].as_matrix()
         predictions = np.swapaxes(np.squeeze(np.array(model_outputs),axis=0),0,1)
         ground_truths = batch_frame['decoder_sample'].as_matrix()
@@ -496,6 +499,7 @@ class NetworkManager:
         return
 
     def draw_generative_png_graphs(self, batch_handler):
+
         fig_dir = self.plot_directory + "_img"
         if not os.path.exists(fig_dir):
             os.makedirs(fig_dir)
@@ -511,32 +515,68 @@ class NetworkManager:
         return_val = self.model.step(self.sess, graph_x, train_y, weights, False, summary_writer=None)
         acc = return_val[0]
         loss = return_val[1]
-        model_outputs = return_val[2:]
+        model_outputs = return_val[2]
+        mixtures = return_val[3]
+        num_mixtures = len(mixtures[0][0]) / 6
+        mixtures = mixtures.reshape(mixtures.shape[0], mixtures.shape[1], num_mixtures, 6, order='F')
         observations = batch_frame['encoder_sample'].as_matrix()
-        predictions = np.swapaxes(np.squeeze(np.array(model_outputs),axis=0),0,1)
+        predictions = np.swapaxes(np.array(model_outputs),0,1)
         ground_truths = batch_frame['decoder_sample'].as_matrix()
 
         graph_list = []
         graph_number = 0
-        for obs, preds, gt in zip(observations, predictions, ground_truths):
+        for obs, preds, gt, mixes in zip(observations, predictions, ground_truths, mixtures):
             graph_number += 1
             if graph_number > 10:
                 break
 
             legend_str = []
             fig = plt.figure(figsize=self.plt_size)
-            plt.plot(gt[:,0], gt[:,1], 'b-')
+            plt.plot(gt[:,0], gt[:,1], 'b-',zorder=3)
             legend_str.append(['Ground Truth'])
-            plt.plot(obs[:,0], obs[:,1], 'g-')
+            plt.plot(obs[:,0], obs[:,1], 'g-',zorder=4)
             legend_str.append(['Observations'])
-            plt.plot(preds[:,0], preds[:,1], 'r-')
+            plt.plot(preds[:,0], preds[:,1], 'r-',zorder=5)
             legend_str.append(['Predictions'])
 
+            dx, dy = 0.1, 0.1
+            x = np.arange(-35, 10, dx)
+            y = np.flip(np.arange(-30, 15, dy), axis=0)  # Image Y axes are down positive, map axes are up positive.
+            xx, yy = np.meshgrid(x, y)
+            xxyy = np.c_[xx.ravel(), yy.ravel()]
+            extent = np.min(x), np.max(x), np.min(y), np.max(y)
+
+            # Return probability sum here.
+            heatmaps = []
+            mu1s = []
+            mu2s = []
+            for timeslot in mixes:
+                gaussian_heatmaps = []
+                for gaussian in timeslot:
+                    pi, mu1, mu2, s1, s2, rho = gaussian
+                    mu1s.append(mu1)
+                    mu2s.append(mu2)
+                    cov = np.array([[s1 * s1, rho * s1 * s2], [rho * s1 * s2, s2 * s2]])
+                    norm = scipy.stats.multivariate_normal(mean=(mu1, mu2), cov=cov)
+                    zz = norm.pdf(xxyy)
+                    zz *= pi
+                    zz = zz.reshape((len(xx),len(yy)))
+                    gaussian_heatmaps.append(zz)
+                gaussian_heatmaps /= np.max(gaussian_heatmaps) #Normalize such that each timestep has equal weight
+                heatmaps.extend(gaussian_heatmaps)
+
+            final_heatmap = sum(heatmaps)
+
+            image_filename = 'leith-croydon.png'
+            background_img = plt.imread(os.path.join('images', image_filename))
+            plt.imshow(background_img, zorder=0, extent=[-15.275-(147.45/2),-15.275+(147.45/2),-3.1-(77/2),-3.1+(77/2)])
+            plt.imshow(final_heatmap, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent,zorder=1)
 
             fig_path = os.path.join(self.plot_directory + "_img", self.log_file_name + '-' +
                                     str(self.get_global_step()) + '-' + str(graph_number) + '.png')
             plt.savefig(fig_path, bbox_inches='tight')
 
+            # Now inject into tensorboard
             fig.canvas.draw()
             fig_s = fig.canvas.tostring_rgb()
             fig_data = np.fromstring(fig_s,np.uint8)
@@ -658,7 +698,7 @@ class NetworkManager:
                 output_samples = []
                 num_samples = 1
                 for _ in range(num_samples):
-                    acc, loss, outputs = self.model.step(self.sess, val_x, val_y,
+                    acc, loss, outputs, mixtures = self.model.step(self.sess, val_x, val_y,
                                                          val_weights, False, summary_writer=None)
                     # Do a straight comparison between val_y and outputs.
                     #output_idxs = np.argmax(outputs[0][valid_data], axis=1)
@@ -763,7 +803,8 @@ class NetworkManager:
             valid_data = np.logical_not(mini_batch_frame['padding'].values)
             val_y = val_labels if self.parameters['model_type'] == 'classifier' else \
                 val_future if self.parameters['model_type'] == 'MDN' else exit(3)
-            acc, loss, outputs = self.model.step(self.sess, val_x, val_y, val_weights, False, summary_writer=summary_writer)
+            acc, loss, outputs, mixtures = \
+                self.model.step(self.sess, val_x, val_y, val_weights, False, summary_writer=summary_writer)
 
             if self.parameters['model_type'] == 'classifier':
                 output_idxs = np.argmax(outputs[0][valid_data], axis=1)
@@ -780,7 +821,7 @@ class NetworkManager:
         else:
             batch_acc = np.mean(all_averages)
 
-        return batch_acc, np.average(batch_losses), None
+        return batch_acc, np.average(batch_losses), None, None
 
     # Checkpoints model. Adds path to global dict lookup
     def checkpoint_model(self):
