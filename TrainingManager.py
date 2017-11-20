@@ -106,7 +106,7 @@ class TrainingManager:
                         netManager.log_graphs_to_tensorboard(graphs)
                     netManager.log_metric_to_tensorboard(metric_results)
                     sys.stdout.write("p_dis" + metric_string)
-                elif (((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*1) == 0) or final_run)\
+                elif (((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run)\
                     and self.parameter_dict['model_type'] == 'MDN':
                     #print "Write PNG graphing functions here."
                     graphs = netManager.draw_generative_png_graphs(validation_batch_handler)
