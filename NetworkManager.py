@@ -456,7 +456,7 @@ class NetworkManager:
         model_outputs = return_val[2]
         mixtures = return_val[3]
         observations = batch_frame['encoder_sample'].as_matrix()
-        predictions = np.swapaxes(np.squeeze(np.array(model_outputs),axis=0),0,1)
+        predictions = np.swapaxes(np.array(model_outputs), 0, 1)
         ground_truths = batch_frame['decoder_sample'].as_matrix()
 
         image_filename = 'leith-croydon.png'
