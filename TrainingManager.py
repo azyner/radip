@@ -7,6 +7,7 @@ import pandas as pd
 import os
 import tensorflow as tf
 import sys
+import signal
 
 
 class TrainingManager:
@@ -17,6 +18,7 @@ class TrainingManager:
         self.hyper_results_logfile = "hyper.csv"
         self.encoder_means = encoder_means
         self.encoder_stddev = encoder_stddev
+        self.sigint_caught = False
         return
 
     def train_network(self,netManager,training_batch_handler,validation_batch_handler,hyper_search=False):
@@ -30,9 +32,23 @@ class TrainingManager:
         print str(self.parameter_dict)
         overfitting_steps = 0
         final_run = False
+
         training_log_df = pd.DataFrame()
 
+        # Define and register a SIGINT handler here
+        original_sigint_handler = signal.getsignal(signal.SIGINT)
+
+
+        def sigint_handler(signum, frame):
+            print "TrainingManager caught SIGINT. Stopping training, writing report, and exiting."
+            self.sigint_caught = True
+
+        signal.signal(signal.SIGINT, sigint_handler)
+
         while True:
+
+            if self.sigint_caught:
+                final_run = True
 
             #### TRAINING
             if not final_run:
@@ -172,6 +188,9 @@ class TrainingManager:
                     final_run = True
 
                 step_time, loss = 0.0, 0.0
+
+        # Now restore old signal handler so that the sig capture function doesn't fall out of scope.
+        signal.signal(signal.SIGINT, original_sigint_handler)
 
         fold_results = copy.copy(self.parameter_dict)
         fold_results['input_columns'] = ",".join(fold_results['input_columns'])
