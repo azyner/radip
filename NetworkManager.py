@@ -423,11 +423,11 @@ class NetworkManager:
     #
     #     return
 
-    def draw_generative_html_graphs(self, batch_handler):
+    def draw_generative_html_graphs(self, batch_handler, multi_sample=1):
 
         if not os.path.exists(self.plot_directory):
             os.makedirs(self.plot_directory)
-        plt_path = os.path.join(self.plot_directory, os.path.basename(self.log_file_name) + '.html')
+        plt_path = os.path.join(self.plot_directory, str(multi_sample) + "-" + os.path.basename(self.log_file_name) + '.html')
         # If I am running this many times, make new filenames
         if os.path.exists(plt_path):
             path_idx = 1
@@ -450,21 +450,31 @@ class NetworkManager:
                 batch_frame['decoder_sample'],
                 batch_frame['padding'])
         train_y = graph_future
-        return_val = self.model.step(self.sess, graph_x, train_y, weights, False, summary_writer=None)
-        acc = return_val[0]
-        loss = return_val[1]
-        model_outputs = return_val[2]
-        mixtures = return_val[3]
+
+        multi_sampled_predictions = []
         observations = batch_frame['encoder_sample'].as_matrix()
-        predictions = np.swapaxes(np.array(model_outputs), 0, 1)
         ground_truths = batch_frame['decoder_sample'].as_matrix()
+
+        for i in range(multi_sample):
+            # BEGIN Run this step 100 times and dimensionalize results.
+            return_val = self.model.step(self.sess, graph_x, train_y, weights, False, summary_writer=None)
+            acc = return_val[0]
+            loss = return_val[1]
+            model_outputs = return_val[2]
+            mixtures = return_val[3]
+            multi_sampled_predictions.append(np.swapaxes(np.array(model_outputs), 0, 1))
+
+        # END
+
+        multi_sampled_predictions = np.swapaxes(np.array(multi_sampled_predictions),0,1)
 
         image_filename = 'leith-croydon.png'
         if not os.path.exists(os.path.join(self.plot_directory, image_filename)):
             shutil.copy(os.path.join('images', image_filename), os.path.join(self.plot_directory, image_filename))
 
         plots = []
-        for obs, preds, gt in zip(observations,predictions,ground_truths):
+        plot_count = 0
+        for obs, preds, gt in zip(observations, multi_sampled_predictions, ground_truths):
             #New plot
             p = figure(plot_height=500, plot_width=500, title="Generative track testing",
                        x_range=(-35, 10), y_range=(-30, 15))
@@ -473,9 +483,13 @@ class NetworkManager:
 
             p.line(gt[:,0],gt[:,1],line_color='blue',legend='Ground_truth')
             p.line(obs[:,0],obs[:,1],line_color='green',legend='observation')
-            p.line(preds[:,0],preds[:,1],line_color='red',legend='prediction')
+            for j in range(preds.shape[0]):
+                p.line(preds[j][:,0],preds[j][:,1],line_color='red',legend='prediction')
 
             plots.append([p])
+            plot_count += 1
+            if plot_count > 20:
+                break
 
 
 

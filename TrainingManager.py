@@ -302,7 +302,8 @@ class TrainingManager:
                 if self.parameter_dict['model_type'] == 'categorical':
                     netManager.draw_categorical_html_graphs(validation_batch_handler)
                 else:
-                    netManager.draw_generative_html_graphs(validation_batch_handler)
+                    netManager.draw_generative_html_graphs(validation_batch_handler,multi_sample=1)
+                    netManager.draw_generative_html_graphs(validation_batch_handler,multi_sample=20)
                 # netManager.draw_html_graphs(
                 #     netManager.compute_distance_f1_report(
                 #         netManager.compute_result_per_dis(
@@ -394,7 +395,8 @@ class TrainingManager:
         if self.parameter_dict['model_type'] == 'categorical':
             netManager.draw_categorical_html_graphs(test_batch_handler)
         else:
-            netManager.draw_generative_html_graphs(test_batch_handler)
+            netManager.draw_generative_html_graphs(test_batch_handler, multi_sample=1)
+            netManager.draw_generative_html_graphs(test_batch_handler, multi_sample=20)
 
         # FIXME maybe this needs its own function?
         for key, value in best_results.iteritems():
