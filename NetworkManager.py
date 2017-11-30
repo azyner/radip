@@ -491,8 +491,6 @@ class NetworkManager:
             if plot_count > 20:
                 break
 
-
-
         # Plot results:
         #top_plots = self.draw_categorical_bokeh_topographical_plot(outputs, batch_handler)
         #linear_plots = self.draw_categorical_bokeh_linear_plot(outputs)
@@ -512,7 +510,7 @@ class NetworkManager:
 
         return
 
-    def draw_generative_png_graphs(self, batch_handler):
+    def draw_generative_png_graphs(self, batch_handler, multi_sample=1, draw_prediction_track=True):
 
         fig_dir = self.plot_directory + "_img"
         if not os.path.exists(fig_dir):
@@ -525,21 +523,29 @@ class NetworkManager:
                 batch_frame['encoder_sample'],
                 batch_frame['decoder_sample'],
                 batch_frame['padding'])
-        train_y = graph_future
-        return_val = self.model.step(self.sess, graph_x, train_y, weights, False, summary_writer=None)
-        acc = return_val[0]
-        loss = return_val[1]
-        model_outputs = return_val[2]
-        mixtures = return_val[3]
-        num_mixtures = len(mixtures[0][0]) / 6
-        mixtures = mixtures.reshape(mixtures.shape[0], mixtures.shape[1], num_mixtures, 6, order='F')
         observations = batch_frame['encoder_sample'].as_matrix()
-        predictions = np.swapaxes(np.array(model_outputs),0,1)
         ground_truths = batch_frame['decoder_sample'].as_matrix()
+        train_y = graph_future
+
+        multi_sampled_predictions = []
+        multi_sampled_mixtures = []
+
+        for i in range(multi_sample):
+            return_val = self.model.step(self.sess, graph_x, train_y, weights, False, summary_writer=None)
+            acc = return_val[0]
+            loss = return_val[1]
+            model_outputs = return_val[2]
+            mixtures = return_val[3]
+            num_mixtures = len(mixtures[0][0]) / 6
+            multi_sampled_mixtures.append(mixtures.reshape(mixtures.shape[0], mixtures.shape[1], num_mixtures, 6, order='F'))
+            multi_sampled_predictions.append(np.swapaxes(np.array(model_outputs), 0, 1))
+
+        multi_sampled_predictions = np.swapaxes(np.array(multi_sampled_predictions), 0, 1)
+        multi_sampled_mixtures = np.swapaxes(np.array(multi_sampled_mixtures), 0, 1)
 
         graph_list = []
         graph_number = 0
-        for obs, preds, gt, mixes in zip(observations, predictions, ground_truths, mixtures):
+        for obs, preds, gt, mixes in zip(observations, multi_sampled_predictions, ground_truths, multi_sampled_mixtures):
             graph_number += 1
             if graph_number > 10:
                 break
@@ -550,8 +556,10 @@ class NetworkManager:
             legend_str.append(['Ground Truth'])
             plt.plot(obs[:,0], obs[:,1], 'g-',zorder=4)
             legend_str.append(['Observations'])
-            plt.plot(preds[:,0], preds[:,1], 'r-',zorder=5)
-            legend_str.append(['Predictions'])
+            if draw_prediction_track:
+                for j in range(preds.shape[0]):
+                    plt.plot(preds[j][:,0], preds[j][:,1], 'r-', zorder=5)
+                legend_str.append(['Predictions'])
 
             dx, dy = 0.1, 0.1
             x = np.arange(-35, 10, dx)
@@ -564,20 +572,26 @@ class NetworkManager:
             heatmaps = []
             mu1s = []
             mu2s = []
-            for timeslot in mixes:
-                gaussian_heatmaps = []
-                for gaussian in timeslot:
-                    pi, mu1, mu2, s1, s2, rho = gaussian
-                    mu1s.append(mu1)
-                    mu2s.append(mu2)
-                    cov = np.array([[s1 * s1, rho * s1 * s2], [rho * s1 * s2, s2 * s2]])
-                    norm = scipy.stats.multivariate_normal(mean=(mu1, mu2), cov=cov)
-                    zz = norm.pdf(xxyy)
-                    zz *= pi
-                    zz = zz.reshape((len(xx),len(yy)))
-                    gaussian_heatmaps.append(zz)
-                gaussian_heatmaps /= np.max(gaussian_heatmaps) #Normalize such that each timestep has equal weight
-                heatmaps.extend(gaussian_heatmaps)
+            plot_time = time.time()
+            for sampled_mix in mixes:
+                sample_time = time.time()
+                for timeslot in sampled_mix:
+                    gaussian_heatmaps = []
+                    for gaussian in timeslot:
+                        pi, mu1, mu2, s1, s2, rho = gaussian
+                        mu1s.append(mu1)
+                        mu2s.append(mu2)
+                        cov = np.array([[s1 * s1, rho * s1 * s2], [rho * s1 * s2, s2 * s2]])
+                        norm = scipy.stats.multivariate_normal(mean=(mu1, mu2), cov=cov)
+                        zz = norm.pdf(xxyy)
+                        zz *= pi
+                        zz = zz.reshape((len(xx),len(yy)))
+                        gaussian_heatmaps.append(zz)
+                    gaussian_heatmaps /= np.max(gaussian_heatmaps) #Normalize such that each timestep has equal weight
+                    heatmaps.extend(gaussian_heatmaps)
+                # print "Time for this sample: " + str(time.time() - sample_time)
+            # print "Time for gaussian plot of one track: " + str(time.time() - plot_time)
+            # Its about 7 seconds per plot
 
             final_heatmap = sum(heatmaps)
 
@@ -586,7 +600,9 @@ class NetworkManager:
             plt.imshow(background_img, zorder=0, extent=[-15.275-(147.45/2),-15.275+(147.45/2),-3.1-(77/2),-3.1+(77/2)])
             plt.imshow(final_heatmap, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent,zorder=1)
 
-            fig_path = os.path.join(self.plot_directory + "_img", self.log_file_name + '-' +
+            fig_path = os.path.join(self.plot_directory + "_img",
+                                    ("no_pred_track-" if draw_prediction_track is False else "")
+                                    + str(multi_sample) + "-" +  self.log_file_name + '-' +
                                     str(self.get_global_step()) + '-' + str(graph_number) + '.png')
             plt.savefig(fig_path, bbox_inches='tight')
 
