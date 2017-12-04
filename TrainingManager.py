@@ -119,7 +119,7 @@ class TrainingManager:
                     # DOn't log hyper search graphs, it explodes the log directory.
                     if not hyper_search:
                         graphs = netManager.draw_categorical_png_graphs_perf_dist(dist_results)
-                        netManager.log_graphs_to_tensorboard(graphs)
+                        #netManager.log_graphs_to_tensorboard(graphs)
                     netManager.log_metric_to_tensorboard(metric_results)
                     sys.stdout.write("p_dis" + metric_string)
                 elif (((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run)\
