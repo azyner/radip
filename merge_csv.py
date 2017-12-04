@@ -18,6 +18,8 @@ def merge_csvs(csv_name):
                 header_over = True
             elif fileinput.filelineno() != 1:
                 outfile.write(line)
+        else:
+            print ""
 
 merge_csvs("hyper.csv")
 print "Finished merging hyper.csv"
