@@ -44,6 +44,10 @@ class TrainingManager:
             self.sigint_caught = True
 
         signal.signal(signal.SIGINT, sigint_handler)
+        loss_a = []
+        val_step_loss_a = []
+        accuracy_a = []
+        val_accuracy_a = []
 
         while True:
 
@@ -76,6 +80,7 @@ class TrainingManager:
                 current_step += 1
                 netManager.decay_learning_rate()  # decay every step by 0.9999 as per sketchrnn
 
+
             #### TENSORBOARD LOGGING
             if current_step % (steps_per_checkpoint/10) == 0 or \
                 current_step % steps_per_checkpoint == 0 or \
@@ -86,10 +91,14 @@ class TrainingManager:
                 val_accuracy, val_step_loss, _, _ = netManager.run_validation(validation_batch_handler,
                                                                         summary_writer=netManager.val_writer,
                                                                            quick=(not final_run))
+                loss_a.append(train_step_loss)
+                val_step_loss_a.append(val_step_loss)
+                accuracy_a.append(accuracy)
+                val_accuracy_a.append(val_accuracy)
                 sys.stdout.write("\rg_step %06d lr %.1e step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f "
                        % (netManager.get_global_step(),
                           netManager.get_learning_rate(),
-                          step_time, loss, val_step_loss, accuracy, val_accuracy))
+                          step_time, np.mean(loss_a), np.mean(val_step_loss_a), np.mean(accuracy_a), np.mean(val_accuracy_a)))
                 sys.stdout.flush()
 
                 #print "valbatch Time: " + str(time.time()-val_time)
@@ -101,7 +110,7 @@ class TrainingManager:
                 sys.stdout.write("\rg_step %06d lr %.1e step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f "
                        % (netManager.get_global_step(),
                           netManager.get_learning_rate(),
-                          step_time, loss, val_step_loss, accuracy, val_accuracy))
+                          step_time, np.mean(loss_a), np.mean(val_step_loss_a), np.mean(accuracy_a), np.mean(val_accuracy_a)))
                 sys.stdout.flush()
 
                 # TODO make this run every n minutes, not a multiple of steps. Also add duration reporting to console
@@ -136,10 +145,10 @@ class TrainingManager:
 
                 # Log all things
                 results_dict = {'g_step':netManager.get_global_step(),
-                                'training_loss':train_step_loss,
-                                'training_acc':train_acc,
-                                'validation_loss':val_step_loss,
-                                'validation_acc':val_accuracy}
+                                'training_loss':np.mean(loss_a),
+                                'training_acc':np.mean(accuracy_a),
+                                'validation_loss':np.mean(val_step_loss_a),
+                                'validation_acc':np.mean(val_accuracy_a)}
                 training_log_df = training_log_df.append(results_dict,ignore_index=True)
 
                 ### Decay learning rate checks
@@ -189,6 +198,9 @@ class TrainingManager:
                     final_run = True
 
                 step_time, loss = 0.0, 0.0
+                val_step_loss_a = []
+                accuracy_a = []
+                val_accuracy_a = []
 
         # Now restore old signal handler so that the sig capture function doesn't fall out of scope.
         signal.signal(signal.SIGINT, original_sigint_handler)
