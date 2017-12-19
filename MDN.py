@@ -144,35 +144,34 @@ def sample(output):
 
     return next
 
+
 def compute_derivates(output_prev, output_current, network_input_columns,
-                      velocity_threshold=tf.constant(2.0,dtype=tf.float32)):
-    #['easting', 'northing', 'heading', 'speed']
+                      velocity_threshold=tf.constant(2.0, dtype=tf.float32), subsample_rate=1):
+    # ['easting', 'northing', 'heading', 'speed']
     # Assume the first two are x and y
     if network_input_columns[2] is not 'heading' or \
-        network_input_columns[3] is not 'speed':
+       network_input_columns[3] is not 'speed':
         print "not implemented yet"
         exit()
 
     # column 2 is heading, so do some trig,
-    #
     # column 3 is speed, so its just a subtraction and vector magnitude
     x_p, y_p, heading_p, speed_p = tf.split(output_prev, 4, axis=1)
     x_c, y_c = tf.split(output_current, 2, axis=1)
     pos_d_i = tf.complex(tf.subtract(x_p,x_c), tf.subtract(y_p, y_c))  # Define x,y as a complex number
     pos_d = tf.abs(pos_d_i)  # Use abs to get magnitude
-    print "Warning, velocity loopback generator assumes 25 Hz timesteps"
-    v_c = tf.multiply(pos_d,25) # delta * 25 = number of meters per second
-    #For whatever reason, atan2 convention is atan2(y,x)
-    h_c = tf.atan2(tf.subtract(y_c, y_p), tf.subtract(x_c,x_p))
-    # TODO Element wise, I have to condition on speed. If < 2m/s (hyperparameter?) use old heading, else compute heading
+    print "Warning, velocity loop-back generator assumes data was recorded at 25 Hz"
+    v_c = tf.multiply(pos_d, (25/subsample_rate))  # delta * Hz = number of meters per second
+    #  For whatever reason, atan2 convention is atan2(y,x)
+    h_c = tf.atan2(tf.subtract(y_c, y_p), tf.subtract(x_c, x_p))
+    # TODO Element wise, I have to condition on speed. If < 2m/s (hyper-parameter?) use old heading, else compute heading
     # I don't want to use tf.cond as it does not perform element-wise logic.
-    # So I'm going to construct this fundamentally - MUltiply by zero or one and sum
-    use_old_heading = tf.less(v_c, velocity_threshold) # Broadcasting will upsize the scalar to a vector
+    # So I'm going to construct this fundamentally - Multiply by zero or one and sum
+    use_old_heading = tf.less(v_c, velocity_threshold) # Broadcasting will up-size the scalar to a vector
     use_new_heading = tf.logical_not(use_old_heading)
-    use_old_heading, use_new_heading = (tf.to_float(use_old_heading),tf.to_float(use_new_heading))
-    # This makes no sense. I was supposed to threshold heading on speed, not the other way around.
-    new_heading = tf.add(tf.multiply(use_old_heading,heading_p), tf.multiply(use_new_heading,h_c))
-    output_with_extras = tf.concat([x_c,y_c,new_heading,v_c],axis=1)
+    use_old_heading, use_new_heading = (tf.to_float(use_old_heading), tf.to_float(use_new_heading))
+    new_heading = tf.add(tf.multiply(use_old_heading, heading_p), tf.multiply(use_new_heading, h_c))
+    output_with_extras = tf.concat([x_c, y_c, new_heading, v_c], axis=1)
 
     return output_with_extras
 

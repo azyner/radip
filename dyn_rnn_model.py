@@ -228,7 +228,8 @@ class DynamicRnnSeq2Seq(object):
                     else:
                         next_sampled_input = MDN.compute_derivates(loop_state[2].read(time-1), upscale_sampled,
                                                                    self.parameters['input_columns'],
-                                                                   self.parameters['velocity_threshold'])
+                                                                   self.parameters['velocity_threshold'],
+                                                                   subsample_rate=self.parameters['subsample'])
                     #next_sampled_input = _upscale_sampled_output(next_sampled_input)
                     prev_target_ta = target_input_ta.read(time - 1) # Only allowed to call read() once. Dunno why.
                     next_datapoint = next_sampled_input # tf.cond(feed_forward, lambda: prev_target_ta, lambda: next_sampled_input)
