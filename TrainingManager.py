@@ -134,9 +134,11 @@ class TrainingManager:
                 elif (((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run)\
                     and self.parameter_dict['model_type'] == 'MDN':
                     #print "Write PNG graphing functions here."
-                    netManager.draw_generative_png_graphs(validation_batch_handler,multi_sample=1)
-                    graphs = netManager.draw_generative_png_graphs(validation_batch_handler, multi_sample=20,draw_prediction_track=False)
-                    netManager.log_graphs_to_tensorboard(graphs)
+                    netManager.draw_generative_png_graphs(validation_batch_handler,multi_sample=1, final_run=final_run)
+                    netManager.draw_generative_png_graphs(validation_batch_handler, multi_sample=20,
+                                                          draw_prediction_track=False, final_run=final_run)
+                    # I rarely use this, and now the multithreader cannot return a value if it is backgrounded.
+                    #netManager.log_graphs_to_tensorboard(graphs)
                     metric_results = -999
                 sys.stdout.write("\r\n")
                 sys.stdout.flush()
