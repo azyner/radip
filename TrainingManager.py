@@ -186,8 +186,12 @@ class TrainingManager:
                 out_of_time = time.time() - fold_time > 60 * self.parameter_dict['training_early_stop']
                 if out_of_time:
                     print "Stopping due to time cutoff"
+                out_of_steps = (self.parameter_dict['long_training_steps'] is not None and
+                                current_step > self.parameter_dict['long_training_steps'])
+                if out_of_steps:
+                    print "Stopping due to step cutoff"
 
-                if learning_rate_too_low or out_of_time or model_is_overfit:
+                if learning_rate_too_low or out_of_time or model_is_overfit or out_of_steps:
                     # Lookup best model based on val_step_loss
                     # Load best model.
                     # Run one more loop for final network scores

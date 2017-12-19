@@ -30,6 +30,8 @@ parameters['hyper_search_time'] = 12  # Time in hours for hyper searching
 
 parameters['loss_decay_cutoff'] = 1e-10
 parameters['long_training_time'] = 3*60  # Final training is for this long (minutes)
+parameters['long_training_steps'] = 10000000
+
 parameters['hyper_rnn_size_fn'] = random.uniform
 parameters['hyper_rnn_size_args'] = (16, 513)
 parameters['hyper_learning_rate_fn'] = random.uniform
