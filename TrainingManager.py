@@ -51,9 +51,6 @@ class TrainingManager:
 
         while True:
 
-            if self.sigint_caught:
-                final_run = True
-
             #### TRAINING
             if not final_run:
                 step_start_time = time.time()
@@ -193,7 +190,7 @@ class TrainingManager:
                 if out_of_steps:
                     print "Stopping due to step cutoff"
 
-                if learning_rate_too_low or out_of_time or model_is_overfit or out_of_steps:
+                if learning_rate_too_low or out_of_time or model_is_overfit or out_of_steps or self.sigint_caught:
                     # Lookup best model based on val_step_loss
                     # Load best model.
                     # Run one more loop for final network scores
