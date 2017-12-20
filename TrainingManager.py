@@ -79,7 +79,7 @@ class TrainingManager:
 
 
             #### TENSORBOARD LOGGING
-            if current_step % (steps_per_checkpoint/10) == 0 or \
+            if current_step % (steps_per_checkpoint/2) == 0 or \
                 current_step % steps_per_checkpoint == 0 or \
                 final_run:
                 train_acc, train_step_loss, _, _ = netManager.run_training_step(train_x, train_y, weights, False,
