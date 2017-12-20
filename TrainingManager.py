@@ -228,12 +228,13 @@ class TrainingManager:
             fold_results['perfect_distance'] = 0
         return fold_results
 
-    def test_network(self,netManager,test_batch_handler):
+    def test_network(self,netManager, test_batch_handler):
         # Function that takes the currently built network and runs the test data through it (each data point is run once
         #  and only once). Graphs are generated. Make it easy to generate many graphs as this will be helpful for the
         # sequence generation model
-
-        test_accuracy, test_loss, _, _ = netManager.run_validation(test_batch_handler,quick=False)
+        test_accuracy, test_loss, _, _ = netManager.run_validation(test_batch_handler,
+                                                                   summary_writer=netManager.test_writer,
+                                                                   quick=False)
 
         return test_accuracy, test_loss
 
@@ -404,7 +405,7 @@ class TrainingManager:
             # We are loading a network from a checkpoint
             netManager.build_model()
             best_results = {}
-        best_results['test_accuracy'], best_results['test_loss'] = self.test_network(netManager,test_batch_handler)
+        best_results['test_accuracy'], best_results['test_loss'] = self.test_network(netManager, test_batch_handler)
 
         print "Drawing html graph"
         #netManager.draw_html_graphs(netManager.compute_result_per_dis(test_batch_handler))

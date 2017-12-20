@@ -116,12 +116,14 @@ class NetworkManager:
             print self.model.scaling_layer[1].eval(session=self.sess)
 
         if self.summaries_dir is not None:
-            self.train_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'train'),
-                                                       graph=self.sess.graph)
-            self.val_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'val'),
-                                                     graph=self.sess.graph)
+            self.train_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name+'train'),
+                                                      graph=self.sess.graph)
+            self.val_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name+'val'),
+                                                    graph=self.sess.graph)
             self.graph_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name + 'graph'),
                                                       graph=self.sess.graph)
+            self.test_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name + 'test'),
+                                                     graph=self.sess.graph)
 
         return
 
