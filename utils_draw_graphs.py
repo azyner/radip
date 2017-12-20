@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 import pandas as pd
-
+import signal
 import StringIO
 import scipy.stats
 import time
@@ -95,6 +95,10 @@ def draw_png_heatmap_graph(obs, preds, gt, mixes,plt_size, draw_prediction_track
 
 if __name__ == "__main__":
     #read args from stdin
+    def sigint_handler(signum, frame):
+        nothing = None  # Do nothing.
+
+    signal.signal(signal.SIGINT, sigint_handler)
 
     data = pickle.loads(sys.stdin.read())
     fig_return_data = draw_png_heatmap_graph(data['obs'], data['preds'], data['gt'], data['mixes'], data['plt_size'],
