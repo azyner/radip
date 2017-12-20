@@ -355,8 +355,8 @@ class SequenceWrangler:
                 master_pool.append(track_pool)
                 #print "wrangle time: " + str(time.time()-wrangle_time)
             except ValueError:
-                print "Warning, track discarded as it did not meet minimum length requirements"
-                discarded_tracks +=1
+                print "Warning, track discarded as it was too short. Num discarded: " + str(discarded_tracks)
+                discarded_tracks += 1
                 continue
         sys.stdout.write("\t\t\t\t%4s" % "[ OK ]")
         sys.stdout.write("\r\n")
