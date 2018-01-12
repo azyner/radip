@@ -48,11 +48,12 @@ def get_mixture_coef(output):
 
     # process output z's into MDN paramters
     # softmax all the pi's:
-    max_pi = tf.reduce_max(z_pi, 1, keep_dims=True)
-    z_pi = tf.subtract(z_pi, max_pi)
-    z_pi = tf.exp(z_pi)
-    normalize_pi = tf.reciprocal(tf.reduce_sum(z_pi, 1, keep_dims=True))
-    z_pi = tf.multiply(normalize_pi, z_pi)
+    # max_pi = tf.reduce_max(z_pi, 1, keep_dims=True)
+    # z_pi = tf.subtract(z_pi, max_pi)
+    # z_pi = tf.exp(z_pi)
+    # normalize_pi = tf.reciprocal(tf.reduce_sum(z_pi, 1, keep_dims=True))
+    # z_pi = tf.multiply(normalize_pi, z_pi)
+    z_pi = tf.nn.softmax(z_pi)
 
     # exponentiate the sigmas and also make corr between -1 and 1.
     z_sigma1 = tf.exp(z_sigma1)
@@ -60,24 +61,16 @@ def get_mixture_coef(output):
     # Bound the correlation coefficient to within 1,-1
     z_corr = tf.minimum(0.999,tf.maximum(-0.999,tf.tanh(z_corr)))
 
-
-    #tf.histogram_summary("z_pi", z_pi)
-    #tf.histogram_summary("z_mu1", z_mu1)
-    #tf.histogram_summary("z_mu2", z_mu2)
-    #tf.histogram_summary("z_sigma1",z_sigma1)
-    #tf.histogram_summary("z_sigma2",z_sigma2)
-    #tf.histogram_summary("z_corr",z_corr)
-
     return [z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr]
 
 
-def sample(output):
+def sample(output, temperature=1.0):
     o_pi, o_mu1, o_mu2, o_sigma1, o_sigma2, o_corr = get_mixture_coef(output)
     # Take in output params
-    # return a single sample used for squence genereation / loopback
+    # return a single sample used for sequence generation / loop-back
 
-    #I have to replace these functions with tf ones.
-    #Replace this with tf.multinomial
+    # I have to replace these functions with tf ones.
+    # Replace this with tf.multinomial
     def get_pi_idx(x, pdf):
         N = pdf.size
         accumulate = 0
@@ -89,18 +82,23 @@ def sample(output):
         return -1
 
     #There is a random_normal
-    def sample_gaussian_2d(mu1, mu2, s1, s2, rho):
+    def sample_gaussian_2d(mu1, mu2, s1, s2, rho, temp=1.0):
         # mean = [mu1, mu2]
         #cov = [[s1 * s1, rho * s1 * s2], [rho * s1 * s2, s2 * s2]]
+        # input temp = 1.0
+        # s1 *= temp * temp # same for s2
 
-        covUL = tf.expand_dims(tf.square(s1),1)
-        covUR = tf.expand_dims(tf.multiply(rho,tf.multiply(s1,s2)),1)
-        covLL = tf.expand_dims(tf.multiply(rho,tf.multiply(s1,s2)),1)
-        covLR = tf.expand_dims(tf.square(s2),1)
+        s1 = tf.multiply(tf.square(temp), s1)
+        s2 = tf.multiply(tf.square(temp), s2)
 
-        covU = tf.expand_dims(tf.concat(axis=1,values=[covUL,covUR]),2)
-        covL = tf.expand_dims(tf.concat(axis=1,values=[covLL,covLR]),2)
-        cov = tf.concat(axis=2,values=[covU,covL])
+        covUL = tf.expand_dims(tf.square(s1), 1)
+        covUR = tf.expand_dims(tf.multiply(rho, tf.multiply(s1, s2)), 1)
+        covLL = tf.expand_dims(tf.multiply(rho, tf.multiply(s1, s2)), 1)
+        covLR = tf.expand_dims(tf.square(s2), 1)
+
+        covU = tf.expand_dims(tf.concat(axis=1, values=[covUL, covUR]), 2)
+        covL = tf.expand_dims(tf.concat(axis=1, values=[covLL, covLR]), 2)
+        cov = tf.concat(axis=2, values=[covU, covL])
 
         # #tf.random_normal? its not multivariate, but it will have to do.
         # #tf.self_adjoint_eigvals can be used on the cov matrix
@@ -114,20 +112,34 @@ def sample(output):
         batch_size = tf.shape(mu1)
         #batch_size = mu1.get_shape()
         convar = tf.constant([2])
-        random_shape = tf.concat(axis=0,values=[convar,batch_size])
+        random_shape = tf.concat(axis=0, values=[convar, batch_size])
 
-        z = tf.expand_dims(tf.transpose(tf.random_normal(random_shape)),2)
+        z = tf.expand_dims(tf.transpose(tf.random_normal(random_shape)), 2)
 
         L = tf.cholesky(cov)
-        mean = tf.concat(axis=1,values=[tf.expand_dims(mu1,1),
-                            tf.expand_dims(mu2,1)])
-        Lz = tf.squeeze(tf.matmul(L,z),[2])
-        x = tf.add(mean,Lz)
+        mean = tf.concat(axis=1, values=[tf.expand_dims(mu1, 1),
+                         tf.expand_dims(mu2, 1)])
+        Lz = tf.squeeze(tf.matmul(L, z), [2])
+        x = tf.add(mean, Lz)
 
         return x
 
-    #idx = get_pi_idx(random.random(), o_pi[0]) #o_pi is shape (11,29) I need 11 results, one for each dist of 29 params.
-    idx = tf.to_int32(tf.multinomial(tf.log(o_pi),1))
+    # The method for adjusting the temperature of a softmaxed distribution
+    def adjust_temp(pdf, temp=1.0):
+        # axis 1 everywhere as axis 0 is the batch dimension.
+        # keep_dims everywhere as shape (batch_size,) does not work with broadcasting. Don't know why
+        pdf = tf.divide(tf.log(pdf), temp)  # Log to remove the exp from softmax, scale by temp.
+        pdf_max = tf.reduce_max(pdf, axis=1, keep_dims=True)  # Rescale by < 1 increases values,
+        pdf = tf.subtract(pdf_max, pdf)                       # need to pull back to max 0
+        pdf = tf.exp(pdf)                                     # Back to exp space
+        pdf = tf.divide(pdf, tf.reduce_sum(pdf, axis=1, keep_dims=True))  # Retain PDF constraint of sum(pdf) = 1
+        return pdf
+
+    o_pi = adjust_temp(o_pi, temperature)
+
+    # Now pick one of the N mixtures using the pi prob dist.
+    # tf multinomial wants the `unnormalized log probabilities', which explains the extra tf.log
+    idx = tf.to_int32(tf.multinomial(tf.log(o_pi), 1))
 
     #TODO - gather_nd does not have a gradient function. Replace with:
     # 1 - convert batch_idx to 1 hot vector
@@ -140,7 +152,7 @@ def sample(output):
                               tf.gather_nd(o_mu2,batch_idx),
                               tf.gather_nd(o_sigma1,batch_idx),
                               tf.gather_nd(o_sigma2,batch_idx),
-                              tf.gather_nd(o_corr,batch_idx))
+                              tf.gather_nd(o_corr,batch_idx), temp=temperature)
 
     return next
 

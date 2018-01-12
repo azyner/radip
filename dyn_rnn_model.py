@@ -221,7 +221,7 @@ class DynamicRnnSeq2Seq(object):
                 else:
                     next_cell_state = cell_state
                     projected_output = output_function(cell_output)
-                    sampled = MDN.sample(projected_output)
+                    sampled = MDN.sample(projected_output, temperature=self.parameters['sample_temperature'])
                     upscale_sampled = _upscale_sampled_output(sampled)
                     if self.parameters['input_mask'][2:4] == [0,0]:
                         next_sampled_input = _pad_missing_output_with_zeros(upscale_sampled)
