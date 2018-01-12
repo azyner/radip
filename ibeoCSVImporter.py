@@ -67,10 +67,10 @@ class ibeoCSVImporter:
             # left right bottom top
             top_exit = [-25, -16, 0, 0.5]
             top_enter = [-12, -6, 0, 0.5]
-            right_exit = [-5.9, -5, -5, 5]
-            right_enter = [-5.9, -5, -17, -10]
-            left_exit = [-24, -23, -16, -10]
-            left_enter = [-24, -23, -6, -0]
+            right_exit = [-1.0, -0, -6, 0]
+            right_enter = [-1.0, 0.0, -17, -10]
+            left_exit = [-25, -24.1, -16, -9]
+            left_enter = [-26, -25, -7, -0]
             intersection_centre = [-14.4, -7.5]
             intersection_rotation = 0  # 90 degree?
             self.dest_gates = {"north": left_exit, "east": top_exit, "south": right_exit}
