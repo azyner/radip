@@ -5,7 +5,7 @@ from sklearn import preprocessing
 import time
 import sys
 import os
-
+import dill as pickle
 
 #Class to take a list of continuous, contiguous data logs that need to be collated and split for the data feeder
 #Is this different to the batch handler?
@@ -56,15 +56,30 @@ class SequenceWrangler:
         file_exists = os.path.isfile(file_path)
         if not file_exists:
             return False
+        print "Reading pool cache from disk..."
         self.master_pool = pd.read_pickle(file_path)
 
         return True
 
+    def load_splits_from_checkpoint(self, filename):
+        if not os.path.exists(self.pool_dir):
+            return False
+        file_path = os.path.join(self.pool_dir, filename)
+        file_exists = os.path.isfile(file_path)
+        if not file_exists:
+            return False
+        print "Reading cached crossfold pool data..."
+        with open(file_path, 'rb') as pkl_file:
+            from_pickle = pickle.load(pkl_file)
+            self.crossfold_pool = from_pickle['crossfold_pool']
+            self.test_pool = from_pickle['test_pool']
+            return True
+
     def split_into_evaluation_pools(self,trainval_idxs = None, test_idxs = None):
-        # Consolidate with get_pools function?
-        # self.master_pool should exist by now
-        # TODO Here print normalization numbers.
-        #I'll then add a get/set call for these numbers to be added to the network.
+        # I want to cache the pool concat
+        # So I need a unique id from master pool --> self.get_pool_filename
+        # I also want a unique id for the crossfold_indicies. Only if that is deterministic. I'll have to check
+        #
         seed = 42296 #np.random.randint(4294967296)
         print "Using seed: " + str(seed) + " for test/train split"
 
@@ -110,50 +125,61 @@ class SequenceWrangler:
             self.trainval_idxs = trainval_idxs
             self.test_idxs = test_idxs
 
-        crossfold_idx_lookup = np.array(self.trainval_idxs)
+        # Cache the test/train/val splits. The concats take forever.
+        cache_name = self.get_pool_filename() + '-' + str(hash(tuple(self.trainval_idxs))) + '.pkl'
+        if not self.load_splits_from_checkpoint(cache_name):
+            print "Crossfold cache miss, calculating splits and making sub-pools"
+            #cache miss
+            crossfold_idx_lookup = np.array(self.trainval_idxs)
 
-        #Now I need the class of each track in trainval_idx
-        trainval_class = []
-        for trainval_idx in self.trainval_idxs:
-            track_class = self.master_pool[self.master_pool.track_idx==trainval_idx]['track_class'].unique()
-            trainval_class.append(track_class[0])
+            #Now I need the class of each track in trainval_idx
+            trainval_class = []
+            for trainval_idx in self.trainval_idxs:
+                track_class = self.master_pool[self.master_pool.track_idx==trainval_idx]['track_class'].unique()
+                trainval_class.append(track_class[0])
 
-        skf = StratifiedKFold(n_splits=self.n_folds,random_state=seed)
-        crossfold_indicies = list(skf.split(self.trainval_idxs, trainval_class))
-        crossfold_pool = [[[], []] for x in xrange(self.n_folds)]
-        test_pool = []
+            skf = StratifiedKFold(n_splits=self.n_folds,random_state=seed)
+            crossfold_indicies = list(skf.split(self.trainval_idxs, trainval_class))
+            crossfold_pool = [[[], []] for x in xrange(self.n_folds)]
+            test_pool = []
 
-        #Now iterate over each track, and dump it into the apropriate crossfold sub-pool or test pool
-        for track_raw_idx in raw_indicies:
-            # For each pool
+            #Now iterate over each track, and dump it into the apropriate crossfold sub-pool or test pool
+            for track_raw_idx in raw_indicies:
+                # For each pool
+                for fold_idx in range(len(crossfold_indicies)):
+                    # For train or validate in the pool
+                    for trainorval_pool_idx in range(len(crossfold_indicies[fold_idx])):
+                        # If the crossfold_list index of the track matches
+                        if track_raw_idx in crossfold_idx_lookup[crossfold_indicies[fold_idx][trainorval_pool_idx]]:
+
+                            #Here, I want to append all data in the master pool that is from the track
+                            crossfold_pool[fold_idx][trainorval_pool_idx].append(
+                                self.master_pool[self.master_pool['track_idx']==track_raw_idx]
+                            )
+                            #print "Added track " + str(track_raw_idx) + " to cf pool " + str(fold_idx) + \
+                            #      (" train" if trainorval_pool_idx is 0 else " test")
+                # else it must exist in the test_pool
+                if track_raw_idx in self.test_idxs:
+                    test_pool.append(
+                            self.master_pool[self.master_pool['track_idx'] == track_raw_idx]
+                    )
+                    #print "Added track " + str(track_raw_idx) + " to test pool"
+
+            print "concatenating pools"
             for fold_idx in range(len(crossfold_indicies)):
-                # For train or validate in the pool
                 for trainorval_pool_idx in range(len(crossfold_indicies[fold_idx])):
-                    # If the crossfold_list index of the track matches
-                    if track_raw_idx in crossfold_idx_lookup[crossfold_indicies[fold_idx][trainorval_pool_idx]]:
+                    crossfold_pool[fold_idx][trainorval_pool_idx] = pd.concat(crossfold_pool[fold_idx][trainorval_pool_idx])
 
-                        #Here, I want to append all data in the master pool that is from the track
-                        crossfold_pool[fold_idx][trainorval_pool_idx].append(
-                            self.master_pool[self.master_pool['track_idx']==track_raw_idx]
-                        )
-                        #print "Added track " + str(track_raw_idx) + " to cf pool " + str(fold_idx) + \
-                        #      (" train" if trainorval_pool_idx is 0 else " test")
-            # else it must exist in the test_pool
-            if track_raw_idx in self.test_idxs:
-                test_pool.append(
-                        self.master_pool[self.master_pool['track_idx'] == track_raw_idx]
-                )
-                #print "Added track " + str(track_raw_idx) + " to test pool"
+            self.crossfold_pool = crossfold_pool
+            self.test_pool = pd.concat(test_pool)
 
-        print "concatenating pools"
-        for fold_idx in range(len(crossfold_indicies)):
-            for trainorval_pool_idx in range(len(crossfold_indicies[fold_idx])):
-                crossfold_pool[fold_idx][trainorval_pool_idx] = pd.concat(crossfold_pool[fold_idx][trainorval_pool_idx])
-
-        self.crossfold_pool = crossfold_pool
-        self.test_pool = pd.concat(test_pool)
-
-
+            to_pickle = {}
+            to_pickle['crossfold_pool'] = crossfold_pool
+            to_pickle['test_pool'] = pd.concat(test_pool)
+            file_path = os.path.join(self.pool_dir, cache_name)
+            with open(file_path, 'wb') as pkl_file:
+                pickle.dump(to_pickle, pkl_file)
+            print "wrote crossfolding cache"
         return
 
     # This function will generate the data pool for the dataset from the natualistic driving data set.
