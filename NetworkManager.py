@@ -521,14 +521,20 @@ class NetworkManager:
         # Now that all children have finished, we may empty the list.
         self.p_child_list = []
 
-    def draw_generative_png_graphs(self, batch_handler, multi_sample=1, draw_prediction_track=True, final_run=False):
+    def draw_generative_png_graphs(self, batch_handler, multi_sample=1, draw_prediction_track=True, final_run=False, ):
 
         fig_dir = self.plot_directory + "_img"
         if not os.path.exists(fig_dir):
             os.makedirs(fig_dir)
 
         #Get results:
-        batch_frame = batch_handler.get_minibatch()
+        if final_run:
+            batch_handler.set_distance_threshold(0)
+            batch_frame, _ = batch_handler.get_sequential_minibatch()
+            batch_handler.set_distance_threshold(None)
+        else:
+            batch_frame = batch_handler.get_minibatch()
+
         graph_x, graph_future, weights, graph_labels = \
             batch_handler.format_minibatch_data(
                 batch_frame['encoder_sample'],
@@ -556,6 +562,7 @@ class NetworkManager:
 
         graph_list = []
         graph_number = 0
+        graph_max = 20 if final_run else 10
         multithread = True
         if multithread:
             # Wait for any old threads to finish. Not allowed to spawn multiple sets of children, it gets out of hand fast.
@@ -564,7 +571,7 @@ class NetworkManager:
             graph_number += 1
             # WARNING! If you want more than ten, turn off multithreading. I don't use a queue.
             # The kernel handles all of them, so they will all get memory alloc. Looks to be 200MB each
-            if graph_number > 10:
+            if graph_number > graph_max:
                 break
 
             if multithread:
