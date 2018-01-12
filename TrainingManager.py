@@ -223,12 +223,12 @@ class TrainingManager:
                 key_str = 'perfect_distance_' + str(class_idx)
                 fold_results[key_str] = metric_results[class_idx]
 
-            fold_results['perfect_distance'] = np.max(metric_results) #worst distance
+            fold_results['perfect_distance'] = np.max(metric_results) # worst distance
         else:
             fold_results['perfect_distance'] = 0
         return fold_results
 
-    def test_network(self,netManager, test_batch_handler):
+    def test_network(self, netManager, test_batch_handler):
         # Function that takes the currently built network and runs the test data through it (each data point is run once
         #  and only once). Graphs are generated. Make it easy to generate many graphs as this will be helpful for the
         # sequence generation model
