@@ -40,11 +40,12 @@ def lossfunc_wrapper(labels, logits):
 
 
 # below is where we need to do MDN splitting of distribution params
-def get_mixture_coef(output):
+# Temperature param should only be used during sampling. The other functions record the mixtures for visualisation.
+def get_mixture_coef(output, temperature=None):
     # returns the tf slices containing mdn dist params
     # ie, eq 18 -> 23 of http://arxiv.org/abs/1308.0850
     z = output
-    z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr = tf.split(axis=1,num_or_size_splits=6,value=z)
+    z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr = tf.split(axis=1, num_or_size_splits=6, value=z)
 
     # process output z's into MDN paramters
     # softmax all the pi's:
@@ -53,7 +54,10 @@ def get_mixture_coef(output):
     # z_pi = tf.exp(z_pi)
     # normalize_pi = tf.reciprocal(tf.reduce_sum(z_pi, 1, keep_dims=True))
     # z_pi = tf.multiply(normalize_pi, z_pi)
-    z_pi = tf.nn.softmax(z_pi)
+    if temperature==None:
+        z_pi = tf.nn.softmax(z_pi)
+    else:
+        z_pi = tf.nn.softmax(tf.divide(z_pi, temperature))
 
     # exponentiate the sigmas and also make corr between -1 and 1.
     z_sigma1 = tf.exp(z_sigma1)
@@ -65,7 +69,7 @@ def get_mixture_coef(output):
 
 
 def sample(output, temperature=1.0):
-    o_pi, o_mu1, o_mu2, o_sigma1, o_sigma2, o_corr = get_mixture_coef(output)
+    o_pi, o_mu1, o_mu2, o_sigma1, o_sigma2, o_corr = get_mixture_coef(output, temperature=temperature)
     # Take in output params
     # return a single sample used for sequence generation / loop-back
 
@@ -123,19 +127,6 @@ def sample(output, temperature=1.0):
         x = tf.add(mean, Lz)
 
         return x
-
-    # The method for adjusting the temperature of a softmaxed distribution
-    def adjust_temp(pdf, temp=1.0):
-        # axis 1 everywhere as axis 0 is the batch dimension.
-        # keep_dims everywhere as shape (batch_size,) does not work with broadcasting. Don't know why
-        pdf = tf.divide(tf.log(pdf), temp)  # Log to remove the exp from softmax, scale by temp.
-        pdf_max = tf.reduce_max(pdf, axis=1, keep_dims=True)  # Rescale by < 1 increases values,
-        pdf = tf.subtract(pdf_max, pdf)                       # need to pull back to max 0
-        pdf = tf.exp(pdf)                                     # Back to exp space
-        pdf = tf.divide(pdf, tf.reduce_sum(pdf, axis=1, keep_dims=True))  # Retain PDF constraint of sum(pdf) = 1
-        return pdf
-
-    o_pi = adjust_temp(o_pi, temperature)
 
     # Now pick one of the N mixtures using the pi prob dist.
     # tf multinomial wants the `unnormalized log probabilities', which explains the extra tf.log
