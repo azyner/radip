@@ -38,8 +38,8 @@ class ibeoCSVImporter:
                 trimmed_tracks = self._trim_tracks(sub_track_list)
                 self.labelled_track_list.extend(trimmed_tracks)
                 # write pkl
-                with open(file_path, 'wb') as pkl_file:
-                    pickle.dump(self.labelled_track_list, pkl_file)
+            with open(file_path, 'wb') as pkl_file:
+                pickle.dump(self.labelled_track_list, pkl_file)
         else:
             with open(file_path, 'rb') as pkl_file:
                 self.labelled_track_list = pickle.load(pkl_file)
@@ -75,6 +75,14 @@ class ibeoCSVImporter:
             intersection_rotation = 0  # 90 degree?
             self.dest_gates = {"north": left_exit, "east": top_exit, "south": right_exit}
             self.origin_gates = {"north": left_enter, "east": top_enter, "south": right_enter}
+        if 'queen-hanks' in csv_name:
+            # left right bottom top
+            top_exit = [26, 30, 6, 7]
+            right_exit = [41, 42, -3, 3]
+            left_enter = [18, 20, -2, 2]
+            bottom_exit = [30, 35, -14, -13]
+            self.dest_gates = {"north": right_exit, "east": bottom_exit, "west": top_exit}
+            self.origin_gates = {"south": left_enter}
 
     def get_track_list(self):
         return self.labelled_track_list
@@ -82,11 +90,13 @@ class ibeoCSVImporter:
     def _print_collection_summary(self):
         # Here I want to print a origin/destination matrix
         # Preferably with summary margins
-        key_list = [key for key,value in self.dest_gates.iteritems()]
+        dest_key_list = [key for key, value in self.dest_gates.iteritems()]
+        orig_key_list = [key for key, value in self.origin_gates.iteritems()]
 
-        summary_df = pd.DataFrame(np.zeros([len(key_list), len(key_list)]),columns=key_list,index=key_list)
+        summary_df = pd.DataFrame(np.zeros([len(orig_key_list), len(dest_key_list)]),
+                                  index=orig_key_list, columns=dest_key_list)
         for single_track in self.labelled_track_list:
-            summary_df.loc[single_track.iloc[0]["origin"],single_track.iloc[0]["destination"]] += 1
+            summary_df.loc[single_track.iloc[0]["origin"], single_track.iloc[0]["destination"]] += 1
         summary_df["total"] = summary_df.sum(1)
         summary_df= summary_df.append(pd.Series(summary_df.sum(0), name="total"))
 
@@ -258,6 +268,19 @@ class ibeoCSVImporter:
         dis_after_exit = 5
         trimmed_tracks = []
 
+        intersection_xs = []
+        intersection_ys = []
+        for cardinal, box in self.dest_gates.iteritems():
+            intersection_xs.extend(box[0:1])
+            intersection_ys.extend(box[2:3])
+        for cardinal, box in self.origin_gates.iteritems():
+            intersection_xs.extend(box[0:1])
+            intersection_ys.extend(box[2:3])
+        int_x_max = max(intersection_xs)
+        int_x_min = min(intersection_xs)
+        int_y_max = max(intersection_ys)
+        int_y_min = min(intersection_ys)
+
         for track in long_tracks:
             debug_track = track.copy()
             #Cut out cars that park if they are visible
@@ -266,22 +289,26 @@ class ibeoCSVImporter:
             # trim_track = track.iloc[0:last_moving_idx]
             # If they are outside the roundabout and have stopped i.e. parked
             track.drop(track[(track.index > last_moving_idx) & (
-                             (track.Object_Y > (self.dest_gates['east'][3])) |
-                             (track.Object_X > (self.dest_gates['south'][1])) |
-                             (track.Object_X < (self.dest_gates['north'][0])))
-                             ].index,inplace=True)
+                             (track.Object_Y > int_y_max) |
+                             (track.Object_Y < int_y_min) |
+                             (track.Object_X > int_x_max) |
+                             (track.Object_X < int_x_min))
+                             ].index, inplace=True)
             # If the system is guessing
             track.drop(track[(track.index > last_observed_idx) & (
-                             (track.Object_Y > (self.dest_gates['east'][3])) |
-                             (track.Object_X > (self.dest_gates['south'][1])) |
-                             (track.Object_X < (self.dest_gates['north'][0])))
-                             ].index,inplace=True)
+                             (track.Object_Y > int_y_max) |
+                             (track.Object_Y < int_y_min) |
+                             (track.Object_X > int_x_max) |
+                             (track.Object_X < int_x_min))
+                             ].index, inplace=True)
             # Or they are not in the roundabout proximity
-            track.drop(track[(track.Object_Y > (intersection_limits + self.dest_gates['east'][3])) |
-                             (track.Object_X > (intersection_limits + self.dest_gates['south'][1])) |
-                             (track.Object_X < (-intersection_limits + self.dest_gates['north'][0]))].index,inplace=True)
+            track.drop(track[(track.Object_Y > ( intersection_limits + int_y_max)) |
+                             (track.Object_Y < (-intersection_limits + int_y_min)) |
+                             (track.Object_X > ( intersection_limits + int_x_max)) |
+                             (track.Object_X < (-intersection_limits + int_x_min))
+                       ].index, inplace=True)
             # Or they have left the roundabout
-            track.drop(track[(track.distance_to_exit > dis_after_exit)].index,inplace=True)
+            track.drop(track[(track.distance_to_exit > dis_after_exit)].index, inplace=True)
             #track.drop('level_0', axis=1,inplace=True)
             # And now trim everything that is not continuous around distance zero.
             track.reset_index(inplace=True)
