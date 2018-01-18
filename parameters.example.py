@@ -30,6 +30,8 @@ parameters['hyper_search_time'] = 12  # Time in hours for hyper searching
 
 parameters['loss_decay_cutoff'] = 1e-10
 parameters['long_training_time'] = 3*60  # Final training is for this long (minutes)
+parameters['long_training_steps'] = 10000000
+
 parameters['hyper_rnn_size_fn'] = random.uniform
 parameters['hyper_rnn_size_args'] = (16, 513)
 parameters['hyper_learning_rate_fn'] = random.uniform
@@ -49,7 +51,8 @@ parameters['learning_rate_min'] = 0.00001
 parameters["rnn_size"] = 128
 parameters["learning_rate_decay_factor"] = 0.1
 parameters['reg_embedding_beta'] = 0
-parameters['l2_reg_beta'] = 0.001
+parameters['l2_reg_beta'] = 0.000
+parameters['sample_temperature'] = 0.5
 
 ##### STATIC
 parameters['device'] = 'gpu:0'

@@ -51,9 +51,6 @@ class TrainingManager:
 
         while True:
 
-            if self.sigint_caught:
-                final_run = True
-
             #### TRAINING
             if not final_run:
                 step_start_time = time.time()
@@ -82,7 +79,7 @@ class TrainingManager:
 
 
             #### TENSORBOARD LOGGING
-            if current_step % (steps_per_checkpoint/10) == 0 or \
+            if current_step % (steps_per_checkpoint/2) == 0 or \
                 current_step % steps_per_checkpoint == 0 or \
                 final_run:
                 train_acc, train_step_loss, _, _ = netManager.run_training_step(train_x, train_y, weights, False,
@@ -134,9 +131,11 @@ class TrainingManager:
                 elif (((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run)\
                     and self.parameter_dict['model_type'] == 'MDN':
                     #print "Write PNG graphing functions here."
-                    netManager.draw_generative_png_graphs(validation_batch_handler,multi_sample=1)
-                    graphs = netManager.draw_generative_png_graphs(validation_batch_handler, multi_sample=20,draw_prediction_track=False)
-                    netManager.log_graphs_to_tensorboard(graphs)
+                    netManager.draw_generative_png_graphs(validation_batch_handler,multi_sample=1, final_run=final_run)
+                    netManager.draw_generative_png_graphs(validation_batch_handler, multi_sample=20,
+                                                          draw_prediction_track=False, final_run=final_run)
+                    # I rarely use this, and now the multithreader cannot return a value if it is backgrounded.
+                    #netManager.log_graphs_to_tensorboard(graphs)
                     metric_results = -999
                 sys.stdout.write("\r\n")
                 sys.stdout.flush()
@@ -186,8 +185,12 @@ class TrainingManager:
                 out_of_time = time.time() - fold_time > 60 * self.parameter_dict['training_early_stop']
                 if out_of_time:
                     print "Stopping due to time cutoff"
+                out_of_steps = (self.parameter_dict['long_training_steps'] is not None and
+                                current_step > self.parameter_dict['long_training_steps'])
+                if out_of_steps:
+                    print "Stopping due to step cutoff"
 
-                if learning_rate_too_low or out_of_time or model_is_overfit:
+                if learning_rate_too_low or out_of_time or model_is_overfit or out_of_steps or self.sigint_caught:
                     # Lookup best model based on val_step_loss
                     # Load best model.
                     # Run one more loop for final network scores
@@ -220,17 +223,18 @@ class TrainingManager:
                 key_str = 'perfect_distance_' + str(class_idx)
                 fold_results[key_str] = metric_results[class_idx]
 
-            fold_results['perfect_distance'] = np.max(metric_results) #worst distance
+            fold_results['perfect_distance'] = np.max(metric_results) # worst distance
         else:
             fold_results['perfect_distance'] = 0
         return fold_results
 
-    def test_network(self,netManager,test_batch_handler):
+    def test_network(self, netManager, test_batch_handler):
         # Function that takes the currently built network and runs the test data through it (each data point is run once
         #  and only once). Graphs are generated. Make it easy to generate many graphs as this will be helpful for the
         # sequence generation model
-
-        test_accuracy, test_loss, _, _ = netManager.run_validation(test_batch_handler,quick=False)
+        test_accuracy, test_loss, _, _ = netManager.run_validation(test_batch_handler,
+                                                                   summary_writer=netManager.test_writer,
+                                                                   quick=False)
 
         return test_accuracy, test_loss
 
@@ -401,7 +405,7 @@ class TrainingManager:
             # We are loading a network from a checkpoint
             netManager.build_model()
             best_results = {}
-        best_results['test_accuracy'], best_results['test_loss'] = self.test_network(netManager,test_batch_handler)
+        best_results['test_accuracy'], best_results['test_loss'] = self.test_network(netManager, test_batch_handler)
 
         print "Drawing html graph"
         #netManager.draw_html_graphs(netManager.compute_result_per_dis(test_batch_handler))

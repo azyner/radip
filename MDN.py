@@ -40,19 +40,24 @@ def lossfunc_wrapper(labels, logits):
 
 
 # below is where we need to do MDN splitting of distribution params
-def get_mixture_coef(output):
+# Temperature param should only be used during sampling. The other functions record the mixtures for visualisation.
+def get_mixture_coef(output, temperature=None):
     # returns the tf slices containing mdn dist params
     # ie, eq 18 -> 23 of http://arxiv.org/abs/1308.0850
     z = output
-    z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr = tf.split(axis=1,num_or_size_splits=6,value=z)
+    z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr = tf.split(axis=1, num_or_size_splits=6, value=z)
 
     # process output z's into MDN paramters
     # softmax all the pi's:
-    max_pi = tf.reduce_max(z_pi, 1, keep_dims=True)
-    z_pi = tf.subtract(z_pi, max_pi)
-    z_pi = tf.exp(z_pi)
-    normalize_pi = tf.reciprocal(tf.reduce_sum(z_pi, 1, keep_dims=True))
-    z_pi = tf.multiply(normalize_pi, z_pi)
+    # max_pi = tf.reduce_max(z_pi, 1, keep_dims=True)
+    # z_pi = tf.subtract(z_pi, max_pi)
+    # z_pi = tf.exp(z_pi)
+    # normalize_pi = tf.reciprocal(tf.reduce_sum(z_pi, 1, keep_dims=True))
+    # z_pi = tf.multiply(normalize_pi, z_pi)
+    if temperature==None:
+        z_pi = tf.nn.softmax(z_pi)
+    else:
+        z_pi = tf.nn.softmax(tf.divide(z_pi, temperature))
 
     # exponentiate the sigmas and also make corr between -1 and 1.
     z_sigma1 = tf.exp(z_sigma1)
@@ -60,24 +65,16 @@ def get_mixture_coef(output):
     # Bound the correlation coefficient to within 1,-1
     z_corr = tf.minimum(0.999,tf.maximum(-0.999,tf.tanh(z_corr)))
 
-
-    #tf.histogram_summary("z_pi", z_pi)
-    #tf.histogram_summary("z_mu1", z_mu1)
-    #tf.histogram_summary("z_mu2", z_mu2)
-    #tf.histogram_summary("z_sigma1",z_sigma1)
-    #tf.histogram_summary("z_sigma2",z_sigma2)
-    #tf.histogram_summary("z_corr",z_corr)
-
     return [z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr]
 
 
-def sample(output):
-    o_pi, o_mu1, o_mu2, o_sigma1, o_sigma2, o_corr = get_mixture_coef(output)
+def sample(output, temperature=1.0):
+    o_pi, o_mu1, o_mu2, o_sigma1, o_sigma2, o_corr = get_mixture_coef(output, temperature=temperature)
     # Take in output params
-    # return a single sample used for squence genereation / loopback
+    # return a single sample used for sequence generation / loop-back
 
-    #I have to replace these functions with tf ones.
-    #Replace this with tf.multinomial
+    # I have to replace these functions with tf ones.
+    # Replace this with tf.multinomial
     def get_pi_idx(x, pdf):
         N = pdf.size
         accumulate = 0
@@ -89,18 +86,23 @@ def sample(output):
         return -1
 
     #There is a random_normal
-    def sample_gaussian_2d(mu1, mu2, s1, s2, rho):
+    def sample_gaussian_2d(mu1, mu2, s1, s2, rho, temp=1.0):
         # mean = [mu1, mu2]
         #cov = [[s1 * s1, rho * s1 * s2], [rho * s1 * s2, s2 * s2]]
+        # input temp = 1.0
+        # s1 *= temp * temp # same for s2
 
-        covUL = tf.expand_dims(tf.square(s1),1)
-        covUR = tf.expand_dims(tf.multiply(rho,tf.multiply(s1,s2)),1)
-        covLL = tf.expand_dims(tf.multiply(rho,tf.multiply(s1,s2)),1)
-        covLR = tf.expand_dims(tf.square(s2),1)
+        s1 = tf.multiply(tf.square(temp), s1)
+        s2 = tf.multiply(tf.square(temp), s2)
 
-        covU = tf.expand_dims(tf.concat(axis=1,values=[covUL,covUR]),2)
-        covL = tf.expand_dims(tf.concat(axis=1,values=[covLL,covLR]),2)
-        cov = tf.concat(axis=2,values=[covU,covL])
+        covUL = tf.expand_dims(tf.square(s1), 1)
+        covUR = tf.expand_dims(tf.multiply(rho, tf.multiply(s1, s2)), 1)
+        covLL = tf.expand_dims(tf.multiply(rho, tf.multiply(s1, s2)), 1)
+        covLR = tf.expand_dims(tf.square(s2), 1)
+
+        covU = tf.expand_dims(tf.concat(axis=1, values=[covUL, covUR]), 2)
+        covL = tf.expand_dims(tf.concat(axis=1, values=[covLL, covLR]), 2)
+        cov = tf.concat(axis=2, values=[covU, covL])
 
         # #tf.random_normal? its not multivariate, but it will have to do.
         # #tf.self_adjoint_eigvals can be used on the cov matrix
@@ -114,20 +116,21 @@ def sample(output):
         batch_size = tf.shape(mu1)
         #batch_size = mu1.get_shape()
         convar = tf.constant([2])
-        random_shape = tf.concat(axis=0,values=[convar,batch_size])
+        random_shape = tf.concat(axis=0, values=[convar, batch_size])
 
-        z = tf.expand_dims(tf.transpose(tf.random_normal(random_shape)),2)
+        z = tf.expand_dims(tf.transpose(tf.random_normal(random_shape)), 2)
 
         L = tf.cholesky(cov)
-        mean = tf.concat(axis=1,values=[tf.expand_dims(mu1,1),
-                            tf.expand_dims(mu2,1)])
-        Lz = tf.squeeze(tf.matmul(L,z),[2])
-        x = tf.add(mean,Lz)
+        mean = tf.concat(axis=1, values=[tf.expand_dims(mu1, 1),
+                         tf.expand_dims(mu2, 1)])
+        Lz = tf.squeeze(tf.matmul(L, z), [2])
+        x = tf.add(mean, Lz)
 
         return x
 
-    #idx = get_pi_idx(random.random(), o_pi[0]) #o_pi is shape (11,29) I need 11 results, one for each dist of 29 params.
-    idx = tf.to_int32(tf.multinomial(tf.log(o_pi),1))
+    # Now pick one of the N mixtures using the pi prob dist.
+    # tf multinomial wants the `unnormalized log probabilities', which explains the extra tf.log
+    idx = tf.to_int32(tf.multinomial(tf.log(o_pi), 1))
 
     #TODO - gather_nd does not have a gradient function. Replace with:
     # 1 - convert batch_idx to 1 hot vector
@@ -140,39 +143,38 @@ def sample(output):
                               tf.gather_nd(o_mu2,batch_idx),
                               tf.gather_nd(o_sigma1,batch_idx),
                               tf.gather_nd(o_sigma2,batch_idx),
-                              tf.gather_nd(o_corr,batch_idx))
+                              tf.gather_nd(o_corr,batch_idx), temp=temperature)
 
     return next
 
+
 def compute_derivates(output_prev, output_current, network_input_columns,
-                      velocity_threshold=tf.constant(2.0,dtype=tf.float32)):
-    #['easting', 'northing', 'heading', 'speed']
+                      velocity_threshold=tf.constant(2.0, dtype=tf.float32), subsample_rate=1):
+    # ['easting', 'northing', 'heading', 'speed']
     # Assume the first two are x and y
     if network_input_columns[2] is not 'heading' or \
-        network_input_columns[3] is not 'speed':
+       network_input_columns[3] is not 'speed':
         print "not implemented yet"
         exit()
 
     # column 2 is heading, so do some trig,
-    #
     # column 3 is speed, so its just a subtraction and vector magnitude
     x_p, y_p, heading_p, speed_p = tf.split(output_prev, 4, axis=1)
     x_c, y_c = tf.split(output_current, 2, axis=1)
     pos_d_i = tf.complex(tf.subtract(x_p,x_c), tf.subtract(y_p, y_c))  # Define x,y as a complex number
     pos_d = tf.abs(pos_d_i)  # Use abs to get magnitude
-    print "Warning, velocity loopback generator assumes 25 Hz timesteps"
-    v_c = tf.multiply(pos_d,25) # delta * 25 = number of meters per second
-    #For whatever reason, atan2 convention is atan2(y,x)
-    h_c = tf.atan2(tf.subtract(y_c, y_p), tf.subtract(x_c,x_p))
-    # TODO Element wise, I have to condition on speed. If < 2m/s (hyperparameter?) use old heading, else compute heading
+    print "Warning, velocity loop-back generator assumes data was recorded at 25 Hz"
+    v_c = tf.multiply(pos_d, (25/subsample_rate))  # delta * Hz = number of meters per second
+    #  For whatever reason, atan2 convention is atan2(y,x)
+    h_c = tf.atan2(tf.subtract(y_c, y_p), tf.subtract(x_c, x_p))
+    # TODO Element wise, I have to condition on speed. If < 2m/s (hyper-parameter?) use old heading, else compute heading
     # I don't want to use tf.cond as it does not perform element-wise logic.
-    # So I'm going to construct this fundamentally - MUltiply by zero or one and sum
-    use_old_heading = tf.less(v_c, velocity_threshold) # Broadcasting will upsize the scalar to a vector
+    # So I'm going to construct this fundamentally - Multiply by zero or one and sum
+    use_old_heading = tf.less(v_c, velocity_threshold) # Broadcasting will up-size the scalar to a vector
     use_new_heading = tf.logical_not(use_old_heading)
-    use_old_heading, use_new_heading = (tf.to_float(use_old_heading),tf.to_float(use_new_heading))
-    # This makes no sense. I was supposed to threshold heading on speed, not the other way around.
-    new_heading = tf.add(tf.multiply(use_old_heading,heading_p), tf.multiply(use_new_heading,h_c))
-    output_with_extras = tf.concat([x_c,y_c,new_heading,v_c],axis=1)
+    use_old_heading, use_new_heading = (tf.to_float(use_old_heading), tf.to_float(use_new_heading))
+    new_heading = tf.add(tf.multiply(use_old_heading, heading_p), tf.multiply(use_new_heading, h_c))
+    output_with_extras = tf.concat([x_c, y_c, new_heading, v_c], axis=1)
 
     return output_with_extras
 

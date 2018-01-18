@@ -29,7 +29,7 @@ import shutil
 import dill as pickle
 from dyn_rnn_model import DynamicRnnSeq2Seq
 import scipy
-
+import subprocess
 
 
 
@@ -75,6 +75,7 @@ class NetworkManager:
         # It warns that ':' is illegal. However, its in the variable.name, so I can't avoid it without
         # overly verbose code.
         tf.logging.set_verbosity(tf.logging.ERROR)
+        self.p_child_list = []
 
         return
 
@@ -115,12 +116,14 @@ class NetworkManager:
             print self.model.scaling_layer[1].eval(session=self.sess)
 
         if self.summaries_dir is not None:
-            self.train_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'train'),
-                                                       graph=self.sess.graph)
-            self.val_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir,self.log_file_name+'val'),
-                                                     graph=self.sess.graph)
+            self.train_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name+'train'),
+                                                      graph=self.sess.graph)
+            self.val_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name+'val'),
+                                                    graph=self.sess.graph)
             self.graph_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name + 'graph'),
                                                       graph=self.sess.graph)
+            self.test_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name + 'test'),
+                                                     graph=self.sess.graph)
 
         return
 
@@ -510,14 +513,28 @@ class NetworkManager:
 
         return
 
-    def draw_generative_png_graphs(self, batch_handler, multi_sample=1, draw_prediction_track=True):
+    def join_subprocesses(self):
+        # Join.
+        for p_child in self.p_child_list:
+            while p_child.poll() is None:
+                time.sleep(0.1)
+        # Now that all children have finished, we may empty the list.
+        self.p_child_list = []
+
+    def draw_generative_png_graphs(self, batch_handler, multi_sample=1, draw_prediction_track=True, final_run=False, ):
 
         fig_dir = self.plot_directory + "_img"
         if not os.path.exists(fig_dir):
             os.makedirs(fig_dir)
 
         #Get results:
-        batch_frame = batch_handler.get_minibatch()
+        if final_run:
+            batch_handler.set_distance_threshold(0)
+            batch_frame, _ = batch_handler.get_sequential_minibatch()
+            batch_handler.set_distance_threshold(None)
+        else:
+            batch_frame = batch_handler.get_minibatch()
+
         graph_x, graph_future, weights, graph_labels = \
             batch_handler.format_minibatch_data(
                 batch_frame['encoder_sample'],
@@ -545,78 +562,47 @@ class NetworkManager:
 
         graph_list = []
         graph_number = 0
+        graph_max = 20 if final_run else 10
+        multithread = True
+        if multithread:
+            # Wait for any old threads to finish. Not allowed to spawn multiple sets of children, it gets out of hand fast.
+            self.join_subprocesses()
         for obs, preds, gt, mixes in zip(observations, multi_sampled_predictions, ground_truths, multi_sampled_mixtures):
             graph_number += 1
-            if graph_number > 10:
+            # WARNING! If you want more than ten, turn off multithreading. I don't use a queue.
+            # The kernel handles all of them, so they will all get memory alloc. Looks to be 200MB each
+            if graph_number > graph_max:
                 break
 
-            legend_str = []
-            fig = plt.figure(figsize=self.plt_size)
-            plt.plot(gt[:,0], gt[:,1], 'b-',zorder=3)
-            legend_str.append(['Ground Truth'])
-            plt.plot(obs[:,0], obs[:,1], 'g-',zorder=4)
-            legend_str.append(['Observations'])
-            if draw_prediction_track:
-                for j in range(preds.shape[0]):
-                    plt.plot(preds[j][:,0], preds[j][:,1], 'r-', zorder=5)
-                legend_str.append(['Predictions'])
+            if multithread:
+                args_dict = {"obs": obs,
+                             "preds": preds,
+                             "gt": gt,
+                             "mixes": mixes,
+                             "plt_size": self.plt_size,
+                             "draw_prediction_track": draw_prediction_track,
+                             "plot_directory": self.plot_directory,
+                             "log_file_name": self.log_file_name,
+                             "multi_sample": multi_sample,
+                             "global_step": self.get_global_step(),
+                             "graph_number": graph_number}
+                # HACK I would prefer a child that then maintains its own children with queued workers. This allows
+                # the child process to hand out fresh jobs without interrupting main, but its a lot of work. So instead,
+                # to stop starving main, I force these to only be able to use half the cores.
+                p_child = subprocess.Popen(["taskset", "-c", "0,1,2,3",
+                                            "nice", "-n", "19",
+                                            "/usr/bin/python2", "utils_draw_graphs.py"], stdin=subprocess.PIPE)
+                p_child.stdin.write(pickle.dumps(args_dict))
+                p_child.stdin.close()
+                self.p_child_list.append(p_child)
+            else:
+                import utils_draw_graphs
+                graph_list.append(utils_draw_graphs.draw_png_heatmap_graph(obs, preds, gt, mixes, self.plt_size, draw_prediction_track,
+                                  self.plot_directory, self.log_file_name, multi_sample,
+                                  self.get_global_step(), graph_number))
 
-            dx, dy = 0.1, 0.1
-            x = np.arange(-35, 10, dx)
-            y = np.flip(np.arange(-30, 15, dy), axis=0)  # Image Y axes are down positive, map axes are up positive.
-            xx, yy = np.meshgrid(x, y)
-            xxyy = np.c_[xx.ravel(), yy.ravel()]
-            extent = np.min(x), np.max(x), np.min(y), np.max(y)
-
-            # Return probability sum here.
-            heatmaps = []
-            mu1s = []
-            mu2s = []
-            plot_time = time.time()
-            for sampled_mix in mixes:
-                sample_time = time.time()
-                for timeslot in sampled_mix:
-                    gaussian_heatmaps = []
-                    for gaussian in timeslot:
-                        pi, mu1, mu2, s1, s2, rho = gaussian
-                        mu1s.append(mu1)
-                        mu2s.append(mu2)
-                        cov = np.array([[s1 * s1, rho * s1 * s2], [rho * s1 * s2, s2 * s2]])
-                        norm = scipy.stats.multivariate_normal(mean=(mu1, mu2), cov=cov)
-                        zz = norm.pdf(xxyy)
-                        zz *= pi
-                        zz = zz.reshape((len(xx),len(yy)))
-                        gaussian_heatmaps.append(zz)
-                    gaussian_heatmaps /= np.max(gaussian_heatmaps) #Normalize such that each timestep has equal weight
-                    heatmaps.extend(gaussian_heatmaps)
-                # print "Time for this sample: " + str(time.time() - sample_time)
-            # print "Time for gaussian plot of one track: " + str(time.time() - plot_time)
-            # Its about 7 seconds per plot
-
-            final_heatmap = sum(heatmaps)
-
-            image_filename = 'leith-croydon.png'
-            background_img = plt.imread(os.path.join('images', image_filename))
-            plt.imshow(background_img, zorder=0, extent=[-15.275-(147.45/2),-15.275+(147.45/2),-3.1-(77/2),-3.1+(77/2)])
-            plt.imshow(final_heatmap, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent,zorder=1)
-
-            fig_path = os.path.join(self.plot_directory + "_img",
-                                    ("no_pred_track-" if draw_prediction_track is False else "")
-                                    + str(multi_sample) + "-" +  self.log_file_name + '-' +
-                                    str(self.get_global_step()) + '-' + str(graph_number) + '.png')
-            plt.savefig(fig_path, bbox_inches='tight')
-
-            # Now inject into tensorboard
-            fig.canvas.draw()
-            fig_s = fig.canvas.tostring_rgb()
-            fig_data = np.fromstring(fig_s,np.uint8)
-            fig_data = fig_data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-            s = StringIO.StringIO()
-            plt.imsave(s, fig_data,format='png')
-            fig_data = s.getvalue()
-            graph_list.append(fig_data)
-            plt.close()
-
+        if multithread and final_run:
+            self.join_subprocesses()
         return graph_list
 
     def compute_distance_f1_report(self, dist_results):
