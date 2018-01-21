@@ -10,6 +10,7 @@ from bokeh.plotting import figure, show
 from bokeh.io import output_notebook
 import os
 import dill as pickle
+import utils
 
 class ibeoCSVImporter:
     def __init__(self, parameters, csv_name):
@@ -19,12 +20,13 @@ class ibeoCSVImporter:
         self.labelled_track_list = []
         # Check if I have cached this already
         # name it after the last csv in csv_name
-        cache_name = abs(hash(tuple(csv_name)))
+        cache_name = abs(hash(tuple(csv_name)) + utils.get_library_hash(['ibeoCSVImporter.py']))
         file_path = 'data/' + str(cache_name) + ".pkl"
         if not os.path.isfile(file_path):
             for csv_file in csv_name:
                 print "Reading CSV " + csv_file
                 input_df = pd.read_csv('data/' + csv_file)
+                input_df['csv_name'] = [csv_file]*len(input_df)
                 self.lookup_intersection_extent(csv_file)
                 parsed_df = self._parse_ibeo_df(input_df)
                 input_df = None
