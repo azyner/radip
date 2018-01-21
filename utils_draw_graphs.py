@@ -15,7 +15,7 @@ import dill as pickle
 
 
 def draw_png_heatmap_graph(obs, preds, gt, mixes,plt_size, draw_prediction_track, plot_directory, log_file_name,
-                           multi_sample, global_step, graph_number):
+                           multi_sample, global_step, graph_number, fig_dir, csv_name):
     legend_str = []
     fig = plt.figure(figsize=plt_size)
     plt.plot(gt[:, 0], gt[:, 1], 'b-', zorder=3)
@@ -27,9 +27,16 @@ def draw_png_heatmap_graph(obs, preds, gt, mixes,plt_size, draw_prediction_track
             plt.plot(preds[j][:, 0], preds[j][:, 1], 'r-', zorder=5)
         legend_str.append(['Predictions'])
 
+    if 'queen-hanks' in csv_name:
+        x_range = (3, 47)
+        y_range = (-17, 11)
+    if 'leith-croydon' in csv_name:
+        x_range = (-35, 10)
+        y_range = (-30, 15)
+
     dx, dy = 0.1, 0.1
-    x = np.arange(-35, 10, dx)
-    y = np.flip(np.arange(-30, 15, dy), axis=0)  # Image Y axes are down positive, map axes are up positive.
+    x = np.arange(min(x_range), max(x_range), dx)
+    y = np.flip(np.arange(min(y_range), max(y_range), dy), axis=0)  # Image Y axes are down positive, map axes are up positive.
     xx, yy = np.meshgrid(x, y)
     xxyy = np.c_[xx.ravel(), yy.ravel()]
     extent = np.min(x), np.max(x), np.min(y), np.max(y)
@@ -70,12 +77,19 @@ def draw_png_heatmap_graph(obs, preds, gt, mixes,plt_size, draw_prediction_track
     # Its about 7 seconds per plot
 
     final_heatmap = sum(heatmaps)
-    image_filename = 'leith-croydon.png'
-    background_img = plt.imread(os.path.join('images', image_filename))
-    plt.imshow(background_img, zorder=0,
-               extent=[-15.275 - (147.45 / 2), -15.275 + (147.45 / 2), -3.1 - (77 / 2), -3.1 + (77 / 2)])
+    if 'queen-hanks' in csv_name:
+        x_range = (3, 47)
+        y_range = (-17, 11)
+    if 'leith-croydon' in csv_name:
+        x_range = (-35, 10)
+        y_range = (-30, 15)
+    if 'leith-croydon' in csv_name:
+        image_filename = 'leith-croydon.png'
+        background_img = plt.imread(os.path.join('images', image_filename))
+        plt.imshow(background_img, zorder=0,
+                   extent=[-15.275 - (147.45 / 2), -15.275 + (147.45 / 2), -3.1 - (77 / 2), -3.1 + (77 / 2)])
     plt.imshow(final_heatmap, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent, zorder=1)
-    fig_path = os.path.join(plot_directory + "_img",
+    fig_path = os.path.join(fig_dir,
                             ("no_pred_track-" if draw_prediction_track is False else "")
                             + str(multi_sample) + "-" + log_file_name + '-' +
                             str(global_step) + '-' + str(graph_number) + '.png')
@@ -103,6 +117,7 @@ if __name__ == "__main__":
     data = pickle.loads(sys.stdin.read())
     fig_return_data = draw_png_heatmap_graph(data['obs'], data['preds'], data['gt'], data['mixes'], data['plt_size'],
                                       data['draw_prediction_track'], data['plot_directory'], data['log_file_name'],
-                                      data['multi_sample'], data['global_step'], data['graph_number'])
+                                      data['multi_sample'], data['global_step'], data['graph_number'], data['fig_dir'],
+                                             data['csv_name'])
 
 

@@ -457,6 +457,7 @@ class NetworkManager:
         multi_sampled_predictions = []
         observations = batch_frame['encoder_sample'].as_matrix()
         ground_truths = batch_frame['decoder_sample'].as_matrix()
+        csv_names = batch_frame['csv_name'].as_matrix()
 
         for i in range(multi_sample):
             # BEGIN Run this step 100 times and dimensionalize results.
@@ -471,18 +472,27 @@ class NetworkManager:
 
         multi_sampled_predictions = np.swapaxes(np.array(multi_sampled_predictions),0,1)
 
+        # I should probably copy all images here.
         image_filename = 'leith-croydon.png'
         if not os.path.exists(os.path.join(self.plot_directory, image_filename)):
             shutil.copy(os.path.join('images', image_filename), os.path.join(self.plot_directory, image_filename))
 
         plots = []
         plot_count = 0
-        for obs, preds, gt in zip(observations, multi_sampled_predictions, ground_truths):
+        for obs, preds, gt, csv_name in zip(observations, multi_sampled_predictions, ground_truths, csv_names):
             #New plot
+
+            if 'queen-hanks' in csv_name:
+                x_range = (3, 47)
+                y_range = (-17, 11)
+            if 'leith-croydon' in csv_name:
+                x_range = (-35, 10)
+                y_range = (-30, 15)
             p = figure(plot_height=500, plot_width=500, title="Generative track testing",
-                       x_range=(-35, 10), y_range=(-30, 15))
-            p.image_url([image_filename], x=-15.275, y=-3.1, w=147.45, h=77.0, angle=0,
-                    anchor='center', global_alpha=0.7)
+                       x_range=x_range, y_range=y_range)
+            if 'leith-croydon' in csv_name:
+                p.image_url(['leith-croydon.png'], x=-15.275, y=-3.1, w=147.45, h=77.0, angle=0,
+                        anchor='center', global_alpha=0.7)
 
             p.line(gt[:,0],gt[:,1],line_color='blue',legend='Ground_truth')
             p.line(obs[:,0],obs[:,1],line_color='green',legend='observation')
@@ -523,7 +533,10 @@ class NetworkManager:
 
     def draw_generative_png_graphs(self, batch_handler, multi_sample=1, draw_prediction_track=True, final_run=False, ):
 
-        fig_dir = self.plot_directory + "_img"
+        if not final_run:
+            fig_dir = self.plot_directory + "_img"
+        else:
+            fig_dir = self.plot_directory + "_img_final"
         if not os.path.exists(fig_dir):
             os.makedirs(fig_dir)
 
@@ -542,6 +555,7 @@ class NetworkManager:
                 batch_frame['padding'])
         observations = batch_frame['encoder_sample'].as_matrix()
         ground_truths = batch_frame['decoder_sample'].as_matrix()
+        csv_names = batch_frame['csv_name'].as_matrix()
         train_y = graph_future
 
         multi_sampled_predictions = []
@@ -567,7 +581,8 @@ class NetworkManager:
         if multithread:
             # Wait for any old threads to finish. Not allowed to spawn multiple sets of children, it gets out of hand fast.
             self.join_subprocesses()
-        for obs, preds, gt, mixes in zip(observations, multi_sampled_predictions, ground_truths, multi_sampled_mixtures):
+        for obs, preds, gt, mixes, csv_name in zip(observations, multi_sampled_predictions, ground_truths,
+                                                   multi_sampled_mixtures, csv_names):
             graph_number += 1
             # WARNING! If you want more than ten, turn off multithreading. I don't use a queue.
             # The kernel handles all of them, so they will all get memory alloc. Looks to be 200MB each
@@ -585,7 +600,9 @@ class NetworkManager:
                              "log_file_name": self.log_file_name,
                              "multi_sample": multi_sample,
                              "global_step": self.get_global_step(),
-                             "graph_number": graph_number}
+                             "graph_number": graph_number,
+                             "fig_dir": fig_dir,
+                             "csv_name": csv_name}
                 # HACK I would prefer a child that then maintains its own children with queued workers. This allows
                 # the child process to hand out fresh jobs without interrupting main, but its a lot of work. So instead,
                 # to stop starving main, I force these to only be able to use half the cores.
@@ -599,7 +616,7 @@ class NetworkManager:
                 import utils_draw_graphs
                 graph_list.append(utils_draw_graphs.draw_png_heatmap_graph(obs, preds, gt, mixes, self.plt_size, draw_prediction_track,
                                   self.plot_directory, self.log_file_name, multi_sample,
-                                  self.get_global_step(), graph_number))
+                                  self.get_global_step(), graph_number, fig_dir, csv_name))
 
         if multithread and final_run:
             self.join_subprocesses()

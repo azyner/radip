@@ -53,7 +53,7 @@ class SequenceWrangler:
 
         if not os.path.exists(self.pool_dir):
             return False
-        file_path = os.path.join(self.pool_dir,self.get_pool_filename())
+        file_path = os.path.join(self.pool_dir, self.get_pool_filename())
         file_exists = os.path.isfile(file_path)
         if not file_exists:
             return False
@@ -346,7 +346,7 @@ class SequenceWrangler:
         master_pool = []
         # Don't put everything in the pool, it takes forever.
         data_columns = ['index', 'ObjectId', 'Timestamp', 'ObjectPredAge', 'Classification',
-          'ObjBoxOrientation',
+          'ObjBoxOrientation', 'csv_name',
           'Object_X', 'Object_Y', 'uniqueId', 'origin',
           'destination', 'AbsVelocity', 'distance', 'distance_to_exit']
         data_columns.extend(self.parameters['ibeo_data_columns'])

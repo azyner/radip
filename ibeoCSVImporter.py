@@ -253,8 +253,9 @@ class ibeoCSVImporter:
             obj_data["origin"] = [origin_label] * len(obj_data)
             obj_data["destination"] = [dest_label] * len(obj_data)
             #print("ID: " + str(uID) + " Origin: " + origin_label + " Destination: " + dest_label)
-            obj_data = obj_data.assign(AbsVelocity=np.sqrt(np.power(obj_data['AbsVelocity_X'],2)
-                                                           + np.power(obj_data['AbsVelocity_Y'],2)))
+            obj_data = obj_data.assign(AbsVelocity=np.sqrt(np.power(obj_data['AbsVelocity_X'], 2)
+                                                           + np.power(obj_data['AbsVelocity_Y'], 2)))
+
             clean_tracks.append(obj_data)
         sys.stdout.write(" Found %d clean tracks" % (len(clean_tracks)))
         sys.stdout.write("\t\t%4s" % "[ OK ]")
