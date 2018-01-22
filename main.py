@@ -108,6 +108,8 @@ ibeo = True
 source_list = []
 for i in range(31):
     source_list.append("split_20180116-082129-urban-stationary-queen-hanks_%02d.csv" % (i+1))
+#for i in range(24):
+#    source_list.append("split_20180119-112135-urban-stationary-roslyn-crieff_%02d.csv" % (i + 1))
 sourcename = source_list[0]
 
 Wrangler = SequenceWrangler.SequenceWrangler(parameters,source_list,n_folds=parameters.parameters['n_folds'])

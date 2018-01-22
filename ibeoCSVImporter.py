@@ -81,10 +81,22 @@ class ibeoCSVImporter:
             # left right bottom top
             top_exit = [26, 30, 6, 7]
             right_exit = [41, 42, -3, 3]
+            right_enter = [41, 42, -9, -6]
             left_enter = [18, 20, -2, 2]
+            left_exit = [18, 20, -10, -6]
             bottom_exit = [30, 35, -14, -13]
-            self.dest_gates = {"north": right_exit, "east": bottom_exit, "west": top_exit}
-            self.origin_gates = {"south": left_enter}
+            self.dest_gates = {"north": right_exit, "east": bottom_exit, "west": top_exit, "south": left_exit}
+            self.origin_gates = {"south": left_enter, "north": right_enter}
+        if 'roslyn-crieff' in csv_name:
+            # left right bottom top
+            right_exit = [-12,-10,-4,2]
+            right_enter = [-12,-10,-12,8]
+            left_enter = [-31,-29,-3,1]
+            left_exit = [-31,-29,-13,-8]
+            top_exit = [-27,-24,3,5]
+            bottom_exit = [-18,-14,-15,-13]
+            self.dest_gates = {"NW": right_exit, "NE": bottom_exit, "SW": top_exit, "SE": left_exit}
+            self.origin_gates = {"SE": left_enter, "NW": right_enter}
 
     def get_track_list(self):
         return self.labelled_track_list
