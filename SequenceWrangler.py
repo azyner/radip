@@ -15,7 +15,7 @@ import utils
 
 
 class SequenceWrangler:
-    def __init__(self,parameters,sourcename, n_folds=5, training=0.55,val=0.2,test=0.25):
+    def __init__(self, parameters, sourcename, n_folds=5, training=0.55, val=0.2, test=0.25):
         self.n_folds = n_folds
         self.parameters = parameters.parameters
         #TODO Normalize the below splits
@@ -280,10 +280,18 @@ class SequenceWrangler:
         dtype = 'object')
         '''
 
-        ibeo_data_columns = ["Object_X","Object_Y","ObjBoxOrientation","AbsVelocity_X","AbsVelocity_Y","ObjectPredAge"]
+        # ibeo_data_columns = ["Object_X","Object_Y","ObjBoxOrientation","AbsVelocity_X","AbsVelocity_Y","ObjectPredAge"]
 
         output_df = single_track.loc[:,self.parameters["ibeo_data_columns"]].values.astype(np.float32)
         return output_df
+
+    def _pad_single_track(self, single_track, padding_length):
+        # Track is padded unconditionally by the length of the future_track
+        track_padding_bool = [False] * len(single_track) + [True] * padding_length
+        single_track = single_track.append(single_track.iloc[[-1]*padding_length], ignore_index=True)
+        single_track['trackwise_padding'] = track_padding_bool
+
+        return single_track
 
     def generate_master_pool_ibeo(self, ibeo_track_list):
 
@@ -363,22 +371,28 @@ class SequenceWrangler:
             try:
                 wrangle_time = time.time()
                 single_track = ibeo_track_list[track_raw_idx]
+                # Pad end of tracks with the last value, and flag it is padding
+                if self.parameters['track_padding']:
+                    single_track = self._pad_single_track(single_track, self.parameters['prediction_steps'])
                 origin = single_track.iloc[0]['origin']
                 destination = single_track.iloc[0]['destination']
                 destination_vec = des_encoder.transform([destination])
+                # Limit the df to only meaningful data
                 data_for_encoders = self._extract_ibeo_data_for_encoders(single_track)
 
                 # Do not scale here. Scaling is to be done as the first network layer.
                 df_template = _generate_ibeo_template(track_raw_idx, origin + "-" + destination, origin, destination,
                                                       destination_vec)
                 # Instead, I am going to give the new track slicer a list for distance, as I have pre-computed it.
+
                 track_pool = self._track_slicer(data_for_encoders,
                                                 self.parameters['observation_steps'],
                                                 self.parameters['prediction_steps'],
                                                 df_template, # Metadata that is static across the whole track
                                                 distance=single_track['distance'],#metadata that changes in the track.
                                                 distance_to_exit=single_track['distance_to_exit'],
-                                                additional_df=single_track[data_columns]) #Everything else. Useful for post network analysis
+                                                additional_df=single_track[data_columns], #Everything else. Useful for post network analysis
+                                                padding_vec=single_track['trackwise_padding'])
                 master_pool.append(track_pool)
                 #print "wrangle time: " + str(time.time()-wrangle_time)
             except ValueError:
@@ -469,8 +483,10 @@ class SequenceWrangler:
 
     # So track slicer is only handling one track at a time. It should be passed a set of common parameters
     #   For example: destination label, or vehicle type etc.
+    # additional DF is any data that changes per training sample. Padding is a special case, as it changes per data sample, not
+    # per training sample
     def _track_slicer(self, track, encoder_steps, decoder_steps, df_template,
-                      bbox=None,distance=None,distance_to_exit=None, additional_df=None):
+                      bbox=None,distance=None,distance_to_exit=None, additional_df=None, padding_vec=None):
         """
         creates new data frame based on previous observation
           * example:
@@ -493,8 +509,12 @@ class SequenceWrangler:
             sample_dataframe["encoder_sample"] = pd.Series([track[i: i + encoder_steps]], dtype=object)
             sample_dataframe["decoder_sample"] = pd.Series([track[i + encoder_steps:i + (encoder_steps + decoder_steps)]],
                                                            dtype=object)
+            if padding_vec is not None:
+                # .as_matrix() --> Pandas tries to be smart later, and it just breaks my indexing
+                sample_dataframe["trackwise_padding"] = pd.Series([padding_vec.as_matrix()[i + encoder_steps:i + (encoder_steps + decoder_steps)]],
+                                                           dtype=object)
             if bbox is not None:
-                sample_dataframe["distance"] = dis[i+encoder_steps-1] #distance for the last element given to encoder
+                sample_dataframe["distance"] = dis[i+encoder_steps-1]  # distance for the last element given to encoder
             if distance is not None:
                 sample_dataframe["distance"] = distance[i+encoder_steps-1]
             if distance_to_exit is not None:

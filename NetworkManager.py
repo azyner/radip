@@ -447,11 +447,12 @@ class NetworkManager:
 
         #Get results:
         batch_frame = batch_handler.get_minibatch()
-        graph_x, graph_future, weights, graph_labels = \
+        graph_x, graph_future, weights, graph_labels, track_padded = \
             batch_handler.format_minibatch_data(
                 batch_frame['encoder_sample'],
                 batch_frame['decoder_sample'],
-                batch_frame['padding'])
+                batch_frame['batchwise_padding'],
+                batch_frame['trackwise_padding'] if self.parameters['track_padding'] else None)
         train_y = graph_future
 
         multi_sampled_predictions = []
@@ -548,11 +549,12 @@ class NetworkManager:
         else:
             batch_frame = batch_handler.get_minibatch()
 
-        graph_x, graph_future, weights, graph_labels = \
+        graph_x, graph_future, weights, graph_labels, track_padded = \
             batch_handler.format_minibatch_data(
                 batch_frame['encoder_sample'],
                 batch_frame['decoder_sample'],
-                batch_frame['padding'])
+                batch_frame['batchwise_padding'],
+                batch_frame['trackwise_padding'] if self.parameters['track_padding'] else None)
         observations = batch_frame['encoder_sample'].as_matrix()
         ground_truths = batch_frame['decoder_sample'].as_matrix()
         csv_names = batch_frame['csv_name'].as_matrix()
@@ -711,18 +713,20 @@ class NetworkManager:
                 #print "Running batch"
                 sys.stdout.write("\rWriting distance report...%s" % busy_indicator[batch_counter%len(busy_indicator)])
                 sys.stdout.flush()
-                mini_batch_frame,batch_complete = batch_handler.get_sequential_minibatch()
+                mini_batch_frame, batch_complete = batch_handler.get_sequential_minibatch()
                 #TODO check if mini_batch_frame is empty here. If I have no data at all for this range.
                 if mini_batch_frame is None:
                     break
-                val_x, val_future, val_weights, val_labels = \
+                val_x, val_future, val_weights, val_labels, track_padded = \
                     batch_handler.format_minibatch_data(mini_batch_frame['encoder_sample'],
                                                         mini_batch_frame['dest_1_hot'] if
                                                         self.parameters['model_type'] == 'classifier' else
                                                         mini_batch_frame['decoder_sample'] if
                                                         self.parameters['model_type'] == 'MDN' else exit(2),
-                                                        mini_batch_frame['padding'])
-                valid_data = np.logical_not(mini_batch_frame['padding'].values)
+                                                        mini_batch_frame['batchwise_padding'],
+                                                        mini_batch_frame['trackwise_padding'] if
+                                                        self.parameter_dict['track_padding'] else None)
+                valid_data = np.logical_not(mini_batch_frame['batchwise_padding'].values)
                 val_y = val_labels if self.parameters['model_type'] == 'classifier' else \
                           val_future if self.parameters['model_type'] == 'MDN' else exit(3)
                 #print "Time to get minibatch: " + str(time.time()-batch_time)
@@ -749,7 +753,7 @@ class NetworkManager:
                 # Drop all results that are just padding to make the minibatch square.
                 output_pop = output_pop[valid_data]
                 acc_pop = acc_pop[valid_data]
-                mini_batch_frame = mini_batch_frame[mini_batch_frame['padding'] == False]
+                mini_batch_frame = mini_batch_frame[mini_batch_frame['batchwise_padding'] == False]
 
                 # TODO Repeal and replace this qualifier.
                 # Compute max pop. Assign it to idx for now. LEGACY FUNCTION
@@ -828,12 +832,13 @@ class NetworkManager:
             else:
                 mini_batch_frame,batch_complete = batch_handler.get_sequential_minibatch()
 
-            val_x, val_future, val_weights, val_labels = batch_handler.format_minibatch_data(
+            val_x, val_future, val_weights, val_labels, track_padded = batch_handler.format_minibatch_data(
                 mini_batch_frame['encoder_sample'],
                 mini_batch_frame['dest_1_hot'] if self.parameters['model_type'] == 'classifier' else
                 mini_batch_frame['decoder_sample'] if self.parameters['model_type'] == 'MDN' else exit(2),
-                mini_batch_frame['padding'])
-            valid_data = np.logical_not(mini_batch_frame['padding'].values)
+                mini_batch_frame['batchwise_padding'],
+                mini_batch_frame['trackwise_padding'] if self.parameters['track_padding'] else None)
+            valid_data = np.logical_not(mini_batch_frame['batchwise_padding'].values)
             val_y = val_labels if self.parameters['model_type'] == 'classifier' else \
                 val_future if self.parameters['model_type'] == 'MDN' else exit(3)
             acc, loss, outputs, mixtures = \

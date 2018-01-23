@@ -100,15 +100,19 @@ class BatchHandler:
     # i.e. a list of length batch size, containing [time, input_size] elements
     # and converts it to a list of length time, containing [batch input_size] elements
 
-    def format_minibatch_data(self, X, Y, pad_vector):
+    def format_minibatch_data(self, X, Y, batchwise_padding, trackwise_padding=None):
         if type(X) is not list:
             X = list(X)
         if type(Y) is not list:
             Y = list(Y)
-        if type(pad_vector) is not list:
-            pad_vector = list(pad_vector)
+        if type(batchwise_padding) is not list:
+            batchwise_padding = list(batchwise_padding)
+        if trackwise_padding is not None:
+            if type(trackwise_padding) is not list:
+                trackwise_padding = list(trackwise_padding)
 
-        batch_observation_inputs, batch_future_inputs, batch_weights, batch_labels = [], [], [], []
+        batch_observation_inputs, batch_future_inputs, batch_weights, batch_labels, formatted_trackwise_padding = \
+            [], [], [], [], []
 
         # Batch encoder inputs are just re-indexed encoder_inputs.
         # Need to re-index to make an encoder_steps long list of shape [batch input_size]
@@ -192,7 +196,7 @@ class BatchHandler:
             batch_frame.encoder_sample = batch_frame.encoder_sample + (aug*aug_mask)
         batch_frame.encoder_sample = batch_frame.encoder_sample*self.input_mask
 
-        batch_frame = batch_frame.assign(padding=np.zeros(self.batch_size, dtype=bool))
+        batch_frame = batch_frame.assign(batchwise_padding=np.zeros(self.batch_size, dtype=bool))
         return batch_frame # batch_X, batch_Y, batch_weights
 
         # Testing / validating
@@ -212,7 +216,7 @@ class BatchHandler:
             if (self.val_minibatch_idx+self.batch_size) > len(data_pool):
                 # Collect the remaining data
                 batch_frame = data_pool.iloc[self.val_minibatch_idx:].copy()
-                batch_frame = batch_frame.assign(padding=np.zeros(len(batch_frame), dtype=bool))
+                batch_frame = batch_frame.assign(batchwise_padding=np.zeros(len(batch_frame), dtype=bool))
 
                 total_padding = self.batch_size - (len(batch_frame))
                 pad_vector = np.zeros(self.batch_size, dtype=bool)
@@ -224,14 +228,14 @@ class BatchHandler:
                     pad_length = self.batch_size - (len(batch_frame))
                     # This works because if pad_length > len(data_pool), it just returns the whole pool
                     padding_frame = data_pool.iloc[0:pad_length].copy()
-                    padding_frame = padding_frame.assign(padding=np.ones(len(padding_frame), dtype=bool))
+                    padding_frame = padding_frame.assign(batchwise_padding=np.ones(len(padding_frame), dtype=bool))
                     batch_frame = pd.concat([batch_frame, padding_frame])
 
                 batch_complete = True
                 self.val_minibatch_idx = 0
             else:
                 batch_frame = data_pool.iloc[self.val_minibatch_idx:self.val_minibatch_idx + self.batch_size].copy()
-                batch_frame = batch_frame.assign(padding=np.zeros(len(batch_frame), dtype=bool))
+                batch_frame = batch_frame.assign(batchwise_padding=np.zeros(len(batch_frame), dtype=bool))
                 self.val_minibatch_idx += self.batch_size
 
                 # Did we get lucky and have no remainder?

@@ -57,12 +57,13 @@ class TrainingManager:
                 batch_frame = training_batch_handler.get_minibatch()
                 # print "Time to get batch: " + str(time.time()-step_start_time)
 
-                train_x, train_future, weights, train_labels = \
+                train_x, train_future, weights, train_labels, track_padded = \
                 training_batch_handler.format_minibatch_data(
                     batch_frame['encoder_sample'],
                     batch_frame['dest_1_hot'] if self.parameter_dict['model_type'] == 'classifier' else
                     batch_frame['decoder_sample'] if self.parameter_dict['model_type'] == 'MDN' else exit(2),
-                    batch_frame['padding'])
+                    batch_frame['batchwise_padding'],
+                batch_frame['trackwise_padding'] if self.parameter_dict['track_padding'] else None)
                 train_y = train_labels if self.parameter_dict['model_type'] == 'classifier' else \
                           train_future if self.parameter_dict['model_type'] == 'MDN' else exit(3)
 

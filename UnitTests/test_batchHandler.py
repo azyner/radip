@@ -29,7 +29,7 @@ class TestBatchHandler(TestCase):
             validation_batch_handler = BatchHandler.BatchHandler(val_pool,parameters.parameters,False)
 
             batch_frame = training_batch_handler.get_minibatch()
-            train_x, _, weights, train_y = training_batch_handler.format_minibatch_data(batch_frame['encoder_sample'],
+            train_x, _, weights, train_y, _ = training_batch_handler.format_minibatch_data(batch_frame['encoder_sample'],
                                                                                      batch_frame['dest_1_hot'],
                                                                                      batch_frame['padding'])
 
@@ -45,7 +45,7 @@ class TestBatchHandler(TestCase):
                 pad_array = []
                 while not complete:
                     batch_frame, complete = validation_batch_handler.get_sequential_minibatch()
-                    train_x, _, weights, train_y = training_batch_handler.format_minibatch_data(
+                    train_x, _, weights, train_y, _ = training_batch_handler.format_minibatch_data(
                         batch_frame['encoder_sample'],
                         batch_frame['dest_1_hot'],
                         batch_frame['padding'])
@@ -62,7 +62,7 @@ class TestBatchHandler(TestCase):
                 total_valid = 0
                 while not complete:
                     batch_frame, complete = validation_batch_handler.get_sequential_minibatch()
-                    train_x, _, weights, train_y = training_batch_handler.format_minibatch_data(
+                    train_x, _, weights, train_y, _ = training_batch_handler.format_minibatch_data(
                         batch_frame['encoder_sample'],
                         batch_frame['dest_1_hot'],
                         batch_frame['padding'])
