@@ -122,18 +122,22 @@ class BatchHandler:
             batch_future_inputs.append(
                     np.array([Y[batch_idx][length_idx]
                     for batch_idx in xrange(self.batch_size)], dtype=np.float32))
-            # TODO wrangle pad_vector here
-            batch_weight = np.ones(self.batch_size, dtype=np.float32)
+            batch_weight = np.logical_not(batchwise_padding) * np.ones(self.batch_size, dtype=np.float32)
             batch_weights.append(batch_weight)
+            if trackwise_padding is not None:
+                formatted_trackwise_padding.append(
+                        np.array([trackwise_padding[batch_idx][length_idx]
+                        for batch_idx in xrange(self.batch_size)], dtype=np.bool))
 
         # Encapsulate the label data in a list of size 1 to mimic a decoder seq of len 1
         if self.parameters['prediction_steps'] == 0:
             batch_labels = [Y]
-            batch_weights = [np.logical_not(pad_vector)*np.ones(self.batch_size, dtype=np.float32)]
-
+            batch_weights = [np.logical_not(batchwise_padding) * np.ones(self.batch_size, dtype=np.float32)]
+        if trackwise_padding is None:
+            formatted_trackwise_padding = None
         # Batch_observation_inputs is now list of len encoder_steps, shape batch, input_size.
         #  Similarly with batch_future_inputs
-        return batch_observation_inputs, batch_future_inputs, batch_weights, batch_labels
+        return batch_observation_inputs, batch_future_inputs, batch_weights, batch_labels, formatted_trackwise_padding
 
 
     # This function collects the mini-batch for training
