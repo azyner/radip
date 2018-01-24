@@ -164,9 +164,9 @@ class NetworkManager:
         self.sess.run(self.model.learning_rate_decay_op)
         return
 
-    def run_training_step(self, X, Y, weights, train_model, summary_writer=None):
+    def run_training_step(self, X, Y, weights, train_model, trackwise_padding=None, summary_writer=None):
         self.global_state_cached = False
-        return self.model.step(self.sess, X, Y, weights, train_model, summary_writer=summary_writer)
+        return self.model.step(self.sess, X, Y, weights, train_model,trackwise_padding, summary_writer=summary_writer)
 
     def draw_categorical_bokeh_linear_plot(self, graph_results):
         plot_titles = np.sort(graph_results['origin'].unique())
@@ -462,7 +462,7 @@ class NetworkManager:
 
         for i in range(multi_sample):
             # BEGIN Run this step 100 times and dimensionalize results.
-            return_val = self.model.step(self.sess, graph_x, train_y, weights, False, summary_writer=None)
+            return_val = self.model.step(self.sess, graph_x, train_y, weights, False, track_padded, summary_writer=None)
             acc = return_val[0]
             loss = return_val[1]
             model_outputs = return_val[2]
@@ -555,7 +555,7 @@ class NetworkManager:
         else:
             batch_frame = batch_handler.get_minibatch()
 
-        graph_x, graph_future, weights, graph_labels, track_padded = \
+        graph_x, graph_future, weights, graph_labels, trackwise_padding = \
             batch_handler.format_minibatch_data(
                 batch_frame['encoder_sample'],
                 batch_frame['decoder_sample'],
@@ -570,7 +570,7 @@ class NetworkManager:
         multi_sampled_mixtures = []
 
         for i in range(multi_sample):
-            return_val = self.model.step(self.sess, graph_x, train_y, weights, False, summary_writer=None)
+            return_val = self.model.step(self.sess, graph_x, train_y, weights, False, trackwise_padding, summary_writer=None)
             acc = return_val[0]
             loss = return_val[1]
             model_outputs = return_val[2]
@@ -742,7 +742,7 @@ class NetworkManager:
                 num_samples = 1
                 for _ in range(num_samples):
                     acc, loss, outputs, mixtures = self.model.step(self.sess, val_x, val_y,
-                                                         val_weights, False, summary_writer=None)
+                                                         val_weights, False, track_padded, summary_writer=None)
                     # Do a straight comparison between val_y and outputs.
                     #output_idxs = np.argmax(outputs[0][valid_data], axis=1)
                     output_samples.append(outputs)
@@ -848,7 +848,7 @@ class NetworkManager:
             val_y = val_labels if self.parameters['model_type'] == 'classifier' else \
                 val_future if self.parameters['model_type'] == 'MDN' else exit(3)
             acc, loss, outputs, mixtures = \
-                self.model.step(self.sess, val_x, val_y, val_weights, False, summary_writer=summary_writer)
+                self.model.step(self.sess, val_x, val_y, val_weights, False, track_padded, summary_writer=summary_writer)
 
             if self.parameters['model_type'] == 'classifier':
                 output_idxs = np.argmax(outputs[0][valid_data], axis=1)

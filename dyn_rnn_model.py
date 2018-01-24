@@ -76,25 +76,34 @@ class DynamicRnnSeq2Seq(object):
         #  no sense. Here a single layer without activation function is used, but it can be any number of
         #  non RNN layers / functions
         if self.model_type == 'MDN':
-            n_out = 6*self.num_mixtures
+            n_MDN_nodes_out = 6*self.num_mixtures
+        if self.parameters['track_padding']:
+            with tf.variable_scope('output_network_padding'):
+                o_pad_w = tf.get_variable("o_pad_w", [self.rnn_size, 2],
+                                          initializer=tf.truncated_normal_initializer(
+                                              stddev=1.0 / np.sqrt(self.embedding_size)))
+                o_pad_b = tf.get_variable("o_pad_b", [2],
+                                          initializer=tf.constant_initializer(0.1))
+                pad_output_projection = (o_pad_w, o_pad_b)
 
         ############## LAYERS ###################################
 
         # Layer is linear, just to re-scale the LSTM outputs [-1,1] to [-9999,9999]
         # If there is a regularizer, these weights should be excluded?
 
-        with tf.variable_scope('output_proj'):
-            o_w = tf.get_variable("proj_w", [self.rnn_size, n_out],
+        with tf.variable_scope('output_MDN_proj'):
+            MDN_o_w = tf.get_variable("proj_MDN_w", [self.rnn_size, n_MDN_nodes_out],
                                   initializer=tf.truncated_normal_initializer(stddev=1.0 / np.sqrt(self.embedding_size)))
-            o_b = tf.get_variable("proj_b", [n_out],
+            MDN_o_b = tf.get_variable("proj_MDN_b", [n_MDN_nodes_out],
                                   initializer=tf.constant_initializer(0.1))
-            output_projection = (o_w, o_b)
+            MDN_output_projection = (MDN_o_w, MDN_o_b)
 
         with tf.variable_scope('input_scaling'):
             i_s_m = tf.get_variable('in_scale_mean', shape=[self.input_size],trainable=False,initializer=tf.zeros_initializer())
             i_s_s = tf.get_variable('in_scale_stddev', shape=[self.input_size],trainable=False,initializer=tf.ones_initializer())
             scaling_layer = (i_s_m,i_s_s)
             self.scaling_layer = scaling_layer
+
         with tf.variable_scope('input_embedding_layer'):
             i_w = tf.get_variable("in_w", [self.input_size, self.embedding_size], # Remember, batch_size is automatic
                                   initializer=tf.truncated_normal_initializer(stddev=1.0/np.sqrt(self.embedding_size)))
@@ -134,15 +143,21 @@ class DynamicRnnSeq2Seq(object):
         # Don't double dropout
         #self._RNN_layers = tensorflow.contrib.rnn.DropoutWrapper(self._RNN_layers,output_keep_prob=keep_prob)
 
-        def output_function(output):
+        def MDN_output_function(output):
             return nn_ops.xw_plus_b(
-                        output, output_projection[0], output_projection[1],name="output_projection"
+                        output, MDN_output_projection[0], MDN_output_projection[1],name="MDN_output_projection"
+                    )
+
+        def pad_output_function(output):
+            return nn_ops.xw_plus_b(
+                        output, pad_output_projection[0], pad_output_projection[1],name="pad_output_projection"
                     )
 
         def _pad_missing_output_with_zeros(MDN_samples):
             # TODO Should not be needed, as it will occur later outside tensorflow - not anymore! I'm using raw_rnn now
             # Simple hack for now as I cannot get t-1 data for t_0 derivatives easily due to scoping problems.
             # sampled has shape 256,2 - it needs 256,4
+            # No longer used unless is set input mask as 1100
             if MDN_samples.shape[1] < scaling_layer[0].shape[0]:
                 resized = tf.concat([MDN_samples, tf.zeros(
                     [MDN_samples.shape[0], scaling_layer[0].shape[0] - MDN_samples.shape[1]], dtype=tf.float32)], 1)
@@ -168,6 +183,9 @@ class DynamicRnnSeq2Seq(object):
                                                 input_layer[0], input_layer[1])),
                                         1-parameters['embedding_dropout'])
 
+        def _padding_bool_to_logits(padding_bool):
+            return tf.one_hot(tf.to_int32(padding_bool), depth=2)
+
         """This was always the biggest side-loading hack.  Because I cannot give an initial state to the decoder
         raw_rnn, its done in the loop function by defining the function here, and pulling variables traditionally 
          outside of functional scope into the function.
@@ -185,16 +203,18 @@ class DynamicRnnSeq2Seq(object):
         output_ta = (tf.TensorArray(size=self.prediction_steps, dtype=tf.float32),  # Sampled output
                      tf.TensorArray(size=self.prediction_steps, dtype=tf.float32),  # loss
                      tf.TensorArray(size=self.prediction_steps+1, dtype=tf.float32),   # time-1 for derivative loopback
-                     tf.TensorArray(size=self.prediction_steps, dtype=tf.float32)) # MDN outputs # Its either real or generated
-                                                                                        # depending on feed_future_data
-                                                                                        # (always false for now)
+                     tf.TensorArray(size=self.prediction_steps, dtype=tf.float32),  # MDN outputs # Its either real or generated # depending on feed_future_data # (always false for now)
+                     tf.TensorArray(size=self.prediction_steps, dtype=tf.float32))  # dual logits for padding or not padding
 
-        def seq2seq_f(encoder_inputs, decoder_inputs, targets, last_input):
+        def seq2seq_f(encoder_inputs, decoder_inputs, targets, last_input, track_padding_vec=None):
             # returns (self.LSTM_output, self.internal_states)
             target_input_ta = tf.TensorArray(dtype=tf.float32, size=len(targets))
-
             for j in range(len(decoder_inputs)):
                 target_input_ta = target_input_ta.write(j, targets[j])
+            if track_padding_vec is not None:
+                track_padding_ta = tf.TensorArray(dtype=tf.bool, size=len(track_padding_vec))
+                for j in range(len(decoder_inputs)):
+                    track_padding_ta = track_padding_ta.write(j, track_padding_vec[j])
 
             """ First this runs the encoder, then it saves the last internal RNN c state, and passes that into the
             loop parameter as the initial condition. Then it runs the decoder."""
@@ -217,10 +237,11 @@ class DynamicRnnSeq2Seq(object):
                     next_loop_state = (output_ta[0],
                                        output_ta[1],
                                        output_ta[2].write(time, last_input),
-                                       output_ta[3])
+                                       output_ta[3],
+                                       output_ta[4])
                 else:
                     next_cell_state = cell_state
-                    projected_output = output_function(cell_output)
+                    projected_output = MDN_output_function(cell_output)
                     sampled = MDN.sample(projected_output, temperature=self.parameters['sample_temperature'])
                     upscale_sampled = _upscale_sampled_output(sampled)
                     if self.parameters['input_mask'][2:4] == [0,0]:
@@ -231,16 +252,27 @@ class DynamicRnnSeq2Seq(object):
                                                                    self.parameters['velocity_threshold'],
                                                                    subsample_rate=self.parameters['subsample'])
                     #next_sampled_input = _upscale_sampled_output(next_sampled_input)
-                    prev_target_ta = target_input_ta.read(time - 1) # Only allowed to call read() once. Dunno why.
-                    next_datapoint = next_sampled_input # tf.cond(feed_forward, lambda: prev_target_ta, lambda: next_sampled_input)
+                    target_ta = target_input_ta.read(time - 1) # Only allowed to call read() once. Dunno why.
+                    next_datapoint = next_sampled_input # tf.cond(feed_forward, lambda: target_ta, lambda: next_sampled_input)
                     next_input = _apply_scaling_and_input_layer(next_datapoint)
                     # That dotted loopy line in the diagram
 
-                    loss = MDN.lossfunc_wrapper(prev_target_ta, projected_output)
+                    loss = MDN.lossfunc_wrapper(target_ta, projected_output)
+                    timewise_track_padding = track_padding_ta.read(time - 1)
+                    timewise_track_padding_logits = _padding_bool_to_logits(timewise_track_padding)
+                    if track_padding_vec is not None:  # If we have declared padding is being used.
+                        loss = tf.multiply(loss, tf.to_float(tf.logical_not(timewise_track_padding))) # use padding as binary mask for loss
+                        padding_output = pad_output_function(cell_output)  # compute what the network thinks about padding
+                        loss += tf.nn.softmax_cross_entropy_with_logits(logits=padding_output,
+                                                                        labels=timewise_track_padding_logits)  # compare to GT
+                    else:
+                        padding_output = None  # loop_state write needs something at least
+
                     next_loop_state = (loop_state[0].write(time - 1, next_sampled_input),
                                        loop_state[1].write(time - 1, loss),
                                        loop_state[2].write(time, next_datapoint),
-                                       loop_state[3].write(time - 1, MDN.upscale_and_resolve_mixtures(projected_output, scaling_layer)))
+                                       loop_state[3].write(time - 1, MDN.upscale_and_resolve_mixtures(projected_output, scaling_layer)),
+                                       loop_state[4].write(time - 1, padding_output))
                                         #Its an off by one error I'd rather solve with a new array for readability
 
                 elements_finished = (
@@ -264,6 +296,7 @@ class DynamicRnnSeq2Seq(object):
         self.observation_inputs = []
         self.future_inputs = []
         self.target_weights = []
+        self.trackwise_padding_input = []
         targets = []
 
         # TODO REFACTOR the new RNN may not need this unrolling, check the input space
@@ -278,6 +311,11 @@ class DynamicRnnSeq2Seq(object):
             for i in xrange(self.prediction_steps):
                 self.target_weights.append(tf.placeholder(dtype, shape=[self.batch_size],
                                                         name="weight{0}".format(i)))
+        if self.parameters['track_padding']:
+            for i in xrange(self.prediction_steps):
+                self.trackwise_padding_input.append(tf.placeholder(tf.bool,
+                                                                   shape=[self.batch_size],
+                                                                   name="trackwise_padding{0}".format(i)))
             #targets are just the future data
             # Rescale gt data x1 and x2 such that the MDN is judged in smaller unit scale dimensions
             # This is because I do not expect the network to figure out the scaling, and so the Mixture is in unit size scale
@@ -288,6 +326,7 @@ class DynamicRnnSeq2Seq(object):
 
         #Hook for the input_feed
         self.target_inputs = targets
+############## IO and LAYER ASSIGNMENT ##############################
 
         #Leave the last observation as the first input to the decoder
         #self.encoder_inputs = self.observation_inputs[0:-1]
@@ -298,17 +337,20 @@ class DynamicRnnSeq2Seq(object):
 
         #decoder inputs are the last observation and all but the last future
         with tf.variable_scope('decoder_inputs'):
+            # Last observation
             self.decoder_inputs = [_apply_scaling_and_input_layer(self.observation_inputs[-1])]
-
-        # Todo should this have the input layer applied?
+            # TODO I don't think I use this anymore (after the first input). i.e. feed_future is hardcoded to False.
+            # The length is checked, though.
             self.decoder_inputs.extend([_apply_scaling_and_input_layer(self.future_inputs[i])
                                         for i in xrange(len(self.future_inputs) - 1)])
+        #
 
         #### SEQ2SEQ function HERE
 
         with tf.variable_scope('seq_rnn'):
             self.MDN_sampled_output, self.losses, self.internal_states, self.MDN_mixture_output =\
-                seq2seq_f(self.encoder_inputs, self.decoder_inputs, self.target_inputs, self.observation_inputs[-1])
+                seq2seq_f(self.encoder_inputs, self.decoder_inputs, self.target_inputs, self.observation_inputs[-1],
+                          self.trackwise_padding_input)
 
 ########### EVALUATOR / LOSS SECTION ###################
         # TODO There are several types of cost functions to compare tracks. Implement many
@@ -406,7 +448,7 @@ class DynamicRnnSeq2Seq(object):
     READ https://hanxiao.github.io/2017/08/16/Why-I-use-raw-rnn-Instead-of-dynamic-rnn-in-Tensorflow-So-Should-You-0/
     
     """
-    def step(self, session, observation_inputs, future_inputs, target_weights, train_model, summary_writer=None):
+    def step(self, session, observation_inputs, future_inputs, target_weights, train_model, trackwise_padding=None, summary_writer=None):
         """Run a step of the model feeding the given inputs.
         Args:
           session: tensorflow session to use.
@@ -441,6 +483,9 @@ class DynamicRnnSeq2Seq(object):
         if self.model_type == 'classifier':
                 input_feed[self.target_inputs[0].name] = future_inputs[0]
                 input_feed[self.target_weights[0].name] = target_weights[0]
+        if trackwise_padding is not None:
+            for l in xrange(self.prediction_steps):
+                input_feed[self.trackwise_padding_input[l].name] = trackwise_padding[l]
 
         # Output feed: depends on whether we do a backward step or not.
         if train_model:

@@ -13,8 +13,7 @@ import sys
 import dill as pickle
 
 
-
-def draw_png_heatmap_graph(obs, preds, gt, mixes,plt_size, draw_prediction_track, plot_directory, log_file_name,
+def draw_png_heatmap_graph(obs, preds, gt, mixes, plt_size, draw_prediction_track, plot_directory, log_file_name,
                            multi_sample, global_step, graph_number, fig_dir, csv_name):
     legend_str = []
     fig = plt.figure(figsize=plt_size)
