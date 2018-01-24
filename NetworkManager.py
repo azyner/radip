@@ -489,6 +489,12 @@ class NetworkManager:
             if 'leith-croydon' in csv_name:
                 x_range = (-35, 10)
                 y_range = (-30, 15)
+            if 'roslyn-crieff' in csv_name:
+                x_range = (-31, -10)
+                y_range = (-15, 8)
+            if 'oliver-wyndora' in csv_name:
+                x_range = (-28, -8)
+                y_range = (-12, 6)
             p = figure(plot_height=500, plot_width=500, title="Generative track testing",
                        x_range=x_range, y_range=y_range)
             if 'leith-croydon' in csv_name:

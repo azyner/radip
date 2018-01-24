@@ -33,6 +33,12 @@ def draw_png_heatmap_graph(obs, preds, gt, mixes,plt_size, draw_prediction_track
     if 'leith-croydon' in csv_name:
         x_range = (-35, 10)
         y_range = (-30, 15)
+    if 'roslyn-crieff' in csv_name:
+        x_range = (-31, -10)
+        y_range = (-15, 8)
+    if 'oliver-wyndora' in csv_name:
+        x_range = (-28, -8)
+        y_range = (-12, 6)
 
     dx, dy = 0.1, 0.1
     x = np.arange(min(x_range), max(x_range), dx)
