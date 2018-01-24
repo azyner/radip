@@ -67,7 +67,7 @@ class TrainingManager:
                 train_y = train_labels if self.parameter_dict['model_type'] == 'classifier' else \
                           train_future if self.parameter_dict['model_type'] == 'MDN' else exit(3)
 
-                accuracy, step_loss, _, _ = netManager.run_training_step(train_x, train_y, weights,
+                accuracy, step_loss, _, _, _ = netManager.run_training_step(train_x, train_y, weights,
                                                                          True, track_padded)
                 # print "Time to step: " + str(time.time() - step_start_time)
 
@@ -84,7 +84,7 @@ class TrainingManager:
             if current_step % (steps_per_checkpoint/2) == 0 or \
                 current_step % steps_per_checkpoint == 0 or \
                 final_run:
-                train_acc, train_step_loss, _, _ = netManager.run_training_step(train_x, train_y, weights, False,
+                train_acc, train_step_loss, _, _, _ = netManager.run_training_step(train_x, train_y, weights, False,
                                                                                 track_padded,
                                                                                 summary_writer=netManager.train_writer)
                 #val_time = time.time()

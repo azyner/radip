@@ -166,7 +166,7 @@ class NetworkManager:
 
     def run_training_step(self, X, Y, weights, train_model, trackwise_padding=None, summary_writer=None):
         self.global_state_cached = False
-        return self.model.step(self.sess, X, Y, weights, train_model,trackwise_padding, summary_writer=summary_writer)
+        return self.model.step(self.sess, X, Y, weights, train_model, trackwise_padding, summary_writer=summary_writer)
 
     def draw_categorical_bokeh_linear_plot(self, graph_results):
         plot_titles = np.sort(graph_results['origin'].unique())
@@ -467,6 +467,7 @@ class NetworkManager:
             loss = return_val[1]
             model_outputs = return_val[2]
             mixtures = return_val[3]
+            padding = return_val[4]
             multi_sampled_predictions.append(np.swapaxes(np.array(model_outputs), 0, 1))
 
         # END
@@ -575,6 +576,7 @@ class NetworkManager:
             loss = return_val[1]
             model_outputs = return_val[2]
             mixtures = return_val[3]
+            padding_logits = return_val[4]
             num_mixtures = len(mixtures[0][0]) / 6
             multi_sampled_mixtures.append(mixtures.reshape(mixtures.shape[0], mixtures.shape[1], num_mixtures, 6, order='F'))
             multi_sampled_predictions.append(np.swapaxes(np.array(model_outputs), 0, 1))
@@ -589,8 +591,8 @@ class NetworkManager:
         if multithread:
             # Wait for any old threads to finish. Not allowed to spawn multiple sets of children, it gets out of hand fast.
             self.join_subprocesses()
-        for obs, preds, gt, mixes, csv_name in zip(observations, multi_sampled_predictions, ground_truths,
-                                                   multi_sampled_mixtures, csv_names):
+        for obs, preds, gt, mixes, csv_name, pad_logits in zip(observations, multi_sampled_predictions, ground_truths,
+                                                   multi_sampled_mixtures, csv_names, padding_logits):
             graph_number += 1
             # WARNING! If you want more than ten, turn off multithreading. I don't use a queue.
             # The kernel handles all of them, so they will all get memory alloc. Looks to be 200MB each
@@ -602,6 +604,7 @@ class NetworkManager:
                              "preds": preds,
                              "gt": gt,
                              "mixes": mixes,
+                             "padding_logits": padding_logits,
                              "plt_size": self.plt_size,
                              "draw_prediction_track": draw_prediction_track,
                              "plot_directory": self.plot_directory,
@@ -622,7 +625,7 @@ class NetworkManager:
                 self.p_child_list.append(p_child)
             else:
                 import utils_draw_graphs
-                graph_list.append(utils_draw_graphs.draw_png_heatmap_graph(obs, preds, gt, mixes, self.plt_size, draw_prediction_track,
+                graph_list.append(utils_draw_graphs.draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, self.plt_size, draw_prediction_track,
                                   self.plot_directory, self.log_file_name, multi_sample,
                                   self.get_global_step(), graph_number, fig_dir, csv_name))
 
@@ -741,7 +744,7 @@ class NetworkManager:
                 output_samples = []
                 num_samples = 1
                 for _ in range(num_samples):
-                    acc, loss, outputs, mixtures = self.model.step(self.sess, val_x, val_y,
+                    acc, loss, outputs, mixtures, padding = self.model.step(self.sess, val_x, val_y,
                                                          val_weights, False, track_padded, summary_writer=None)
                     # Do a straight comparison between val_y and outputs.
                     #output_idxs = np.argmax(outputs[0][valid_data], axis=1)
@@ -847,7 +850,7 @@ class NetworkManager:
             valid_data = np.logical_not(mini_batch_frame['batchwise_padding'].values)
             val_y = val_labels if self.parameters['model_type'] == 'classifier' else \
                 val_future if self.parameters['model_type'] == 'MDN' else exit(3)
-            acc, loss, outputs, mixtures = \
+            acc, loss, outputs, mixtures, padding = \
                 self.model.step(self.sess, val_x, val_y, val_weights, False, track_padded, summary_writer=summary_writer)
 
             if self.parameters['model_type'] == 'classifier':

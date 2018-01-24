@@ -13,8 +13,10 @@ import sys
 import dill as pickle
 
 
-def draw_png_heatmap_graph(obs, preds, gt, mixes, plt_size, draw_prediction_track, plot_directory, log_file_name,
+def draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, plt_size, draw_prediction_track, plot_directory, log_file_name,
                            multi_sample, global_step, graph_number, fig_dir, csv_name):
+    padding_bool = np.argmax(padding_logits, axis=1) == 1
+
     legend_str = []
     fig = plt.figure(figsize=plt_size)
     plt.plot(gt[:, 0], gt[:, 1], 'b-', zorder=3)
@@ -120,7 +122,8 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, sigint_handler)
 
     data = pickle.loads(sys.stdin.read())
-    fig_return_data = draw_png_heatmap_graph(data['obs'], data['preds'], data['gt'], data['mixes'], data['plt_size'],
+    fig_return_data = draw_png_heatmap_graph(data['obs'], data['preds'], data['gt'], data['mixes'], data['padding_logits'],
+                                             data['plt_size'],
                                       data['draw_prediction_track'], data['plot_directory'], data['log_file_name'],
                                       data['multi_sample'], data['global_step'], data['graph_number'], data['fig_dir'],
                                              data['csv_name'])
