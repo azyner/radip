@@ -97,6 +97,16 @@ class ibeoCSVImporter:
             bottom_exit = [-18,-14,-15,-13]
             self.dest_gates = {"NW": right_exit, "NE": bottom_exit, "SW": top_exit, "SE": left_exit}
             self.origin_gates = {"SE": left_enter, "NW": right_enter}
+        if 'oliver-wyndora' in csv_name:
+            # left right bottom top
+            right_exit = [-10, -8, -5, 0]
+            right_enter = [-10, -8, -12, -6]
+            bottom_exit = [-17, -13, -16, -14]
+            left_exit = [-28, -26, -12, -8]
+            left_enter = [-28, -26, -3, 0]
+            top_exit = [-22, -18, 4, 6]
+            self.dest_gates = {"north": right_exit, "east": bottom_exit, "west": top_exit, "south": left_exit}
+            self.origin_gates = {"south": left_enter, "north": right_enter}
 
     def get_track_list(self):
         return self.labelled_track_list
