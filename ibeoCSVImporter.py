@@ -90,7 +90,7 @@ class ibeoCSVImporter:
         if 'roslyn-crieff' in csv_name:
             # left right bottom top
             right_exit = [-12,-10,-4,2]
-            right_enter = [-12,-10,-12,8]
+            right_enter = [-12,-10,-12,-8]
             left_enter = [-31,-29,-3,1]
             left_exit = [-31,-29,-13,-8]
             top_exit = [-27,-24,3,5]
