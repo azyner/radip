@@ -89,30 +89,37 @@ ibeo = True
 
 ### TEST CODE ###
 
-
+source_list = []
 
 # sourcename = '20170427-stationary-2-leith-croydon.csv'
 # sourcename = '20170601-stationary-3-leith-croydon.csv'
 # source_list = sourcename
 #
-# source_list = ['split_20170601-stationary-3-leith-croydon_01.csv',
-#                'split_20170601-stationary-3-leith-croydon_02.csv',
-#                'split_20170601-stationary-3-leith-croydon_03.csv',
-#                'split_20170601-stationary-3-leith-croydon_04.csv',
-#                'split_20170601-stationary-3-leith-croydon_05.csv']
-# #source_list = []
-# for i in range(41):
-#     source_list.append("split_20170802-stationary-4-leith-croydon_%02d.csv" % (i+1))
-# for i in range(35):
-#     source_list.append("split_20170804-stationary-5-leith-croydon_%02d.csv" % (i+1))
-source_list = []
-# for i in range(31):  #31
-#    source_list.append("split_20180116-082129-urban-stationary-queen-hanks_%02d.csv" % (i+1))
-# for i in range(24):
-#     source_list.append("split_20180119-112135-urban-stationary-roslyn-crieff_%02d.csv" % (i + 1))
-for i in range(46):
-    source_list.append("split_20180123-072840-urban-stationary-oliver-wyndora_%02d.csv" % (i + 1))
+
+if 'leith-croydon' in parameters.parameters['data_list']:
+    source_list = ['split_20170601-stationary-3-leith-croydon_01.csv',
+                   'split_20170601-stationary-3-leith-croydon_02.csv',
+                   'split_20170601-stationary-3-leith-croydon_03.csv',
+                   'split_20170601-stationary-3-leith-croydon_04.csv',
+                   'split_20170601-stationary-3-leith-croydon_05.csv']
+    for i in range(41):
+        source_list.append("split_20170802-stationary-4-leith-croydon_%02d.csv" % (i+1))
+    for i in range(35):
+        source_list.append("split_20170804-stationary-5-leith-croydon_%02d.csv" % (i+1))
+if 'queen-hanks' in parameters.parameters['data_list']:
+    for i in range(31):
+        source_list.append("split_20180116-082129-urban-stationary-queen-hanks_%02d.csv" % (i+1))
+if 'roslyn-crieff' in parameters.parameters['data_list']:
+    for i in range(24):
+        source_list.append("split_20180119-112135-urban-stationary-roslyn-crieff_%02d.csv" % (i + 1))
+if 'oliver-wyndora' in parameters.parameters['data_list']:
+    for i in range(46):
+        source_list.append("split_20180123-072840-urban-stationary-oliver-wyndora_%02d.csv" % (i + 1))
+if 'orchard-mitchell' in parameters.parameters['data_list']:
+    for i in range(21):
+        source_list.append("split_20180124-081438-urban-stationary-orchard-mitchell_%02d.csv" % (i + 1))
 sourcename = source_list[0]
+
 
 Wrangler = SequenceWrangler.SequenceWrangler(parameters,source_list,n_folds=parameters.parameters['n_folds'])
 

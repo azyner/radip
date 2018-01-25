@@ -40,6 +40,9 @@ def draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, plt_size, draw
     if 'oliver-wyndora' in csv_name:
         x_range = (-28, -8)
         y_range = (-12, 6)
+    if 'orchard-mitchell' in csv_name:
+        x_range = (-32, -5)
+        y_range = (-23, 5)
 
     dx, dy = 0.1, 0.1
     x = np.arange(min(x_range), max(x_range), dx)
