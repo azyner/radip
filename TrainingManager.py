@@ -235,6 +235,15 @@ class TrainingManager:
         # Function that takes the currently built network and runs the test data through it (each data point is run once
         #  and only once). Graphs are generated. Make it easy to generate many graphs as this will be helpful for the
         # sequence generation model
+        # This section and its affiliate long_train_network is going to change a lot. There are several things I want to
+        # do here.
+        # 1. Add the d=0 constraint for the test data.
+        # 2. Run graphs in their own test_results folder
+        # 3. Redefine the metric used on the network here for scoring. Maybe even have multiple scoring types reported
+
+        # I think I want to spin out all the graph drawers from NetworkManager, and for the final report here, I want
+        # the data being fed to the graphs saved, such that it is easy to cross-compile graphs between methods
+
         test_accuracy, test_loss, _, _ = netManager.run_validation(test_batch_handler,
                                                                    summary_writer=netManager.test_writer,
                                                                    quick=False)

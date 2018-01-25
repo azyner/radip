@@ -287,8 +287,13 @@ class DynamicRnnSeq2Seq(object):
                 output_sampled = _transpose_batch_time(loop_state_ta[0].stack())
                 losses = _transpose_batch_time(loop_state_ta[1].stack())
                 MDN_output = _transpose_batch_time(loop_state_ta[3].stack())
+                track_padding_output = _transpose_batch_time(loop_state_ta[4].stack())
 
-            return output_sampled, tf.reduce_sum(losses,axis=1)/len(self.decoder_inputs), final_state, MDN_output
+            return output_sampled,\
+                   tf.reduce_sum(losses,axis=1)/len(self.decoder_inputs),\
+                   final_state, \
+                   MDN_output,\
+                   track_padding_output
 
 
         ################# FEEDS SECTION #######################
@@ -348,7 +353,11 @@ class DynamicRnnSeq2Seq(object):
         #### SEQ2SEQ function HERE
 
         with tf.variable_scope('seq_rnn'):
-            self.MDN_sampled_output, self.losses, self.internal_states, self.MDN_mixture_output =\
+            self.MDN_sampled_output,\
+            self.losses, \
+            self.internal_states,\
+            self.MDN_mixture_output,\
+            self.trackwise_padding_output=\
                 seq2seq_f(self.encoder_inputs, self.decoder_inputs, self.target_inputs, self.observation_inputs[-1],
                           self.trackwise_padding_input)
 
@@ -504,18 +513,17 @@ class DynamicRnnSeq2Seq(object):
                                [self.full_accuracy])  # Loss for this batch.
         else:
             output_feed = [self.full_accuracy, self.full_losses]  # Loss for this batch.
-            if self.model_type == 'MDN':
-                output_feed.append(self.MDN_sampled_output)
-                output_feed.append(self.MDN_mixture_output)
+            output_feed.append(self.MDN_sampled_output)
+            output_feed.append(self.MDN_mixture_output)
+            output_feed.append(self.trackwise_padding_output)
 
         outputs = session.run(output_feed, input_feed)
         if summary_writer is not None:
-
             summary_str = session.run(self.summary_op,input_feed)
             summary_writer.add_summary(summary_str, self.global_step.eval(session=session))
         if train_model:
-            return outputs[3], outputs[2], None, None  # accuracy, loss, no outputs.
+            return outputs[3], outputs[2], None, None, None  # accuracy, loss, no outputs.
         else:
             model_sampled_outputs = np.swapaxes(np.array(outputs[2]),0,1).tolist() #Unstack. Ugly formatting for legacy
-            return outputs[0], outputs[1],  model_sampled_outputs, outputs[3]  # accuracy, loss, outputs, mixtures
+            return outputs[0], outputs[1], model_sampled_outputs, outputs[3], outputs[4]  # accuracy, loss, outputs, mixtures, padding
 
