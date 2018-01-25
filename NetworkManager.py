@@ -608,7 +608,7 @@ class NetworkManager:
                              "preds": preds,
                              "gt": gt,
                              "mixes": mixes,
-                             "padding_logits": padding_logits,
+                             "pad_logits": pad_logits,
                              "plt_size": self.plt_size,
                              "draw_prediction_track": draw_prediction_track,
                              "plot_directory": self.plot_directory,
@@ -629,7 +629,7 @@ class NetworkManager:
                 self.p_child_list.append(p_child)
             else:
                 import utils_draw_graphs
-                graph_list.append(utils_draw_graphs.draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, self.plt_size, draw_prediction_track,
+                graph_list.append(utils_draw_graphs.draw_png_heatmap_graph(obs, preds, gt, mixes, pad_logits, self.plt_size, draw_prediction_track,
                                   self.plot_directory, self.log_file_name, multi_sample,
                                   self.get_global_step(), graph_number, fig_dir, csv_name))
 
