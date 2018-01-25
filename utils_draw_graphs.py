@@ -25,7 +25,10 @@ def draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, plt_size, draw
     legend_str.append(['Observations'])
     if draw_prediction_track:
         for j in range(preds.shape[0]):
-            plt.plot(preds[j][:, 0], preds[j][:, 1], 'r-', zorder=5)
+            # `Real data'
+            plt.plot(preds[j][~padding_bool, 0], preds[j][~padding_bool, 1], 'ro', ms=2, zorder=5)
+            # Padding `fake' data
+            plt.plot(preds[j][padding_bool, 0], preds[j][padding_bool, 1], 'rx', ms=2, zorder=5)
         legend_str.append(['Predictions'])
 
     if 'queen-hanks' in csv_name:
