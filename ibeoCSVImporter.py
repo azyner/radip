@@ -165,13 +165,14 @@ class ibeoCSVImporter:
         return input_df
 
     def _disambiguate_df(self,input_df):
-
+        drop_list = []
+        DROP_INDEX = -1
         object_id_list = np.sort(input_df.ObjectId.unique())
         # Classes 4 and 5 are car, truck (maybe in that order)
         # 3 might be bike, have to check.
         # I only care about cars and trucks right now.
 
-        vehicle_df = input_df.loc[input_df.Classification > 3, :]
+        vehicle_df = input_df # .loc[input_df.Classification > 3, :]
 
         disambiguated_df_list = []
 
@@ -195,28 +196,36 @@ class ibeoCSVImporter:
             cuts = np.where(obj_diff > 1)[0]
 
             prev_cut = 0
+            cuts = np.append(cuts, len(obj_data)-1)
             for cut in cuts:
-                # print obj_data.loc[prev_cut:cut, :]
-                obj_data.loc[prev_cut:cut, "uniqueId"] = self.unique_id_idx
+                #print obj_data.loc[prev_cut:cut, :]
+
+                # Now that we have isolated the tracks, drop any that do not meet classification requirements
+                # Note that the class may begin as `unknown', and later become classified, so do not check only for
+                #  any class > 3, but instead check all class > 3
+
+                if (obj_data.loc[prev_cut:cut].Classification < 4).all():
+                    obj_data.loc[prev_cut:cut, "uniqueId"] = DROP_INDEX
+                else:
+                    obj_data.loc[prev_cut:cut, "uniqueId"] = self.unique_id_idx
+                    self.unique_id_idx += 1
+
                 #print("ObjId:" + str(ID) + " UniqueId:" + str(unique_id_idx) +
                 #      " Prev:" + str(prev_cut) + " end:" + str(cut))
                 prev_cut = cut
-                self.unique_id_idx += 1
+
             if len(cuts) == 0:
                 cuts = [0]
 
-            # Do this once more as there are more segments than there are cuts
-            obj_data.loc[cuts[-1]:len(obj_data) - 1, "uniqueId"] = self.unique_id_idx
-            self.unique_id_idx += 1
-
             obj_data.uniqueId = obj_data.uniqueId.astype(int) # Why is this a float64?
+
             disambiguated_df_list.append(obj_data)
 
         disambiguated_df = pd.concat(disambiguated_df_list)
+        disambiguated_df = disambiguated_df[disambiguated_df.uniqueId != DROP_INDEX]
         sys.stdout.write("\t\t\t\t%4s" % "[ OK ]")
         sys.stdout.write("\r\n")
         return disambiguated_df
-
 
     ############################################################################
     # labelling code below
@@ -242,7 +251,7 @@ class ibeoCSVImporter:
             # obj_data = vehicle_df[vehicle_df.ObjectId==ID]
             obj_data = disambiguated_df.loc[disambiguated_df.uniqueId == uID, :]
             #print("Sorting track: " + str(uID))
-            if any(obj_data.trackedByStationaryModel):
+            if all(obj_data.trackedByStationaryModel):
                 #print "Don't know what's going on here, but the data is incomplete for this track, skipping"
                 continue
             sys.stdout.write("\rSorting track: %04d of %04d " % (uID,max(disambiguated_df.uniqueId.unique())))
