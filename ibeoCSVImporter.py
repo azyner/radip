@@ -39,6 +39,8 @@ class ibeoCSVImporter:
                 sub_track_list = self._calculate_intersection_distance(labelled_track_list)
                 trimmed_tracks = self._trim_tracks(sub_track_list)
                 self.labelled_track_list.extend(trimmed_tracks)
+                print "#### CUMULATIVE SUMMARY ####"
+                self._print_collection_summary()
                 # write pkl
             with open(file_path, 'wb') as pkl_file:
                 pickle.dump(self.labelled_track_list, pkl_file)
