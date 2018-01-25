@@ -74,7 +74,7 @@ def draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, plt_size, draw
                 norm = scipy.stats.multivariate_normal(mean=(mu1, mu2), cov=cov)
                 zz = norm.pdf(xxyy)
                 zz *= pi
-                zz = zz.reshape((len(xx[0]), len(yy)))
+                zz = zz.reshape((len(xx), len(yy[0])))
                 gaussian_heatmaps.append(zz)
             gaussian_heatmaps /= np.max(gaussian_heatmaps)  # Normalize such that each timestep has equal weight
             #heatmaps.extend(gaussian_heatmaps) #  This explodes
