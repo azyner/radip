@@ -278,10 +278,10 @@ class ibeoCSVImporter:
                 else:
                     for label, gate in self.dest_gates.iteritems():
                         if self._in_box([o_X, o_Y], gate):
-                            if label == origin_label:
-                                #Skip U turns. HACK This is because in the first dataset, we have only 1 u-turn.
-                                # This breaks the stratifier.
-                                continue
+                            # if label == origin_label:
+                            #     #Skip U turns. HACK This is because in the first dataset, we have only 1 u-turn.
+                            #     # This breaks the stratifier.
+                            #     continue
                             dest_label = label
 
                 if origin_label is not None and dest_label is not None:
