@@ -18,6 +18,8 @@ class ibeoCSVImporter:
         if isinstance(csv_name,str):
             csv_name = [csv_name]
         self.labelled_track_list = []
+        self._cumulative_dest_list = []
+        self._cumulative_origin_list = []
         # Check if I have cached this already
         # name it after the last csv in csv_name
         cache_name = abs(hash(tuple(csv_name)) + utils.get_library_hash(['ibeoCSVImporter.py']))
@@ -38,9 +40,11 @@ class ibeoCSVImporter:
 
                 sub_track_list = self._calculate_intersection_distance(labelled_track_list)
                 trimmed_tracks = self._trim_tracks(sub_track_list)
+                related_tracks = self._add_relative_tracks(trimmed_tracks)
                 self.labelled_track_list.extend(trimmed_tracks)
                 print "#### CUMULATIVE SUMMARY ####"
                 self._print_collection_summary()
+                self._print_collection_summary(relative=True)
                 # write pkl
             with open(file_path, 'wb') as pkl_file:
                 pickle.dump(self.labelled_track_list, pkl_file)
@@ -48,9 +52,11 @@ class ibeoCSVImporter:
             with open(file_path, 'rb') as pkl_file:
                 self.labelled_track_list = pickle.load(pkl_file)
             # Grab some labels for the summary printer
-            self.lookup_intersection_extent(csv_name[-1])
+            for csv in csv_name:
+                self.lookup_intersection_extent(csv)
 
         self._print_collection_summary()
+        self._print_collection_summary(relative=True)
 
     def lookup_intersection_extent(self,csv_name):
         #        format: x_min,x_max,y_min,y_max
@@ -64,7 +70,12 @@ class ibeoCSVImporter:
             intersection_centre = [-25.8, -5]
             intersection_rotation = 0
             self.dest_gates = {"north": top_exit, "east": right_exit, "south": low_exit}
-            self.origin_gates = {"north": top_enter, "east": right_enter, "south": low_enter}
+            self.origin_gates = {
+                "north": top_enter,
+                "east": right_enter,
+                "south": low_enter
+            }
+            self.relative_ring = ['north', 'east', 'south', 'west'] # Clockwise relation of each gate
         if (('20170601-stationary-3-leith-croydon' in csv_name) or
             ('stationary-4-leith-croydon' in csv_name) or
             ('stationary-5-leith-croydon' in csv_name)):
@@ -78,7 +89,12 @@ class ibeoCSVImporter:
             intersection_centre = [-14.4, -7.5]
             intersection_rotation = 0  # 90 degree?
             self.dest_gates = {"north": left_exit, "east": top_exit, "south": right_exit}
-            self.origin_gates = {"north": left_enter, "east": top_enter, "south": right_enter}
+            self.origin_gates = {
+                "north": left_enter,
+                #"east": top_enter,
+                "south": right_enter
+            }
+            self.relative_ring = ['north', 'east', 'south', 'west']
         if 'queen-hanks' in csv_name:
             # left right bottom top
             top_exit = [26, 30, 6, 7]
@@ -88,7 +104,11 @@ class ibeoCSVImporter:
             left_exit = [18, 20, -10, -6]
             bottom_exit = [30, 35, -14, -13]
             self.dest_gates = {"north": right_exit, "east": bottom_exit, "west": top_exit, "south": left_exit}
-            self.origin_gates = {"south": left_enter, "north": right_enter}
+            self.origin_gates = {
+                "south": left_enter,
+                "north": right_enter
+            }
+            self.relative_ring = ['north', 'east', 'south', 'west']
         if 'roslyn-crieff' in csv_name:
             # left right bottom top
             right_exit = [-12,-10,-4,2]
@@ -98,7 +118,11 @@ class ibeoCSVImporter:
             top_exit = [-27,-24,3,5]
             bottom_exit = [-18,-14,-15,-13]
             self.dest_gates = {"NW": right_exit, "NE": bottom_exit, "SW": top_exit, "SE": left_exit}
-            self.origin_gates = {"SE": left_enter, "NW": right_enter}
+            self.origin_gates = {
+                "SE": left_enter,
+                "NW": right_enter
+            }
+            self.relative_ring = ['NW', 'NE', 'SE', 'SW']
         if 'oliver-wyndora' in csv_name:
             # left right bottom top
             right_exit = [-10, -8, -5, 0]
@@ -108,7 +132,11 @@ class ibeoCSVImporter:
             left_enter = [-28, -26, -3, 0]
             top_exit = [-22, -18, 4, 6]
             self.dest_gates = {"north": right_exit, "east": bottom_exit, "west": top_exit, "south": left_exit}
-            self.origin_gates = {"south": left_enter, "north": right_enter}
+            self.origin_gates = {
+                "south": left_enter,
+                "north": right_enter
+            }
+            self.relative_ring = ['north', 'east', 'south', 'west']
         if 'orchard-mitchell' in csv_name:
             # left right bottom top
             right_enter = [-11, -9, -13, -5]
@@ -118,23 +146,52 @@ class ibeoCSVImporter:
             left_enter = [-30, -28, -5, 1]
             top_exit = [-24, -18, 4, 6]
             self.dest_gates = {"north": right_exit, "east": bottom_exit, "west": top_exit, "south": left_exit}
-            self.origin_gates = {"south": left_enter, "north": right_enter}
+            self.origin_gates = {
+                "south": left_enter,
+                "north": right_enter
+            }
+            self.relative_ring = ['north', 'east', 'south', 'west']
+        for key, value in self.dest_gates.iteritems():
+            self._cumulative_dest_list.append(key)
+        for key, value in self.origin_gates.iteritems():
+            self._cumulative_origin_list.append(key)
+        self._cumulative_origin_list = list(set(self._cumulative_origin_list))
+        self._cumulative_dest_list = list(set(self._cumulative_dest_list))
+
+    def _get_relative_exit(self, origin_label, dest_label):
+        o_idx = self.relative_ring.index(origin_label)
+        d_idx = self.relative_ring.index(dest_label)
+        relative_map = {-1: "right",
+                        0: "u-turn",
+                        1: "left",
+                        -2: "straight",
+                        2: "straight",
+                        3: "right",
+                        -3: "left"}
+        return relative_map[d_idx-o_idx]
 
     def get_track_list(self):
         return self.labelled_track_list
 
-    def _print_collection_summary(self):
+    def _print_collection_summary(self, relative=False):
         # Here I want to print a origin/destination matrix
         # Preferably with summary margins
-        dest_key_list = [key for key, value in self.dest_gates.iteritems()]
-        orig_key_list = [key for key, value in self.origin_gates.iteritems()]
+        if relative:
+            dest_key_list = ['left', 'straight', 'right', 'u-turn']
+        else:
+            dest_key_list = self._cumulative_dest_list #[key for key, value in self.dest_gates.iteritems()]
+        orig_key_list = self._cumulative_origin_list #[key for key, value in self.origin_gates.iteritems()]
 
         summary_df = pd.DataFrame(np.zeros([len(orig_key_list), len(dest_key_list)]),
                                   index=orig_key_list, columns=dest_key_list)
         for single_track in self.labelled_track_list:
-            summary_df.loc[single_track.iloc[0]["origin"], single_track.iloc[0]["destination"]] += 1
+            if relative:
+                summary_df.loc[single_track.iloc[0]["origin"], single_track.iloc[0]["relative_destination"]] += 1
+            else:
+                summary_df.loc[single_track.iloc[0]["origin"], single_track.iloc[0]["destination"]] += 1
+        # Add marginals
         summary_df["total"] = summary_df.sum(1)
-        summary_df= summary_df.append(pd.Series(summary_df.sum(0), name="total"))
+        summary_df = summary_df.append(pd.Series(summary_df.sum(0), name="total"))
 
         print "origin | destination"
         print summary_df
@@ -165,6 +222,94 @@ class ibeoCSVImporter:
         #TODO Resolve AbsVelocity X/Y into one magnitude scalar
 
         return input_df
+
+    def _lookup_intersection_origin_per_entrance(self, csv_name, entrance):
+        if 'oliver-wyndora' in csv_name:
+            if entrance == 'north':
+                origin = [-10.3, -5.3]
+                rotation = [-1, 0]
+            if entrance == 'south':
+                origin = [-26.7, -5.3]
+                rotation = [1, 0]
+
+        if 'roslyn-crieff' in csv_name:
+            if entrance == 'NW':
+                origin = [-11.8, -5.3]
+                rotation = [-1, 0]
+            if entrance == 'SE':
+                origin = [-30.5, -5.3]
+                rotation = [1, 0]
+
+        if 'queen-hanks' in csv_name:
+            if entrance == 'north':
+                origin = [38.5, -3.0]
+                rotation = [-1, 0]
+            if entrance == 'south':
+                origin = [21.7, -3.8]
+                rotation = [1, 0]
+
+        if 'orchard-mitchell' in csv_name:
+            if entrance == 'north':
+                origin = [-11.5, -5.3]
+                rotation = [-1, 0]
+            if entrance == 'south':
+                origin = [-28.5, -5.3]
+                rotation = [1, 0]
+
+        if 'leith-croydon' in csv_name:
+            if entrance == 'north':
+                origin = [-23.3, -7.8]
+                rotation = [1, 0]
+            if entrance == 'south':
+                origin = [-5, -7.8]
+                rotation = [-1, 0]
+
+        return origin, rotation
+
+
+# https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python/13849249#13849249
+    def _unit_vector(self, vector):
+        """ Returns the unit vector of the vector.  """
+        return vector / np.linalg.norm(vector)
+
+    def _angle_between(self, v1, v2):
+        """ Returns the angle in radians between vectors 'v1' and 'v2'::
+
+                >>> angle_between((1, 0, 0), (0, 1, 0))
+                1.5707963267948966
+                >>> angle_between((1, 0, 0), (1, 0, 0))
+                0.0
+                >>> angle_between((1, 0, 0), (-1, 0, 0))
+                3.141592653589793
+        """
+        v1_u = self._unit_vector(v1)
+        v2_u = self._unit_vector(v2)
+        return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
+    def _add_relative_tracks(self, tracks):
+        new_tracks = []
+        for track in tracks:
+            # Subtract origin first, then rotate.
+            # This means the new origin does not need to be rotated
+            x = track['Object_X']
+            y = track['Object_Y']
+            origin_coords, orig_vec = self._lookup_intersection_origin_per_entrance(track.csv_name.iloc[0],
+                                                                                    track.origin.iloc[0])
+            x_z = x - origin_coords[0]
+            y_z = y - origin_coords[1]
+            dest_vec = [0, 1]
+            a = self._angle_between(orig_vec, dest_vec)
+            new_x = x_z*np.cos(a) - y_z*np.sin(a)
+            new_y = x_z*np.sin(a) + y_z*np.cos(a)
+            new_a = track.ObjBoxOrientation + a
+            # shift to -pi and pi
+            new_a = ((new_a + 2*np.pi) % 2*np.pi) - np.pi
+            track['relative_x'] = new_x
+            track['relative_y'] = new_y
+            track['relative_angle'] = new_a
+            new_tracks.append(track)
+
+        return new_tracks
 
     def _disambiguate_df(self,input_df):
         drop_list = []
@@ -296,6 +441,7 @@ class ibeoCSVImporter:
             obj_data["origin"] = [origin_label] * len(obj_data)
             obj_data["destination"] = [dest_label] * len(obj_data)
             #print("ID: " + str(uID) + " Origin: " + origin_label + " Destination: " + dest_label)
+            obj_data["relative_destination"] = [self._get_relative_exit(origin_label,dest_label)] * len(obj_data)
             obj_data = obj_data.assign(AbsVelocity=np.sqrt(np.power(obj_data['AbsVelocity_X'], 2)
                                                            + np.power(obj_data['AbsVelocity_Y'], 2)))
 
