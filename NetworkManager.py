@@ -617,7 +617,9 @@ class NetworkManager:
                              "global_step": self.get_global_step(),
                              "graph_number": graph_number,
                              "fig_dir": fig_dir,
-                             "csv_name": csv_name}
+                             "csv_name": csv_name,
+                             "padding_logits": pad_logits,
+                             'parameters': self.parameters}
                 # HACK I would prefer a child that then maintains its own children with queued workers. This allows
                 # the child process to hand out fresh jobs without interrupting main, but its a lot of work. So instead,
                 # to stop starving main, I force these to only be able to use half the cores.
@@ -631,7 +633,7 @@ class NetworkManager:
                 import utils_draw_graphs
                 graph_list.append(utils_draw_graphs.draw_png_heatmap_graph(obs, preds, gt, mixes, pad_logits, self.plt_size, draw_prediction_track,
                                   self.plot_directory, self.log_file_name, multi_sample,
-                                  self.get_global_step(), graph_number, fig_dir, csv_name))
+                                  self.get_global_step(), graph_number, fig_dir, csv_name,self.parameters))
 
         if multithread and final_run:
             self.join_subprocesses()
