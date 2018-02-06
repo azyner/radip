@@ -261,10 +261,20 @@ class DynamicRnnSeq2Seq(object):
                     timewise_track_padding = track_padding_ta.read(time - 1)
                     timewise_track_padding_logits = _padding_bool_to_logits(timewise_track_padding)
                     if track_padding_vec is not None:  # If we have declared padding is being used.
-                        loss = tf.multiply(loss, tf.to_float(tf.logical_not(timewise_track_padding))) # use padding as binary mask for loss
+                        loss = tf.multiply(loss, tf.expand_dims(tf.to_float(tf.logical_not(timewise_track_padding)), axis=-1)) # use padding as binary mask for loss
                         padding_output = pad_output_function(cell_output)  # compute what the network thinks about padding
-                        loss += tf.nn.softmax_cross_entropy_with_logits(logits=padding_output,
-                                                                        labels=timewise_track_padding_logits)  # compare to GT
+                        # Normalize the softmax loss w.r.t. number of prediction steps
+                        loss = tf.add(loss,
+                                      tf.expand_dims(tf.multiply(
+                                                tf.divide(tf.nn.softmax_cross_entropy_with_logits(
+                                                                                    logits=padding_output,
+                                                                                    labels=timewise_track_padding_logits
+                                                                                                 ),
+                                                          self.prediction_steps
+                                                          ),
+                                                parameters['padding_loss_weight']
+                                                ), axis=-1) # Without this tf.add( shape(100,), shape(100,1)) becomes (100, 100) for some reason
+                                )  # compare to GT
                     else:
                         padding_output = None  # loop_state write needs something at least
 
