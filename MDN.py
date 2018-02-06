@@ -152,7 +152,7 @@ def compute_derivates(output_prev, output_current, network_input_columns,
                       velocity_threshold=tf.constant(2.0, dtype=tf.float32), subsample_rate=1):
     # ['easting', 'northing', 'heading', 'speed']
     # Assume the first two are x and y
-    if network_input_columns[2] is not 'heading' or \
+    if 'heading' not in network_input_columns[2] or \
        network_input_columns[3] is not 'speed':
         print "not implemented yet"
         exit()
