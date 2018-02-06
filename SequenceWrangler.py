@@ -105,12 +105,17 @@ class SequenceWrangler:
 
         # origin_destination_class_list = self.master_pool.track_class.unique()
 
+        if 'relative' in self.parameters['ibeo_data_columns'][0]:
+            class_to_fit = 'relative_destination'
+        else:
+            class_to_fit = 'track_class'
+
         # rebuild track_class vector
         raw_classes = []
         for raw_idx in raw_indicies:
             #Get the first results that matches the track_idx and return its destination class
             #by construction, this data is consistent across all sample values for that track
-            track_class = self.master_pool[self.master_pool.track_idx==raw_idx]['track_class'].unique()
+            track_class = self.master_pool[self.master_pool.track_idx==raw_idx][class_to_fit].unique()
             raw_classes.append(track_class[0])
 
         st_encoder = preprocessing.LabelEncoder()
@@ -140,7 +145,7 @@ class SequenceWrangler:
                 trainval_class.append(track_class[0])
 
             skf = StratifiedKFold(n_splits=self.n_folds,random_state=seed)
-            crossfold_indicies = list(skf.split(self.trainval_idxs, trainval_class))
+            crossfold_indicies = [list(skf.split(self.trainval_idxs, trainval_class))[0]] # I only use one fold anyway
             crossfold_pool = [[[], []] for x in xrange(self.n_folds)]
             test_pool = []
 
@@ -356,7 +361,8 @@ class SequenceWrangler:
         data_columns = ['index', 'ObjectId', 'Timestamp', 'ObjectPredAge', 'Classification',
           'ObjBoxOrientation', 'csv_name',
           'Object_X', 'Object_Y', 'uniqueId', 'origin',
-          'destination', 'AbsVelocity', 'distance', 'distance_to_exit']
+          'destination', 'AbsVelocity', 'distance', 'distance_to_exit',
+                        'relative_destination', 'relative_x','relative_y','relative_angle']
         data_columns.extend(self.parameters['ibeo_data_columns'])
         data_columns = list(set(data_columns))
 
