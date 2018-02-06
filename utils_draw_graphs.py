@@ -14,7 +14,7 @@ import dill as pickle
 
 
 def draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, plt_size, draw_prediction_track, plot_directory, log_file_name,
-                           multi_sample, global_step, graph_number, fig_dir, csv_name):
+                           multi_sample, global_step, graph_number, fig_dir, csv_name, parameters):
     padding_bool = np.argmax(padding_logits, axis=1) == 1
 
     legend_str = []
@@ -31,19 +31,22 @@ def draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, plt_size, draw
             plt.plot(preds[j][padding_bool, 0], preds[j][padding_bool, 1], 'rx', ms=2, zorder=5)
         legend_str.append(['Predictions'])
 
-    if 'queen-hanks' in csv_name:
+    if 'relative' in parameters['ibeo_data_columns'][0]:
+        x_range = (-20, 20)
+        y_range = (-10, 30)
+    elif 'queen-hanks' in csv_name:
         x_range = (3, 47)
         y_range = (-17, 11)
-    if 'leith-croydon' in csv_name:
+    elif 'leith-croydon' in csv_name:
         x_range = (-35, 10)
         y_range = (-30, 15)
-    if 'roslyn-crieff' in csv_name:
+    elif 'roslyn-crieff' in csv_name:
         x_range = (-31, -10)
         y_range = (-15, 8)
-    if 'oliver-wyndora' in csv_name:
+    elif 'oliver-wyndora' in csv_name:
         x_range = (-28, -8)
         y_range = (-12, 6)
-    if 'orchard-mitchell' in csv_name:
+    elif 'orchard-mitchell' in csv_name:
         x_range = (-32, -5)
         y_range = (-23, 5)
 
@@ -90,13 +93,15 @@ def draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, plt_size, draw
     # Its about 7 seconds per plot
 
     final_heatmap = sum(heatmaps)
-    if 'queen-hanks' in csv_name:
+    if 'relative' in parameters['ibeo_data_columns'][0]:
+        _ = 0  # Blank line to preserve lower logic flow
+    elif 'queen-hanks' in csv_name:
         x_range = (3, 47)
         y_range = (-17, 11)
-    if 'leith-croydon' in csv_name:
+    elif 'leith-croydon' in csv_name:
         x_range = (-35, 10)
         y_range = (-30, 15)
-    if 'leith-croydon' in csv_name:
+    elif 'leith-croydon' in csv_name:
         image_filename = 'leith-croydon.png'
         background_img = plt.imread(os.path.join('images', image_filename))
         plt.imshow(background_img, zorder=0,
@@ -132,6 +137,6 @@ if __name__ == "__main__":
                                              data['plt_size'],
                                       data['draw_prediction_track'], data['plot_directory'], data['log_file_name'],
                                       data['multi_sample'], data['global_step'], data['graph_number'], data['fig_dir'],
-                                             data['csv_name'])
+                                             data['csv_name'], data['parameters'])
 
 
