@@ -266,25 +266,9 @@ class ibeoCSVImporter:
 
         return origin, rotation
 
-
-# https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python/13849249#13849249
-    def _unit_vector(self, vector):
-        """ Returns the unit vector of the vector.  """
-        return vector / np.linalg.norm(vector)
-
     def _angle_between(self, v1, v2):
-        """ Returns the angle in radians between vectors 'v1' and 'v2'::
-
-                >>> angle_between((1, 0, 0), (0, 1, 0))
-                1.5707963267948966
-                >>> angle_between((1, 0, 0), (1, 0, 0))
-                0.0
-                >>> angle_between((1, 0, 0), (-1, 0, 0))
-                3.141592653589793
-        """
-        v1_u = self._unit_vector(v1)
-        v2_u = self._unit_vector(v2)
-        return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+        # Returns the angle in radians between 2D vectors 'v1' and 'v2'
+        return np.arctan2(v2[1], v2[0]) - np.arctan2(v1[1], v1[0])
 
     def _add_relative_tracks(self, tracks):
         new_tracks = []
