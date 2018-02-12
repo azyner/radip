@@ -282,7 +282,7 @@ class ibeoCSVImporter:
             x_z = x - origin_coords[0]
             y_z = y - origin_coords[1]
             dest_vec = [0, 1]
-            a = self._angle_between(orig_vec, dest_vec)
+            a = self._angle_between(orig_vec, dest_vec )
             new_x = x_z*np.cos(a) - y_z*np.sin(a)
             new_y = x_z*np.sin(a) + y_z*np.cos(a)
             new_a = track.ObjBoxOrientation + a
