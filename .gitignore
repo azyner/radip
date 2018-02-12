@@ -7,3 +7,6 @@ parameters.py
 monolith*
 writeup
 network_plots/2*
+all_tracks_data_plot
+network_plots/split*
+plot_collate/*.html
