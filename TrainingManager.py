@@ -8,7 +8,7 @@ import os
 import tensorflow as tf
 import sys
 import signal
-
+import ReportWriter
 
 class TrainingManager:
     def __init__(self, cf_pool, test_pool, encoder_means, encoder_stddev, parameter_dict):
@@ -244,11 +244,11 @@ class TrainingManager:
         # I think I want to spin out all the graph drawers from NetworkManager, and for the final report here, I want
         # the data being fed to the graphs saved, such that it is easy to cross-compile graphs between methods
 
-        test_accuracy, test_loss, _, _ = netManager.run_validation(test_batch_handler,
+        test_accuracy, test_loss, report_df, _ = netManager.run_validation(test_batch_handler,
                                                                    summary_writer=netManager.test_writer,
-                                                                   quick=False)
+                                                                   quick=False, report_writing=True)
 
-        return test_accuracy, test_loss
+        return test_accuracy, test_loss, report_df
 
     def run_hyperparameter_search(self):
         hyperparam_results_list = []
@@ -417,7 +417,8 @@ class TrainingManager:
             # We are loading a network from a checkpoint
             netManager.build_model()
             best_results = {}
-        best_results['test_accuracy'], best_results['test_loss'] = self.test_network(netManager, test_batch_handler)
+        best_results['test_accuracy'], best_results['test_loss'], report_df = self.test_network(netManager,
+                                                                                                test_batch_handler)
 
         print "Drawing html graph"
         #netManager.draw_html_graphs(netManager.compute_result_per_dis(test_batch_handler))
@@ -436,6 +437,9 @@ class TrainingManager:
         best_results = pd.DataFrame(best_results,index=[0])
         if not test_network_only:
             best_results.to_csv(os.path.join(self.parameter_dict['master_dir'],"best.csv"))
+
+        reports = ReportWriter.ReportWriter(training_batch_handler, validation_batch_handler, test_batch_handler,
+                                            report_df)
 
         return best_results
 

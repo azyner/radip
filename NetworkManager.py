@@ -831,21 +831,24 @@ class NetworkManager:
 
     # Function that passes the entire validation dataset through the network once and only once.
     # Return cumulative accuracy, loss
-    def run_validation(self, batch_handler, summary_writer=None,quick=False):
+    def run_validation(self, batch_handler, summary_writer=None, quick=False, report_writing=False):
         batch_complete = False
         batch_losses = []
         total_correct = 0
         total_valid = 0
         all_averages = []
+        report_list = []
+        if report_writing:
+            batch_handler.set_distance_threshold(0)
         while not batch_complete:
             #val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_sequential_minibatch()
-            if 'QUICK_VALBATCH' in os.environ or quick or self.parameters['model_type']=='MDN':
+            if 'QUICK_VALBATCH' in os.environ or quick or (self.parameters['model_type']=='MDN' and not report_writing):
                 # Run one regular batch. Debug mode takes longer, and there are ~30,000 val samples
                 mini_batch_frame = batch_handler.get_minibatch()
                 batch_complete = True
                 #print "Debug active, valdating with random sample, not whole batch"
             else:
-                mini_batch_frame,batch_complete = batch_handler.get_sequential_minibatch()
+                mini_batch_frame, batch_complete = batch_handler.get_sequential_minibatch()
 
             val_x, val_future, val_weights, val_labels, track_padded = batch_handler.format_minibatch_data(
                 mini_batch_frame['encoder_sample'],
@@ -866,6 +869,15 @@ class NetworkManager:
                 num_valid = np.sum(valid_data*1)
                 total_correct += num_correct
                 total_valid += num_valid
+            if report_writing:
+                mini_batch_frame = mini_batch_frame[valid_data]
+                outputs_a = np.swapaxes(np.array(outputs), 0, 1)
+                mini_batch_frame = mini_batch_frame.assign(
+                    outputs=pd.Series([x for x in outputs_a[valid_data]], dtype=object))
+                mini_batch_frame = mini_batch_frame.assign(
+                    mixtures=pd.Series([x for x in mixtures[valid_data]], dtype=object))
+                report_list.append(mini_batch_frame)
+
             batch_losses.append(loss)
             all_averages.append(acc)
 
@@ -874,7 +886,13 @@ class NetworkManager:
         else:
             batch_acc = np.mean(all_averages)
 
-        return batch_acc, np.average(batch_losses), None, None
+        if report_writing:
+            batch_handler.set_distance_threshold(None)
+            report_df = pd.concat(report_list)
+        else:
+            report_df = None
+
+        return batch_acc, np.average(batch_losses), report_df, None
 
     # Checkpoints model. Adds path to global dict lookup
     def checkpoint_model(self):
