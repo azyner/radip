@@ -856,26 +856,27 @@ class NetworkManager:
                 mini_batch_frame['decoder_sample'] if self.parameters['model_type'] == 'MDN' else exit(2),
                 mini_batch_frame['batchwise_padding'],
                 mini_batch_frame['trackwise_padding'] if self.parameters['track_padding'] else None)
-            valid_data = np.logical_not(mini_batch_frame['batchwise_padding'].values)
+            valid_batch_data = np.logical_not(mini_batch_frame['batchwise_padding'].values)
             val_y = val_labels if self.parameters['model_type'] == 'classifier' else \
                 val_future if self.parameters['model_type'] == 'MDN' else exit(3)
             acc, loss, outputs, mixtures, padding = \
                 self.model.step(self.sess, val_x, val_y, val_weights, False, track_padded, summary_writer=summary_writer)
 
             if self.parameters['model_type'] == 'classifier':
-                output_idxs = np.argmax(outputs[0][valid_data], axis=1)
-                y_idxs = np.argmax(np.array(val_y)[0][valid_data], axis=1)
+                output_idxs = np.argmax(outputs[0][valid_batch_data], axis=1)
+                y_idxs = np.argmax(np.array(val_y)[0][valid_batch_data], axis=1)
                 num_correct = np.sum(np.equal(output_idxs,y_idxs)*1)
-                num_valid = np.sum(valid_data*1)
+                num_valid = np.sum(valid_batch_data*1)
                 total_correct += num_correct
                 total_valid += num_valid
             if report_writing:
-                mini_batch_frame = mini_batch_frame[valid_data]
+                mini_batch_frame = mini_batch_frame[valid_batch_data]
                 outputs_a = np.swapaxes(np.array(outputs), 0, 1)
+                # Reject batchwise padding
                 mini_batch_frame = mini_batch_frame.assign(
-                    outputs=pd.Series([x for x in outputs_a[valid_data]], dtype=object))
+                    outputs=pd.Series([x for x in outputs_a[valid_batch_data]], dtype=object))
                 mini_batch_frame = mini_batch_frame.assign(
-                    mixtures=pd.Series([x for x in mixtures[valid_data]], dtype=object))
+                    mixtures=pd.Series([x for x in mixtures[valid_batch_data]], dtype=object))
                 report_list.append(mini_batch_frame)
 
             batch_losses.append(loss)
