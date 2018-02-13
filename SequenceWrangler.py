@@ -375,8 +375,9 @@ class SequenceWrangler:
             sys.stdout.write("\rWrangling track:  %04d of %04d " % (track_raw_idx, len(ibeo_track_list)))
             sys.stdout.flush()
             try:
-                wrangle_time = time.time()
+                wrangle_time =  time.time()
                 single_track = ibeo_track_list[track_raw_idx]
+                single_track = single_track.iloc[::self.parameters['subsample']]
                 # Pad end of tracks with the last value, and flag it is padding
                 if self.parameters['track_padding']:
                     single_track = self._pad_single_track(single_track, self.parameters['prediction_steps'])
@@ -402,8 +403,8 @@ class SequenceWrangler:
                 master_pool.append(track_pool)
                 #print "wrangle time: " + str(time.time()-wrangle_time)
             except ValueError:
-                print "Warning, track discarded as it was too short. Num discarded: " + str(discarded_tracks)
                 discarded_tracks += 1
+                print "Warning, track discarded as it was too short. Num discarded: " + str(discarded_tracks)
                 continue
         sys.stdout.write("\t\t\t\t%4s" % "[ OK ]")
         sys.stdout.write("\r\n")
