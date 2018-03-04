@@ -439,7 +439,7 @@ class TrainingManager:
             best_results.to_csv(os.path.join(self.parameter_dict['master_dir'],"best.csv"))
 
         reports = ReportWriter.ReportWriter(training_batch_handler, validation_batch_handler, test_batch_handler,
-                                            report_df)
+                                            self.parameter_dict, report_df)
 
         return best_results
 
