@@ -40,7 +40,10 @@ class BatchHandler:
 
         # Generate balanced index list
         ros = RandomOverSampler()
-        selection_data = list(data_pool.track_class.as_matrix())
+        if 'relative' in self.parameters['ibeo_data_columns'][0]:
+            selection_data = list(data_pool.relative_destination.as_matrix())
+        else:
+            selection_data = list(data_pool.track_class.as_matrix())
         le = preprocessing.LabelEncoder()
         le.fit(selection_data)
         indexed_classes = np.array(le.transform(selection_data))
