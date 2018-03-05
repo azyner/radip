@@ -380,6 +380,7 @@ class TrainingManager:
 ################################
 
         import dlib
+        #  http://blog.dlib.net/2017/12/a-global-optimization-algorithm-worth.html
         lowers = [
             min(self.parameter_dict['hyper_learning_rate_args']),
             min(self.parameter_dict['hyper_rnn_size_args']),

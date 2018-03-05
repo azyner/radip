@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 
 # This module is the one to run comparative
 # So the input will be important:
@@ -30,3 +30,77 @@ import numpy
 
 # Implementing ALL of the above is more work than I've seen in a lot of journals.
 # So it should be very thorough.
+
+class comparative_works():
+    def __init__(self):
+        """
+        Collection of works for comparison purposes.
+        Each model should read in:
+         "report_df"
+         "training_batch_handler"
+         "validation_batch_handler"
+         "test_batch_handler"
+         Even if said model does not use all of the above.
+         
+         and return:
+         a copy of "report_df"
+         
+         also consider caching results based on hashing track specific parameters and track_idxs
+        """
+        return
+
+    def CV_model(self,
+                 training_batch_handler,
+                 validation_batch_handler,
+                 test_batch_handler,
+                 parameters,
+                 report_df):
+        return
+
+    def CTV_model(self,
+                 training_batch_handler,
+                 validation_batch_handler,
+                 test_batch_handler,
+                 parameters,
+                 report_df):
+        return
+
+    def CTRA_model(self,
+                   training_batch_handler,
+                   validation_batch_handler,
+                   test_batch_handler,
+                   parameters,
+                   report_df):
+        return
+
+    def GaussianProcesses(self,
+                   training_batch_handler,
+                   validation_batch_handler,
+                   test_batch_handler,
+                   parameters,
+                   report_df):
+        return
+
+    def HMMGMM(self,
+                   training_batch_handler,
+                   validation_batch_handler,
+                   test_batch_handler,
+                   parameters,
+                   report_df):
+        import hmmlearn
+        training_data = training_batch_handler.data_pool.encoder_sample.as_matrix()
+        # This gives me an object dtype array of shape (len,) containing arrays of (sequence_len, n_params)
+        # and there is no good way of getting to (len, sequence_len, n_params). Which is frustrating
+
+        training_array = []
+        training_lengths = []
+        for data_element in training_data:
+            training_array.extend(data_element)
+            training_lengths.append(len(data_element))
+        from hmmlearn import hmm
+        hmm_instance = hmm.GaussianHMM(n_components=10).fit(training_array,training_lengths)
+        ideas = None
+
+        return
+
+
