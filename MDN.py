@@ -92,8 +92,9 @@ def sample(output, temperature=1.0):
         # input temp = 1.0
         # s1 *= temp * temp # same for s2
 
-        s1 = tf.multiply(tf.square(temp), s1)
-        s2 = tf.multiply(tf.square(temp), s2)
+        # During checkpoint loading for best params, it becomes float64 for some reason
+        s1 = tf.multiply(tf.square(tf.to_float(temp)), s1)
+        s2 = tf.multiply(tf.square(tf.to_float(temp)), s2)
 
         covUL = tf.expand_dims(tf.square(s1), 1)
         covUR = tf.expand_dims(tf.multiply(rho, tf.multiply(s1, s2)), 1)
