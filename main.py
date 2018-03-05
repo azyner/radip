@@ -160,7 +160,7 @@ to_pickle['data_pool'] = Wrangler.get_pool_filename()
 
 trainingManager = TrainingManager.TrainingManager(cf_pool, test_pool,Wrangler.encoder_means,Wrangler.encoder_stddev,
                                                   parameters.parameters)
-if (parameters.parameters['hyper_search_time'] > 0.001) and not test_network_only:
+if (parameters.parameters['hyper_search_folds'] > 0) and not test_network_only:
     best_params = trainingManager.run_hyperparameter_search()
 elif test_network_only:
     best_params = from_pickle['best_params']

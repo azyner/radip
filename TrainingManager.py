@@ -256,29 +256,33 @@ class TrainingManager:
         self.parameter_dict['training_early_stop'] = self.parameter_dict['early_stop_cf']
         training_batch_handler_cache = {}
         validation_batch_handler_cache = {}
-        while True:
 
-            #Select new hyperparameters
-            if self.parameter_dict['hyper_learning_rate_args'] is not None:
-                self.parameter_dict['learning_rate'] = \
-                    10 ** self.parameter_dict['hyper_learning_rate_fn'](
-                        *self.parameter_dict['hyper_learning_rate_args'])
-            if self.parameter_dict['hyper_rnn_size_args'] is not None:
-                self.parameter_dict['rnn_size'] = \
-                    int(self.parameter_dict['hyper_rnn_size_fn'](*self.parameter_dict['hyper_rnn_size_args']))
-            if self.parameter_dict['hyper_reg_embedding_beta_args'] is not None:
-                self.parameter_dict['reg_embedding_beta'] = \
-                    10 ** self.parameter_dict['hyper_reg_embedding_beta_fn'](
-                        *self.parameter_dict['hyper_reg_embedding_beta_args'])
-            if self.parameter_dict['hyper_reg_l2_beta_args'] is not None:
-                self.parameter_dict['l2_reg_beta'] = \
-                    10 ** self.parameter_dict['hyper_reg_l2_beta_fn'](
-                        *self.parameter_dict['hyper_reg_l2_beta_args'])
+        def hyper_training_helper(hyper_learning_rate,
+                                  hyper_rnn_size,
+                                  hyper_reg_embedding_beta,
+                                  hyper_reg_l2_beta,
+                                  hyper_learning_rate_decay):
+            """ 
+            Function used to wrap the hyperparameters and settings such that it fits the format used by dlib.
+            Some variables need to be side-loaded, mostly reporting values.
+            """
+            ############# SELECT NEW PARAMS
+            self.parameter_dict['learning_rate'] = 10 ** hyper_learning_rate
+            self.parameter_dict['rnn_size'] = hyper_rnn_size
+            self.parameter_dict['reg_embedding_beta'] = 10 ** hyper_reg_embedding_beta
+            self.parameter_dict['l2_reg_beta'] = 10 ** hyper_reg_l2_beta
+            self.parameter_dict['learning_rate_decay_factor'] = hyper_learning_rate_decay
+            self.parameter_dict['embedding_size'] = self.parameter_dict['rnn_size']
 
-            # TODO obs steps needs to load a new dataset every time, as the dataset has a fixed step size
-            # Actually it can just use the most recent t steps, but the dataset loaded needs to have the most encoder
-            # steps
-            #self.parameter_dict["observation_steps"] = random.choice(timestep_range)
+            # Update Cutoffs
+            self.parameter_dict['long_training_time'] = self.parameter_dict['early_stop_cf']
+            self.parameter_dict['long_training_steps'] = self.parameter_dict['hyper_search_step_cutoff']
+            ######### / PARAMS
+            print 'learning_rate              ' + str(10 ** hyper_learning_rate)
+            print 'rnn_size                   ' + str(hyper_rnn_size)
+            print 'reg_embedding_beta         ' + str(10 ** hyper_reg_embedding_beta)
+            print 'l2_reg_beta                ' + str(10 ** hyper_reg_l2_beta)
+            print 'learning_rate_decay_factor ' + str(hyper_learning_rate_decay)
 
             cf_fold = -1
             # I should call this outside the crossfold, so it occurs once
@@ -291,17 +295,20 @@ class TrainingManager:
                 log_file_name = log_file_time + "-cf-" + str(cf_fold)
 
                 print "Starting crossfold"
+                # Collect batch_handlers, and check if they've been cached.
                 try:
                     training_batch_handler = training_batch_handler_cache[hash(tuple(np.sort(train_pool.uniqueId.unique())))]
                 except KeyError:
                     training_batch_handler = BatchHandler.BatchHandler(train_pool, self.parameter_dict, True)
-                    training_batch_handler_cache[hash(tuple(np.sort(train_pool.uniqueId.unique())))] = training_batch_handler
+                except AttributeError:
+                    print 'This should not be attainable, as crossfold==2 is invalid'
 
                 try:
                     validation_batch_handler = validation_batch_handler_cache[hash(tuple(np.sort(val_pool.uniqueId.unique())))]
                 except KeyError:
                     validation_batch_handler = BatchHandler.BatchHandler(val_pool, self.parameter_dict, False)
-                    validation_batch_handler_cache[hash(tuple(np.sort(val_pool.uniqueId.unique())))] = validation_batch_handler
+                except AttributeError:
+                    print 'This should not be attainable, as crossfold==2 is invalid'
 
                 # Add input_size, num_classes
                 self.parameter_dict['input_size'] = training_batch_handler.get_input_size()
@@ -314,7 +321,13 @@ class TrainingManager:
                     cf_results = self.train_network(netManager,training_batch_handler,validation_batch_handler,hyper_search=True)
                 except tf.errors.InvalidArgumentError:
                     print "**********************caught error, probably gradients have exploded"
-                    continue
+                    return 99999999  # HUGE LOSS --> this was caused by bad init conditions, so it should be avoided.
+                # Now assign the handlers to the cache IF AND ONLY IF the training was successful.
+                # If it dies before the first pool sort in the training, the whole thing falls over.
+                validation_batch_handler_cache[
+                    hash(tuple(np.sort(val_pool.uniqueId.unique())))] = validation_batch_handler
+                training_batch_handler_cache[
+                    hash(tuple(np.sort(train_pool.uniqueId.unique())))] = training_batch_handler
 
                 cf_results['crossfold_number'] = cf_fold
                 # As pandas does not like lists when adding a list to a row of a dataframe, set to None (the lists are
@@ -333,12 +346,7 @@ class TrainingManager:
                 else:
                     netManager.draw_generative_html_graphs(validation_batch_handler,multi_sample=1)
                     netManager.draw_generative_html_graphs(validation_batch_handler,multi_sample=20)
-                # netManager.draw_html_graphs(
-                #     netManager.compute_distance_f1_report(
-                #         netManager.compute_result_per_dis(
-                #             validation_batch_handler)))
 
-                #######
                 # Here we have a fully trained model, but we are still in the cross fold.
 
                 # FIXME Only do 1 fold per hyperparams. Its not neccessary to continue
@@ -347,7 +355,7 @@ class TrainingManager:
             cf_df = pd.concat(cf_results_list)
             # Condense results from cross fold (Average, best, worst, whatever selection method)
             hyperparam_results = copy.copy(self.parameter_dict)
-            hyperparam_results['input_columns'] = ",".join(hyperparam_results['input_columns'])
+            #hyperparam_results['input_columns'] = ",".join(hyperparam_results['input_columns'])
             hyperparam_results['eval_accuracy'] = np.min(cf_df['eval_accuracy'])
             hyperparam_results['final_learning_rate'] = np.min(cf_df['final_learning_rate'])
             hyperparam_results['training_accuracy'] = np.min(cf_df['training_accuracy'])
@@ -368,11 +376,27 @@ class TrainingManager:
             hyperparam_results_list.append(pd.DataFrame(hyperparam_results, index=[0]))
             hyperparam_results_list.append(cf_df)
             #Write results and hyperparams to hyperparameter_results_dataframe
+            return hyperparam_results['validation_loss'] # VALUE TO BE MINIMIZED.
+################################
 
-            #Once cross folding has completed, select new hyperparameters, and re-run
-            now = time.time()
-            if now - hyper_time > 60 * 60 * self.parameter_dict['hyper_search_time']: # Stop the hyperparameter search after a set time
-                break
+        import dlib
+        lowers = [
+            min(self.parameter_dict['hyper_learning_rate_args']),
+            min(self.parameter_dict['hyper_rnn_size_args']),
+            min(self.parameter_dict['hyper_reg_embedding_beta_args']),
+            min(self.parameter_dict['hyper_reg_l2_beta_args']),
+            min(self.parameter_dict['hyper_learning_rate_decay_args'])
+           ]
+        uppers = [
+            max(self.parameter_dict['hyper_learning_rate_args']),
+            max(self.parameter_dict['hyper_rnn_size_args']),
+            max(self.parameter_dict['hyper_reg_embedding_beta_args']),
+            max(self.parameter_dict['hyper_reg_l2_beta_args']),
+            max(self.parameter_dict['hyper_learning_rate_decay_args'])
+           ]
+        x,y = dlib.find_min_global(hyper_training_helper, lowers, uppers,
+                                   [False, True, False, False, False],  # Is integer Variable
+                                   self.parameter_dict['hyper_search_folds'])
 
         hyper_df = pd.concat(hyperparam_results_list,ignore_index=True)
         hyper_df.to_csv(os.path.join(self.parameter_dict['master_dir'],self.hyper_results_logfile))
