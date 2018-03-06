@@ -54,6 +54,7 @@ parameters['hyper_reg_embedding_beta_args'] = (-10, -1)  # 10^X # OR None
 parameters['hyper_reg_l2_beta_fn'] = random.uniform
 parameters['hyper_reg_l2_beta_args'] = (-30, -8)  # 10^X # OR None
 parameters['hyper_learning_rate_decay_args'] = (0.9, 1.0)
+parameters['hyper_learning_rate_min_args'] = (-10, -2)
 
 ##### SINGLE RUN
 parameters["learning_rate"] = 0.0005

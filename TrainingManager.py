@@ -261,7 +261,8 @@ class TrainingManager:
                                   hyper_rnn_size,
                                   hyper_reg_embedding_beta,
                                   hyper_reg_l2_beta,
-                                  hyper_learning_rate_decay):
+                                  hyper_learning_rate_decay,
+                                  hyper_learning_rate_min):
             """ 
             Function used to wrap the hyperparameters and settings such that it fits the format used by dlib.
             Some variables need to be side-loaded, mostly reporting values.
@@ -272,7 +273,10 @@ class TrainingManager:
             self.parameter_dict['reg_embedding_beta'] = 10 ** hyper_reg_embedding_beta
             self.parameter_dict['l2_reg_beta'] = 10 ** hyper_reg_l2_beta
             self.parameter_dict['learning_rate_decay_factor'] = hyper_learning_rate_decay
+            self.parameter_dict['learning_rate_min'] = \
+                (10 ** hyper_learning_rate_min) * self.parameter_dict['learning_rate']
             self.parameter_dict['embedding_size'] = self.parameter_dict['rnn_size']
+
 
             # Update Cutoffs
             self.parameter_dict['long_training_time'] = self.parameter_dict['early_stop_cf']
@@ -386,22 +390,24 @@ class TrainingManager:
             min(self.parameter_dict['hyper_rnn_size_args']),
             min(self.parameter_dict['hyper_reg_embedding_beta_args']),
             min(self.parameter_dict['hyper_reg_l2_beta_args']),
-            min(self.parameter_dict['hyper_learning_rate_decay_args'])
-           ]
+            min(self.parameter_dict['hyper_learning_rate_decay_args']),
+            min(self.parameter_dict['hyper_learning_rate_min_args']),
+        ]
         uppers = [
             max(self.parameter_dict['hyper_learning_rate_args']),
             max(self.parameter_dict['hyper_rnn_size_args']),
             max(self.parameter_dict['hyper_reg_embedding_beta_args']),
             max(self.parameter_dict['hyper_reg_l2_beta_args']),
-            max(self.parameter_dict['hyper_learning_rate_decay_args'])
+            max(self.parameter_dict['hyper_learning_rate_decay_args']),
+            max(self.parameter_dict['hyper_learning_rate_min_args']),
            ]
         x,y = dlib.find_min_global(hyper_training_helper, lowers, uppers,
-                                   [False, True, False, False, False],  # Is integer Variable
+                                   [False, True, False, False, False, False],  # Is integer Variable
                                    self.parameter_dict['hyper_search_folds'])
 
-        hyper_df = pd.concat(hyperparam_results_list,ignore_index=True)
-        hyper_df.to_csv(os.path.join(self.parameter_dict['master_dir'],self.hyper_results_logfile))
-        summary_df = hyper_df[hyper_df['cf_summary']==True]
+        hyper_df = pd.concat(hyperparam_results_list, ignore_index=True)
+        hyper_df.to_csv(os.path.join(self.parameter_dict['master_dir'], self.hyper_results_logfile))
+        summary_df = hyper_df[hyper_df['cf_summary'] == True]
 
         # Distance at which the classifier can make a sound judgement, lower is better
         if self.parameter_dict['evaluation_metric_type'] == 'perfect_distance':
