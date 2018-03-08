@@ -21,6 +21,8 @@ class ReportWriter:
         
         """
         compares = comparative_works.comparative_works()
+        CTRA_errors = compares.CTRA_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
+                                     report_df)
         HMM_errors = compares.HMMGMM(training_batch_handler,validation_batch_handler,test_batch_handler,parameters,report_df)
         RNN_model_errors = self._score_model_on_metric(report_df)
         # for every other model:

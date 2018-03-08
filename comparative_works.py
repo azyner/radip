@@ -49,15 +49,20 @@ class comparative_works():
         """
         return
 
+    def _pol2cart(self, rho, phi):
+        x = rho * np.cos(phi)
+        y = rho * np.sin(phi)
+        return (x, y)
+
     def CV_model(self,
-                 training_batch_handler,
-                 validation_batch_handler,
-                 test_batch_handler,
-                 parameters,
-                 report_df):
+             training_batch_handler,
+             validation_batch_handler,
+             test_batch_handler,
+             parameters,
+             report_df):
         return
 
-    def CTV_model(self,
+    def CTRV_model(self,
                  training_batch_handler,
                  validation_batch_handler,
                  test_batch_handler,
@@ -71,7 +76,52 @@ class comparative_works():
                    test_batch_handler,
                    parameters,
                    report_df):
-        return
+        if 'angle' not in parameters['ibeo_data_columns'][2] or \
+           'Velocity' not in parameters['ibeo_data_columns'][3]:
+            raise ValueError('ibeo data columns need to contain speed and heading in positions 3 and 2')
+        test_batch_handler.set_distance_threshold(0)
+        test_batch_handler.reduced_pool
+        CTRA_df = report_df.copy()
+        CTRA_df = CTRA_df.drop(['outputs', 'mixtures'], axis=1)
+        outputs = []
+        p_steps = parameters['prediction_steps']
+        for index, row in CTRA_df.iterrows():
+            input_array = row.encoder_sample
+            angle = input_array[:, 2]
+            speed = input_array[:, 3]
+            #find turn rate
+            d_angle_a = np.diff(angle)
+            d_angle = np.mean(d_angle_a[-6:-1])
+            #find accel
+            accel_a = np.diff(speed)
+            accel = np.mean(accel_a[-6:-1])
+
+            #propagate n steps forward
+            # Here its:
+            # accel ==> velocity + C
+            # velocity ==> delta_position
+            # TR ==> yaws + C
+            # That gives me a polar co-ord system for the position deltas and the yaws, so convert to cartesian.
+            last_step = input_array[-1]
+            last_pos = last_step[0:2]
+            last_heading = angle[-1]
+            last_speed = speed[-1]
+            pred_headings = np.arange(last_heading, last_heading+((p_steps)*d_angle), d_angle)
+            if last_speed < 0.0001:
+                pred_speed = np.array([0.0]*p_steps)
+            else:
+                pred_speed = np.arange(last_speed, last_speed + ((p_steps) * accel), accel)
+            try:
+                x_d, y_d = self._pol2cart(pred_speed / (25.0 / parameters['subsample']), pred_headings)
+            except TypeError:
+                ideas = None
+            x_d += last_pos[0]
+            y_d += last_pos[1]
+            prediction = [x_d,y_d,pred_headings,pred_speed]
+            outputs.append(prediction)
+
+        CTRA_df = CTRA_df.assign(outputs=outputs)
+        return CTRA_df
 
     def GaussianProcesses(self,
                    training_batch_handler,
