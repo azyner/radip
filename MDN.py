@@ -168,6 +168,11 @@ def compute_derivates(output_prev, output_current, network_input_columns,
     v_c = tf.multiply(pos_d, (25/subsample_rate))  # delta * Hz = number of meters per second
     #  For whatever reason, atan2 convention is atan2(y,x)
     h_c = tf.atan2(tf.subtract(y_c, y_p), tf.subtract(x_c, x_p))
+    if 'relative' in network_input_columns[0]:
+        # Shifting a circular co-ord system is really, really annoying.
+        h_c = tf.sum(h_c, np.pi / 2)  # Add a number to get to (0,2pi) range
+        h_c = tf.floormod(h_c, 2 * np.pi)  # circularize
+        h_c = tf.subtract(h_c, np.pi)  # Now get back top -pi, pi
     # TODO Element wise, I have to condition on speed. If < 2m/s (hyper-parameter?) use old heading, else compute heading
     # I don't want to use tf.cond as it does not perform element-wise logic.
     # So I'm going to construct this fundamentally - Multiply by zero or one and sum

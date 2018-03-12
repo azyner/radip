@@ -282,12 +282,21 @@ class ibeoCSVImporter:
             x_z = x - origin_coords[0]
             y_z = y - origin_coords[1]
             dest_vec = [0, 1]
-            a = self._angle_between(orig_vec, dest_vec )
+            a = self._angle_between(orig_vec, dest_vec)
             new_x = x_z*np.cos(a) - y_z*np.sin(a)
             new_y = x_z*np.sin(a) + y_z*np.cos(a)
             new_a = track.ObjBoxOrientation + a
             # shift to -pi and pi
-            new_a = ((new_a + 2*np.pi) % 2*np.pi) - np.pi
+            # ILL-EAGLE
+            #new_a = ((new_a + 2*np.pi) % 2*np.pi) - np.pi
+            #new_a = [a if a < 2 * np.pi else a - (2*np.pi) for a in new_a]
+            # The regular coordinates were x forward, y left, carteasian angles (ccw, from x=0 axis)
+            # The relative coords are now y forward, x right, and ccw angles from y=0
+            # This makes graphing easy and convienent, but angles are annoying.
+            # Having zero at the top, +- pi radians, and the vehicles travelling upwards avoids rollover
+            new_a += np.pi/2
+            new_a = ((new_a + 2*np.pi) % (2*np.pi))
+            new_a -= np.pi
             track['relative_x'] = new_x
             track['relative_y'] = new_y
             track['relative_angle'] = new_a

@@ -89,6 +89,8 @@ class comparative_works():
             input_array = row.encoder_sample
             angle = input_array[:, 2]
             speed = input_array[:, 3]
+            angle = [a if a > 0 else a + 2*np.pi for a in angle] # This moves the disjoint to
+            # move angle back into continuous space
             #find turn rate
             d_angle_a = np.diff(angle)
             d_angle = np.mean(d_angle_a[-6:-1])
@@ -104,20 +106,24 @@ class comparative_works():
             # That gives me a polar co-ord system for the position deltas and the yaws, so convert to cartesian.
             last_step = input_array[-1]
             last_pos = last_step[0:2]
-            last_heading = angle[-1]
+            last_angle = angle[-1]
             last_speed = speed[-1]
-            pred_headings = np.arange(last_heading, last_heading+((p_steps)*d_angle), d_angle)
+            pred_angles = np.arange(last_angle, last_angle+((p_steps)*d_angle), d_angle)
             if last_speed < 0.0001:
                 pred_speed = np.array([0.0]*p_steps)
             else:
                 pred_speed = np.arange(last_speed, last_speed + ((p_steps) * accel), accel)
             try:
-                x_d, y_d = self._pol2cart(pred_speed / (25.0 / parameters['subsample']), pred_headings)
+                x_d, y_d = self._pol2cart(pred_speed / (25.0 / parameters['subsample']), pred_angles + np.pi/2)
             except TypeError:
                 ideas = None
-            x_d += last_pos[0]
-            y_d += last_pos[1]
-            prediction = [x_d,y_d,pred_headings,pred_speed]
+            x_p = np.cumsum(x_d)
+            y_p = np.cumsum(y_d)
+            x_p += last_pos[0]
+            y_p += last_pos[1]
+            # Correct headings to be in -pi, pi
+
+            prediction = np.array([x_p, y_p, pred_angles, pred_speed]).transpose()
             outputs.append(prediction)
 
         CTRA_df = CTRA_df.assign(outputs=outputs)
