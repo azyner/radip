@@ -23,10 +23,16 @@ class ReportWriter:
         """
         compares = comparative_works.comparative_works()
         CTRA_df = compares.CTRA_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
-                                     report_df)
+                                      report_df)
+        CTRV_df = compares.CTRV_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
+                                      report_df)
+        CV_df = compares.CV_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
+                                      report_df)
         #HMM_errors = compares.HMMGMM(training_batch_handler,validation_batch_handler,test_batch_handler,parameters,report_df)
         errors_dict = {}
         errors_dict['CTRA'] = self._score_model_on_metric(CTRA_df)
+        errors_dict['CTRV'] = self._score_model_on_metric(CTRV_df)
+        errors_dict['CV'] = self._score_model_on_metric(CV_df)
         errors_dict['RNN'] = self._score_model_on_metric(report_df)
         consolidated_errors_dict = {}
         for name, df in errors_dict.iteritems():
@@ -104,9 +110,11 @@ class ReportWriter:
             # Thanks sapphire008!
             #TODO Untested. I think it needs to be trackwise, as above
             (A, B) = (preds[:, 0:2], gts[:, 0:2])
+
             # Find pairwise distance
-            D_mat = np.sqrt(inner1d(A, A)[np.newaxis].T +
-                            inner1d(B, B) - 2 * (np.dot(A, B.T)))
+            # Very occasionally due to rounding errors it D_mat can be a small neg num, resulting in NaN
+            D_mat = np.nan_to_num(np.sqrt(inner1d(A, A)[np.newaxis].T +
+                            inner1d(B, B) - 2 * (np.dot(A, B.T))))
             # Calculating the forward HD: mean(min(each col))
             FHD = np.mean(np.min(D_mat, axis=1))
             # Calculating the reverse HD: mean(min(each row))

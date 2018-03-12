@@ -55,27 +55,35 @@ class comparative_works():
         return (x, y)
 
     def CV_model(self,
-             training_batch_handler,
-             validation_batch_handler,
-             test_batch_handler,
-             parameters,
-             report_df):
-        return
-
-    def CTRV_model(self,
                  training_batch_handler,
                  validation_batch_handler,
                  test_batch_handler,
                  parameters,
                  report_df):
-        return
+        return self.CTRA_model(training_batch_handler,
+                               validation_batch_handler,
+                               test_batch_handler,
+                               parameters,
+                               report_df, CV=True, C_TR=True)
+
+    def CTRV_model(self,
+                   training_batch_handler,
+                   validation_batch_handler,
+                   test_batch_handler,
+                   parameters,
+                   report_df):
+        return self.CTRA_model(training_batch_handler,
+                               validation_batch_handler,
+                               test_batch_handler,
+                               parameters,
+                               report_df, C_TR=True)
 
     def CTRA_model(self,
                    training_batch_handler,
                    validation_batch_handler,
                    test_batch_handler,
                    parameters,
-                   report_df):
+                   report_df, CV=False, C_TR=False):
         if 'angle' not in parameters['ibeo_data_columns'][2] or \
            'Velocity' not in parameters['ibeo_data_columns'][3]:
             raise ValueError('ibeo data columns need to contain speed and heading in positions 3 and 2')
@@ -92,11 +100,17 @@ class comparative_works():
             angle = [a if a > 0 else a + 2*np.pi for a in angle] # This moves the disjoint to
             # move angle back into continuous space
             #find turn rate
-            d_angle_a = np.diff(angle)
-            d_angle = np.mean(d_angle_a[-6:-1])
+            if C_TR:
+                d_angle = 0
+            else:
+                d_angle_a = np.diff(angle)
+                d_angle = np.mean(d_angle_a[-6:-1])
             #find accel
-            accel_a = np.diff(speed)
-            accel = np.mean(accel_a[-6:-1])
+            if CV:
+                accel = 0
+            else:
+                accel_a = np.diff(speed)
+                accel = np.mean(accel_a[-6:-1])
 
             #propagate n steps forward
             # Here its:
@@ -108,11 +122,16 @@ class comparative_works():
             last_pos = last_step[0:2]
             last_angle = angle[-1]
             last_speed = speed[-1]
-            pred_angles = np.arange(last_angle, last_angle+((p_steps)*d_angle), d_angle)
-            if last_speed < 0.0001:
-                pred_speed = np.array([0.0]*p_steps)
+            if abs(d_angle) < 0.0000001:
+                pred_angles = np.array([last_angle] * p_steps)
             else:
-                pred_speed = np.arange(last_speed, last_speed + ((p_steps) * accel), accel)
+                pred_angles = np.arange(last_angle, last_angle + (p_steps * d_angle), d_angle)
+            if last_speed < 0.0001:
+                pred_speed = np.array([0.0] * p_steps)
+            elif abs(accel) < 0.000001:
+                pred_speed = np.array([last_speed] * p_steps)
+            else:
+                pred_speed = np.arange(last_speed, last_speed + (p_steps * accel), accel)
             try:
                 x_d, y_d = self._pol2cart(pred_speed / (25.0 / parameters['subsample']), pred_angles + np.pi/2)
             except TypeError:
