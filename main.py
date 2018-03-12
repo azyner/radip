@@ -76,7 +76,7 @@ if checkpoint_dir is None:
     print "results folder made, parameter file copied"
 
     githash = subprocess.check_output(["git", "describe", "--always"])
-    with open(os.path.join(parameters.parameters['master_dir'], githash + ".githash"), "w") as outfile:
+    with open(os.path.join(parameters.parameters['master_dir'], githash[:-1] + ".githash"), "w") as outfile:
         outfile.write("Git hash:")
         outfile.write(githash)
         outfile.write("Git diff:")
