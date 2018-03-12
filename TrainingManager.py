@@ -471,6 +471,7 @@ class TrainingManager:
 
         reports = ReportWriter.ReportWriter(training_batch_handler, validation_batch_handler, test_batch_handler,
                                             self.parameter_dict, report_df)
+        reports.get_results().to_csv(os.path.join(self.parameter_dict['master_dir'],"metrics.csv"))
 
         return best_results
 

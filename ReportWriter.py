@@ -2,6 +2,7 @@ from scipy.spatial import distance
 import numpy as np
 from numpy.core.umath_tests import inner1d
 import comparative_works
+import pandas as pd
 
 class ReportWriter:
     def __init__(self,
@@ -21,15 +22,39 @@ class ReportWriter:
         
         """
         compares = comparative_works.comparative_works()
-        CTRA_errors = compares.CTRA_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
+        CTRA_df = compares.CTRA_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
                                      report_df)
-        HMM_errors = compares.HMMGMM(training_batch_handler,validation_batch_handler,test_batch_handler,parameters,report_df)
-        RNN_model_errors = self._score_model_on_metric(report_df)
+        #HMM_errors = compares.HMMGMM(training_batch_handler,validation_batch_handler,test_batch_handler,parameters,report_df)
+        errors_dict = {}
+        errors_dict['CTRA'] = self._score_model_on_metric(CTRA_df)
+        errors_dict['RNN'] = self._score_model_on_metric(report_df)
+        consolidated_errors_dict = {}
+        for name, df in errors_dict.iteritems():
+            consolidated_errors_dict[name] = self._consolidate_errors(df)
+            #consolidated_errors_dict[name]['model'] = name
+
         # for every other model:
         #   report_df = run_model
         #   model_errors = self._score...()
         # collect all scores and write a CSV or HTML or something.
         ideas = None
+        self.errors_df = pd.DataFrame(consolidated_errors_dict).transpose()
+        return
+
+    def get_results(self):
+        return self.errors_df
+
+    def _consolidate_errors(self,error_df):
+        metrics = list(error_df.keys())
+        summarized_metrics = {}
+        for metric in metrics:
+            errors = error_df[metric]
+            summarized_metrics[metric + " " + 'median'] = np.median(errors)
+            summarized_metrics[metric + " " + 'mean'] = np.mean(errors)
+            summarized_metrics[metric + " " + 'worst 5%'] = np.percentile(errors, 95)
+            summarized_metrics[metric + " " + 'worst 1%'] = np.percentile(errors, 99)
+        return summarized_metrics
+
 
     # Here, there are many options
     # A) metric variance. LCSS, Hausdorff, etc
@@ -37,15 +62,16 @@ class ReportWriter:
         # best mean
         # best worst 5% / 1% / 0.1% <-- It took me ages to get data for a reasonable 0.1% fit!
     def _score_model_on_metric(self, report_df, metric=None):
-        scores_list = []
-
+        #scores_list = []
+        track_scores = {}
         horizon_list = [5, 10, 13]#, 25, 38, 50, 63, 75]
         # horizon_dict = {}
         # for dist in horizon_list:
         #     horizon_dict[dist] = []
 
+
         for track in report_df.iterrows():
-            track_scores = {}
+
             track = track[1]
 
             preds = track.outputs[np.logical_not(track.trackwise_padding)]
@@ -64,7 +90,10 @@ class ReportWriter:
                     continue
                 euclid_error = distance.euclidean(preds[dist, 0:2], gts[dist,0:2])
                 #horizon_dict[dist].append(euclid_error)
-                track_scores["horizon_steps_" + str(dist)] = euclid_error
+                try:
+                    track_scores["horizon_steps_" + str(dist)].append(euclid_error)
+                except KeyError:
+                    track_scores["horizon_steps_" + str(dist)] = [euclid_error]
 
             # Now horizon_dict is keyed by timestep, and contains lists of distance errors
             # Mean, Median, 5% etc can now be done on those arrays.
@@ -86,12 +115,15 @@ class ReportWriter:
             MHD = np.max(np.array([FHD, RHD]))
             ### /MHD
 
+            try:
+                track_scores['euclidean'].append(np.mean(np.array(euclid_error)))
+                track_scores['MHD'].append(MHD)
+            except KeyError:
+                track_scores['euclidean'] = [np.mean(np.array(euclid_error))]
+                track_scores['MHD'] = [MHD]
 
-            track_scores['euclidean'] = np.mean(np.array(euclid_error))
-            track_scores['MHD'] = MHD
 
-
-            scores_list.append(track_scores)
-        return scores_list
+            #scores_list.append(track_scores)
+        return track_scores
 
 #TODO Make a report_df.pkl for the results, and add a if name is main here to load said cached results.
