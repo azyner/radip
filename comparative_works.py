@@ -154,6 +154,35 @@ class comparative_works():
                    test_batch_handler,
                    parameters,
                    report_df):
+        from sklearn.gaussian_process import GaussianProcessRegressor
+        from sklearn.gaussian_process.kernels import (RBF, Matern, RationalQuadratic,
+                                                      ExpSineSquared, DotProduct,
+                                                      ConstantKernel, WhiteKernel)
+        training_encoder_data = training_batch_handler.data_pool.encoder_sample.as_matrix()
+        training_decoder_data = training_batch_handler.data_pool.decoder_sample.as_matrix()
+        # Now I want to reshape this such that n_samples is n_tracks, and features is unrolled track data
+        X = []
+        X_short = []
+        for track in training_encoder_data:
+            X_short.append(track[-2:].flatten())
+            X.append(track.flatten())
+        y = []
+        y_short = []
+        for track in training_decoder_data:
+            y_short.append(track[0:2].flatten())
+            y.append(track.flatten())
+        X = np.array(X)
+        y = np.array(y)
+        X_short = np.array(X_short)
+        y_short = np.array(y_short)
+        # gp_kernel = ExpSineSquared(1.0, 5.0, periodicity_bounds=(1e-2, 1e1)) + WhiteKernel(1e-1)
+        # gpr = GaussianProcessRegressor()#kernel=gp_kernel)
+        # gpr.fit(X[0:100], y[0:100])
+        # t = gpr.sample_y(X[0:1]).reshape(20,4, order='a')
+        import pyGPs
+        model = pyGPs.GPR_FITC()
+        model.setData(X_short[0:1000], y_short[0:1000])
+        ideas = None
         return
 
     def HMMGMM(self,

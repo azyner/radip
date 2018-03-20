@@ -29,6 +29,8 @@ class ReportWriter:
         CV_df = compares.CV_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
                                       report_df)
         #HMM_errors = compares.HMMGMM(training_batch_handler,validation_batch_handler,test_batch_handler,parameters,report_df)
+        gaussian_df = compares.GaussianProcesses(training_batch_handler, validation_batch_handler, test_batch_handler,
+                                                 parameters, report_df)
         errors_dict = {}
         errors_dict['CTRA'] = self._score_model_on_metric(CTRA_df)
         errors_dict['CTRV'] = self._score_model_on_metric(CTRV_df)
