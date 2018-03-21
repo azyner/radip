@@ -469,6 +469,7 @@ class TrainingManager:
         if not test_network_only:
             best_results.to_csv(os.path.join(self.parameter_dict['master_dir'],"best.csv"))
 
+        # Check that every track in the report_df is at distance zero.
         reports = ReportWriter.ReportWriter(training_batch_handler, validation_batch_handler, test_batch_handler,
                                             self.parameter_dict, report_df)
         reports.get_results().to_csv(os.path.join(self.parameter_dict['master_dir'],"metrics.csv"))

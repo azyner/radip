@@ -175,15 +175,47 @@ class comparative_works():
         y = np.array(y)
         X_short = np.array(X_short)
         y_short = np.array(y_short)
+
+        import GPy
+        n_samples = 200 #X_short.shape[0]
+        gp_succeeded = False
+        while not gp_succeeded:
+            try:
+                sample_idxs = np.random.choice(X_short.shape[0], n_samples, replace=False)
+                X_r = X[sample_idxs]
+                Y_r = y[sample_idxs]
+                X_sr = X_short[sample_idxs]
+                Y_sr = y_short[sample_idxs]
+
+                ker = GPy.kern.Matern52(2,ARD=True) + GPy.kern.White(2)
+                m = GPy.models.GPRegression(X_r, Y_r)
+                m.optimize(messages=True,max_f_eval = 1000)
+                gp_succeeded = True
+            except MemoryError:
+                n_samples *= 0.9
+                print "GP ran out of memory, number of samples reduced to: " + str(n_samples)
+
+
+        # import pyGPs
+        # model = pyGPs.GPR_FITC()
+        # model.setData(X_short[0:1000], y_short[0:1000])
         # gp_kernel = ExpSineSquared(1.0, 5.0, periodicity_bounds=(1e-2, 1e1)) + WhiteKernel(1e-1)
         # gpr = GaussianProcessRegressor()#kernel=gp_kernel)
         # gpr.fit(X[0:100], y[0:100])
         # t = gpr.sample_y(X[0:1]).reshape(20,4, order='a')
-        import pyGPs
-        model = pyGPs.GPR_FITC()
-        model.setData(X_short[0:1000], y_short[0:1000])
+        outputs = []
         ideas = None
-        return
+        test_batch_handler.set_distance_threshold(0)
+        test_batch_handler.reduced_pool
+        GP_df = report_df.copy()
+        GP_df = GP_df.drop(['outputs', 'mixtures'], axis=1)
+        for index, row in GP_df.iterrows():
+            input_array = row.encoder_sample
+            output, _ = m.predict(np.array([input_array.flatten()]))
+            outputs.append(output[0])
+
+        GP_df = GP_df.assign(outputs=outputs)
+        return GP_df
 
     def HMMGMM(self,
                    training_batch_handler,
