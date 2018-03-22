@@ -177,7 +177,7 @@ class comparative_works():
         y_short = np.array(y_short)
 
         import GPy
-        n_samples = 200 #X_short.shape[0]
+        n_samples = 8000 #X_short.shape[0]
         gp_succeeded = False
         while not gp_succeeded:
             try:
