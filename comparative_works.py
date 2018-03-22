@@ -212,7 +212,7 @@ class comparative_works():
         for index, row in GP_df.iterrows():
             input_array = row.encoder_sample
             output, _ = m.predict(np.array([input_array.flatten()]))
-            outputs.append(output[0])
+            outputs.append(output[0].reshape(len(output[0])/4,4,order='a'))
 
         GP_df = GP_df.assign(outputs=outputs)
         return GP_df
