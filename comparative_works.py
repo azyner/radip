@@ -217,6 +217,62 @@ class comparative_works():
         GP_df = GP_df.assign(outputs=outputs)
         return GP_df
 
+    def VGMM(self,        training_batch_handler,
+                          validation_batch_handler,
+                          test_batch_handler,
+                          parameters,
+                          report_df):
+        training_encoder_data = training_batch_handler.data_pool.encoder_sample.as_matrix()
+        training_decoder_data = training_batch_handler.data_pool.decoder_sample.as_matrix()
+        # Now I want to reshape this such that n_samples is n_tracks, and features is unrolled track data
+        X = []
+        X_short = []
+        for track in training_encoder_data:
+            X_short.append(track[-2:].flatten())
+            X.append(track.flatten())
+        y = []
+        y_short = []
+        for track in training_decoder_data:
+            y_short.append(track[0:2].flatten())
+            y.append(track.flatten())
+        X = np.array(X)
+        y = np.array(y)
+        X_short = np.array(X_short)
+        y_short = np.array(y_short)
+
+        n_samples = 8000  # X_short.shape[0]
+        gp_succeeded = False
+        while not gp_succeeded:
+            try:
+                sample_idxs = np.random.choice(X_short.shape[0], n_samples, replace=False)
+                X_r = X[sample_idxs]
+                Y_r = y[sample_idxs]
+                X_sr = X_short[sample_idxs]
+                Y_sr = y_short[sample_idxs]
+
+                #ker = GPy.kern.Matern52(2, ARD=True) + GPy.kern.White(2)
+                from sklearn import mixture
+                m = mixture.GaussianMixture(n_components=20)
+                m.fit(X_r, Y_r)
+                gp_succeeded = True
+            except MemoryError:
+                n_samples *= 0.9
+                print "GP ran out of memory, number of samples reduced to: " + str(n_samples)
+
+        outputs = []
+        ideas = None
+        test_batch_handler.set_distance_threshold(0)
+        test_batch_handler.reduced_pool
+        VGMM_df = report_df.copy()
+        VGMM_df = VGMM_df.drop(['outputs', 'mixtures'], axis=1)
+        for index, row in VGMM_df.iterrows():
+            input_array = row.encoder_sample
+            output = m.predict(np.array([input_array.flatten()]))
+            outputs.append(output[0].reshape(len(output[0]) / 4, 4, order='a'))
+
+        VGMM_df = VGMM_df.assign(outputs=outputs)
+        return VGMM_df
+
     def HMMGMM(self,
                    training_batch_handler,
                    validation_batch_handler,

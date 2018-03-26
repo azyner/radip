@@ -23,6 +23,7 @@ class ReportWriter:
         """
         #print "I CANNOT USE REPORT DF AS IT IS NOT ONLY AT DISTNCE 0"
         #raise ValueError
+        self.write_matlab_csv(report_df)
         compares = comparative_works.comparative_works()
         CTRA_df = compares.CTRA_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
                                       report_df)
@@ -31,30 +32,62 @@ class ReportWriter:
         CV_df = compares.CV_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
                                       report_df)
         #HMM_errors = compares.HMMGMM(training_batch_handler,validation_batch_handler,test_batch_handler,parameters,report_df)
+        #VGMM is CATEGORICAL!
+        #VGMM_df = compares.VGMM(training_batch_handler, validation_batch_handler, test_batch_handler,
+        #                                         parameters, report_df)
         GP_df = compares.GaussianProcesses(training_batch_handler, validation_batch_handler, test_batch_handler,
                                                  parameters, report_df)
-        errors_dict = {}
-        errors_dict['CTRA'] = self._score_model_on_metric(CTRA_df)
-        errors_dict['CTRV'] = self._score_model_on_metric(CTRV_df)
-        errors_dict['CV'] = self._score_model_on_metric(CV_df)
-        errors_dict['GP'] = self._score_model_on_metric(GP_df)
-        errors_dict['RNN'] = self._score_model_on_metric(report_df)
 
-        consolidated_errors_dict = {}
-        for name, df in errors_dict.iteritems():
-            consolidated_errors_dict[name] = self._consolidate_errors(df)
+        dest_errors_dict = {}
+        for relative_destination in report_df.relative_destination.unique():
+            errors_dict = {}
+            errors_dict['CTRA' + '-' + relative_destination] = \
+                self._score_model_on_metric(CTRA_df[CTRA_df.relative_destination == relative_destination])
+            errors_dict['CTRV' + '-' + relative_destination] = \
+                self._score_model_on_metric(CTRV_df[CTRV_df.relative_destination == relative_destination])
+            errors_dict['CV' + '-' + relative_destination] = \
+                self._score_model_on_metric(CV_df[CV_df.relative_destination == relative_destination])
+            # errors_dict['VGMM'] = self._score_model_on_metric(VGMM_df)
+            errors_dict['GP' + '-' + relative_destination] = \
+                self._score_model_on_metric(GP_df[GP_df.relative_destination == relative_destination])
+            errors_dict['RNN' + '-' + relative_destination] = \
+                self._score_model_on_metric(report_df[report_df.relative_destination == relative_destination])
+            dest_errors_dict[relative_destination] = errors_dict
+
+        errors_dict = {}
+        relative_destination = 'all'
+        errors_dict['CTRA' + '-' + relative_destination] = self._score_model_on_metric(CTRA_df)
+        errors_dict['CTRV' + '-' + relative_destination] = self._score_model_on_metric(CTRV_df)
+        errors_dict['CV' + '-' + relative_destination] = self._score_model_on_metric(CV_df)
+        # errors_dict['VGMM'] = self._score_model_on_metric(VGMM_df)
+        errors_dict['GP' + '-' + relative_destination] = self._score_model_on_metric(GP_df)
+        errors_dict['RNN' + '-' + relative_destination] = self._score_model_on_metric(report_df)
+        dest_errors_dict['all'] = errors_dict
+
+        # Consolidate everything, grouped by direction
+        directionally_consolidated_errors_dict = {}
+        for direction, direction_df in dest_errors_dict.iteritems():
+            methodically_consolidated_errors_dict = {}
+            for name, df in direction_df.iteritems():
+                methodically_consolidated_errors_dict[name] = self._consolidate_errors(df)
+            directionally_consolidated_errors_dict[direction] = methodically_consolidated_errors_dict
             #consolidated_errors_dict[name]['model'] = name
 
         # for every other model:
         #   report_df = run_model
         #   model_errors = self._score...()
         # collect all scores and write a CSV or HTML or something.
-        ideas = None
-        self.errors_df = pd.DataFrame(consolidated_errors_dict).transpose()
+        self.errors_df_dict = directionally_consolidated_errors_dict
+
         return
 
+    def write_matlab_csv(self,report_df):
+        for idx, row in report_df.iterrows():
+
+            ideas = None
+
     def get_results(self):
-        return self.errors_df
+        return self.errors_df_dict
 
     def _consolidate_errors(self,error_df):
         metrics = list(error_df.keys())
