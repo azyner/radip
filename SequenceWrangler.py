@@ -76,7 +76,7 @@ class SequenceWrangler:
             self.test_pool = from_pickle['test_pool']
             return True
 
-    def split_into_evaluation_pools(self,trainval_idxs = None, test_idxs = None):
+    def split_into_evaluation_pools(self, trainval_idxs=None, test_idxs=None, test_csv=None):
         # I want to cache the pool concat
         # So I need a unique id from master pool --> self.get_pool_filename
         # I also want a unique id for the crossfold_indicies. Only if that is deterministic. I'll have to check
@@ -101,7 +101,7 @@ class SequenceWrangler:
         print "Encoder vars: " + str(self.encoder_vars)
         print "Encoder standard deviations: " + str(self.encoder_stddev)
 
-        raw_indicies =self.master_pool.track_idx.unique()
+        raw_indices = self.master_pool.track_idx.unique()
 
         # origin_destination_class_list = self.master_pool.track_class.unique()
 
@@ -112,7 +112,7 @@ class SequenceWrangler:
 
         # rebuild track_class vector
         raw_classes = []
-        for raw_idx in raw_indicies:
+        for raw_idx in raw_indices:
             #Get the first results that matches the track_idx and return its destination class
             #by construction, this data is consistent across all sample values for that track
             track_class = self.master_pool[self.master_pool.track_idx==raw_idx][class_to_fit].unique()
@@ -121,12 +121,25 @@ class SequenceWrangler:
         st_encoder = preprocessing.LabelEncoder()
         st_encoder.fit(raw_classes)
         origin_destination_enc_classes = st_encoder.transform(raw_classes)
-
+        #########
         if (trainval_idxs is None) and (test_idxs is None):
-            self.trainval_idxs, self.test_idxs = train_test_split(raw_indicies,  # BREAK HERE
-                                                    test_size=self.test_split,
-                                                    stratify=origin_destination_enc_classes,
-                                                    random_state=seed)
+            # if we are not loading a model from a checkpoint
+            if test_csv is not None:
+                # if we are doing a full intersection holdout.
+                self.trainval_idxs = []
+                self.test_idxs = []
+                for track_idx in raw_indices:
+                    if test_csv in self.master_pool[self.master_pool.track_idx == track_idx]['csv_name'].unique()[0]:
+                        self.test_idxs.append(track_idx)
+                    else:
+                        self.trainval_idxs.append(track_idx)
+                self.test_idxs = np.array(self.test_idxs)
+                self.trainval_idxs = np.array(self.trainval_idxs)
+            else:
+                self.trainval_idxs, self.test_idxs = train_test_split(raw_indices,  # BREAK HERE
+                                                        test_size=self.test_split,
+                                                        stratify=origin_destination_enc_classes,
+                                                        random_state=seed)
         else:
             self.trainval_idxs = trainval_idxs
             self.test_idxs = test_idxs
@@ -150,7 +163,7 @@ class SequenceWrangler:
             test_pool = []
 
             #Now iterate over each track, and dump it into the apropriate crossfold sub-pool or test pool
-            for track_raw_idx in raw_indicies:
+            for track_raw_idx in raw_indices:
                 # For each pool
                 for fold_idx in range(len(crossfold_indicies)):
                     # For train or validate in the pool

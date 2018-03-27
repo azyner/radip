@@ -149,7 +149,10 @@ if checkpoint_dir is not None:
         from_pickle = pickle.load(pkl_file)
         Wrangler.split_into_evaluation_pools(test_idxs=from_pickle['test_idxs'], trainval_idxs=from_pickle['trainval_idxs'])
 else:
-    Wrangler.split_into_evaluation_pools()
+    try:
+        Wrangler.split_into_evaluation_pools(test_csv=parameters.parameters['test_csv'])
+    except KeyError:
+        Wrangler.split_into_evaluation_pools()
 cf_pool, test_pool = Wrangler.get_pools()
 
 to_pickle = {}
