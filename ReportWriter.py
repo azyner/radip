@@ -157,12 +157,13 @@ class ReportWriter:
             # Calculating the forward HD: mean(min(each col))
             try:
                 FHD = np.mean(np.min(D_mat, axis=1))
-            except ValueError:
-                ideas = None
             # Calculating the reverse HD: mean(min(each row))
-            RHD = np.mean(np.min(D_mat, axis=0))
-            # Calculating mhd
-            MHD = np.max(np.array([FHD, RHD]))
+                RHD = np.mean(np.min(D_mat, axis=0))
+                # Calculating mhd
+                MHD = np.max(np.array([FHD, RHD]))
+            except:
+                MHD=None # Sometimes the test data doesnt contain any of this particular class.
+                        # Should not happen in prod
             ### /MHD
 
             try:
