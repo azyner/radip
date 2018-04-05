@@ -125,7 +125,8 @@ class comparative_works():
             if abs(d_angle) < 0.0000001:
                 pred_angles = np.array([last_angle] * p_steps)
             else:
-                pred_angles = np.arange(last_angle, last_angle + (p_steps * d_angle), d_angle)
+                # An occasional rounding error occurs when subsample != 1, thus [:p_steps] was added to trim.
+                pred_angles = np.arange(last_angle, last_angle + (p_steps * d_angle), d_angle)[:p_steps]
             if last_speed < 0.0001:
                 pred_speed = np.array([0.0] * p_steps)
             elif abs(accel) < 0.000001:
