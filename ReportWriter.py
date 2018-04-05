@@ -23,8 +23,11 @@ class ReportWriter:
         """
         #print "I CANNOT USE REPORT DF AS IT IS NOT ONLY AT DISTNCE 0"
         #raise ValueError
-        self.write_matlab_csv(report_df)
+        #self.write_matlab_csv(report_df)
         compares = comparative_works.comparative_works()
+
+        class_dist_df = compares.classifierComboDistributionEstimator(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
+                                      report_df)
         CTRA_df = compares.CTRA_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
                                       report_df)
         CTRV_df = compares.CTRV_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
@@ -38,9 +41,12 @@ class ReportWriter:
         GP_df = compares.GaussianProcesses(training_batch_handler, validation_batch_handler, test_batch_handler,
                                                  parameters, report_df)
 
+
         dest_errors_dict = {}
         for relative_destination in report_df.relative_destination.unique():
             errors_dict = {}
+            errors_dict['class_dist_df' + '-' + relative_destination] = \
+                self._score_model_on_metric(class_dist_df[class_dist_df.relative_destination == relative_destination])
             errors_dict['CTRA' + '-' + relative_destination] = \
                 self._score_model_on_metric(CTRA_df[CTRA_df.relative_destination == relative_destination])
             errors_dict['CTRV' + '-' + relative_destination] = \
@@ -56,6 +62,7 @@ class ReportWriter:
 
         errors_dict = {}
         relative_destination = 'all'
+        errors_dict['class_dist_df' + '-' + relative_destination] = self._score_model_on_metric(class_dist_df)
         errors_dict['CTRA' + '-' + relative_destination] = self._score_model_on_metric(CTRA_df)
         errors_dict['CTRV' + '-' + relative_destination] = self._score_model_on_metric(CTRV_df)
         errors_dict['CV' + '-' + relative_destination] = self._score_model_on_metric(CV_df)
