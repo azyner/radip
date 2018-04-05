@@ -134,7 +134,7 @@ class comparative_works():
                 pred_speed = np.arange(last_speed, last_speed + (p_steps * accel), accel)
             try:
                 x_d, y_d = self._pol2cart(pred_speed / (25.0 / parameters['subsample']), pred_angles + np.pi/2)
-            except TypeError:
+            except:
                 ideas = None
             x_p = np.cumsum(x_d)
             y_p = np.cumsum(y_d)
@@ -240,7 +240,7 @@ class comparative_works():
         X_short = np.array(X_short)
         y_short = np.array(y_short)
 
-        n_samples = 8000  # X_short.shape[0]
+        n_samples = 1000  # X_short.shape[0]
         gp_succeeded = False
         while not gp_succeeded:
             try:

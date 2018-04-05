@@ -162,7 +162,7 @@ class ReportWriter:
                 # Calculating mhd
                 MHD = np.max(np.array([FHD, RHD]))
             except:
-                MHD=None # Sometimes the test data doesnt contain any of this particular class.
+                MHD=999999 # Sometimes the test data doesnt contain any of this particular class.
                         # Should not happen in prod
             ### /MHD
 
