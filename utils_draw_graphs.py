@@ -13,9 +13,12 @@ import sys
 import dill as pickle
 
 
-def draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, plt_size, draw_prediction_track, plot_directory, log_file_name,
+def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, padding_logits, trackwise_padding, plt_size, draw_prediction_track, plot_directory, log_file_name,
                            multi_sample, global_step, graph_number, fig_dir, csv_name, parameters):
-    padding_bool = np.argmax(padding_logits, axis=1) == 1
+    ##FIXME
+    padding_bool = trackwise_padding
+
+    #padding_bool = np.argmax(padding_logits, axis=1) == 1
 
     legend_str = []
     fig = plt.figure(figsize=plt_size)
@@ -24,12 +27,14 @@ def draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, plt_size, draw
     plt.plot(obs[:, 0], obs[:, 1], 'g-', zorder=4)
     legend_str.append(['Observations'])
     if draw_prediction_track:
-        for j in range(preds.shape[0]):
-            # `Real data'
-            plt.plot(preds[j][~padding_bool, 0], preds[j][~padding_bool, 1], 'ro', ms=2, zorder=5)
-            # Padding `fake' data
-            plt.plot(preds[j][padding_bool, 0], preds[j][padding_bool, 1], 'rx', ms=2, zorder=5)
-        legend_str.append(['Predictions'])
+        for name, preds in preds_dict.iteritems():
+            for j in range(preds.shape[0]):
+                # `Real data'
+                plt.plot(preds[j][~padding_bool, 0], preds[j][~padding_bool, 1], 'ro', ms=2, zorder=5, label=name + ' Pred')
+                # Padding `fake' data
+                plt.plot(preds[j][padding_bool, 0], preds[j][padding_bool, 1], 'rx', ms=2, zorder=5)
+            legend_str.append([name + ' Pred'])
+    plt.legend()
 
     if 'relative' in parameters['ibeo_data_columns'][0]:
         x_range = (-20, 20)
@@ -73,6 +78,7 @@ def draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, plt_size, draw
             gaussian_heatmaps = []
             gaus_num = 0
             for gaussian in timeslot:
+                ##FIXME does not check padding_logit
                 gaus_num += 1
                 #print gaus_num
                 pi, mu1, mu2, s1, s2, rho = gaussian
@@ -107,6 +113,7 @@ def draw_png_heatmap_graph(obs, preds, gt, mixes, padding_logits, plt_size, draw
         plt.imshow(background_img, zorder=0,
                    extent=[-15.275 - (147.45 / 2), -15.275 + (147.45 / 2), -3.1 - (77 / 2), -3.1 + (77 / 2)])
     plt.imshow(final_heatmap, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent, zorder=1)
+    plt.legend()
     fig_path = os.path.join(fig_dir,
                             ("no_pred_track-" if draw_prediction_track is False else "")
                             + str(multi_sample) + "-" + log_file_name + '-' +
@@ -133,7 +140,8 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, sigint_handler)
 
     data = pickle.loads(sys.stdin.read())
-    fig_return_data = draw_png_heatmap_graph(data['obs'], data['preds'], data['gt'], data['mixes'], data['padding_logits'],
+    fig_return_data = draw_png_heatmap_graph(data['obs'], {"RNN": data['preds']}, data['gt'], data['mixes'], data['padding_logits'],
+                                             data['trackwise_padding'],
                                              data['plt_size'],
                                       data['draw_prediction_track'], data['plot_directory'], data['log_file_name'],
                                       data['multi_sample'], data['global_step'], data['graph_number'], data['fig_dir'],
