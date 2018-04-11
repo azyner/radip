@@ -133,7 +133,7 @@ class comparative_works():
             elif abs(accel) < 0.000001:
                 pred_speed = np.array([last_speed] * p_steps)
             else:
-                pred_speed = np.arange(last_speed, last_speed + (p_steps * accel), accel)
+                pred_speed = np.arange(last_speed, last_speed + (p_steps * accel), accel)[:p_steps]
             try:
                 x_d, y_d = self._pol2cart(pred_speed / (25.0 / parameters['subsample']), pred_angles + np.pi/2)
             except:
