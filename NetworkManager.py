@@ -570,7 +570,7 @@ class NetworkManager:
         ground_truths = batch_frame['decoder_sample'].as_matrix()
         csv_names = batch_frame['csv_name'].as_matrix()
         train_y = graph_future
-
+        # Drawing a single mixture sample from the network (the normal operation) results in a list of len 1
         multi_sampled_predictions = []
         multi_sampled_mixtures = []
 
@@ -587,7 +587,8 @@ class NetworkManager:
 
         multi_sampled_predictions = np.swapaxes(np.array(multi_sampled_predictions), 0, 1)
         multi_sampled_mixtures = np.swapaxes(np.array(multi_sampled_mixtures), 0, 1)
-
+        # Now the first dimension is whether I wanted to pull multiple outputs from the same input Monte Carlo style
+        # Only works if the network is non-deterministic in some way.
         graph_list = []
         graph_number = 0
         graph_max = 2 #20 if final_run else 10
@@ -595,9 +596,9 @@ class NetworkManager:
         if multithread:
             # Wait for any old threads to finish. Not allowed to spawn multiple sets of children, it gets out of hand fast.
             self.join_subprocesses()
-        for obs, preds, gt, mixes, csv_name, pad_logits, trackwise_padding in zip(observations, multi_sampled_predictions, ground_truths,
-                                                   multi_sampled_mixtures, csv_names, padding_logits,np.array(trackwise_padding).transpose()
-):
+        for obs, preds, gt, mixes, csv_name, pad_logits, trackwise_padding in zip(
+                observations, multi_sampled_predictions, ground_truths, multi_sampled_mixtures, csv_names,
+                padding_logits, np.array(trackwise_padding).transpose()):
             graph_number += 1
             # WARNING! If you want more than ten, turn off multithreading. I don't use a queue.
             # The kernel handles all of them, so they will all get memory alloc. Looks to be 200MB each
@@ -863,6 +864,7 @@ class NetworkManager:
             valid_batch_data = np.logical_not(mini_batch_frame['batchwise_padding'].values)
             val_y = val_labels if self.parameters['model_type'] == 'classifier' else \
                 val_future if self.parameters['model_type'] == 'MDN' else exit(3)
+
             acc, loss, outputs, mixtures, padding_logits = \
                 self.model.step(self.sess, val_x, val_y, val_weights, False, track_padded, summary_writer=summary_writer)
 
@@ -874,16 +876,20 @@ class NetworkManager:
                 total_correct += num_correct
                 total_valid += num_valid
             if report_writing:
+                # TODO If multi-sampled mixtures is desired at test/validation report time, it needs to be implemented here
                 mini_batch_frame = mini_batch_frame[valid_batch_data]
                 outputs_a = np.swapaxes(np.array(outputs), 0, 1)
-                # Reject batchwise padding
-                # ERROR it appears this rejection has failed, as there are duplicates in the test data
+                mixture_components = 6
+                num_mixtures = len(mixtures[0][0]) / mixture_components
+                mixtures = np.array(mixtures.reshape(mixtures.shape[0], mixtures.shape[1], num_mixtures, mixture_components, order='F'))
+                # Reject batchwise padding multi_sampled_mixtures.append()
                 mini_batch_frame = mini_batch_frame.assign(
                     outputs=pd.Series([x for x in outputs_a[valid_batch_data]], dtype=object))
                 mini_batch_frame = mini_batch_frame.assign(
-                    mixtures=pd.Series([x for x in mixtures[valid_batch_data]], dtype=object))
+                    mixtures=pd.Series([[x] for x in mixtures[valid_batch_data]], dtype=object))
                 mini_batch_frame = mini_batch_frame.assign(
                     padding_logits=pd.Series([x for x in padding_logits[valid_batch_data]], dtype=object))
+
                 report_list.append(mini_batch_frame)
 
             batch_losses.append(loss)

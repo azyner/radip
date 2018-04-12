@@ -4,6 +4,7 @@ from numpy.core.umath_tests import inner1d
 import comparative_works
 import pandas as pd
 import utils_draw_graphs
+import os
 
 class ReportWriter:
     def __init__(self,
@@ -92,22 +93,28 @@ class ReportWriter:
         assert (CTRA_df.track_idx == report_df.track_idx).all()
         # Also asser that every track is unique
         assert len(report_df) == len(report_df.track_idx.unique())
+
+        # Now deal with the plot directory 'results/20180412-120830/plots_img_final'
+        plot_dir = os.path.join(parameters['master_dir'], 'test_data_plots')
+        if not os.path.exists(plot_dir):
+            os.makedirs(plot_dir)
+        print "Reportwriter now plotting test tracks"
         for track_idx in report_df.track_idx:
             plt_size = (10, 10)
-            utils_draw_graphs.draw_png_heatmap_graph(report_df[report_df.track_idx == track_idx].encoder_sample,
-                                                     {"RNN": report_df[report_df.track_idx == track_idx].outputs},
-                                                     report_df[report_df.track_idx == track_idx].decoder_sample,  # Ground Truth
-                                                     report_df[report_df.track_idx == track_idx].mixtures,
-                                                     report_df[report_df.track_idx == track_idx].padding_logits,
-                                                     report_df[report_df.track_idx == track_idx].trackwise_padding,
+            utils_draw_graphs.draw_png_heatmap_graph(report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
+                                                     {"RNN": report_df[report_df.track_idx == track_idx].outputs.iloc[0]},
+                                                     report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
+                                                     report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
+                                                     report_df[report_df.track_idx == track_idx].padding_logits.iloc[0],
+                                                     report_df[report_df.track_idx == track_idx].trackwise_padding.iloc[0],
                                                      plt_size,
                                                      False,  # draw_prediction_track,
-                                                     "temp",  # self.plot_directory,
+                                                     plot_dir,  # self.plot_directory,
                                                      "best",  # self.log_file_name,
                                                      False,  # multi_sample,
                                                      0,  # self.get_global_step(),
                                                      track_idx,  # graph_number,
-                                                     "temp",  # fig_dir,
+                                                     plot_dir,  # fig_dir,
                                                      report_df[report_df.track_idx == track_idx].csv_name.iloc[0],
                                                      parameters)
         # if multithread:
@@ -157,7 +164,7 @@ class ReportWriter:
     def get_results(self):
         return self.errors_df_dict
 
-    def _consolidate_errors(self,error_df):
+    def _consolidate_errors(self, error_df):
         metrics = list(error_df.keys())
         summarized_metrics = {}
         for metric in metrics:

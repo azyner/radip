@@ -471,7 +471,7 @@ class TrainingManager:
 
         # Check that every track in the report_df is at distance zero.
         reports = ReportWriter.ReportWriter(training_batch_handler, validation_batch_handler, test_batch_handler,
-                                            self.parameter_dict, report_df)
+                                            self.parameter_dict, report_df ) #'results/20180412-120830/plots_img_final'
         #reports.get_results().to_csv(os.path.join(self.parameter_dict['master_dir'],"metrics.csv"))
         for key, value in reports.get_results().iteritems():
             pd.DataFrame(value).transpose().to_csv(
