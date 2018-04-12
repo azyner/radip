@@ -590,13 +590,14 @@ class NetworkManager:
 
         graph_list = []
         graph_number = 0
-        graph_max = 20 if final_run else 10
-        multithread = True
+        graph_max = 2 #20 if final_run else 10
+        multithread = False
         if multithread:
             # Wait for any old threads to finish. Not allowed to spawn multiple sets of children, it gets out of hand fast.
             self.join_subprocesses()
-        for obs, preds, gt, mixes, csv_name, pad_logits in zip(observations, multi_sampled_predictions, ground_truths,
-                                                   multi_sampled_mixtures, csv_names, padding_logits):
+        for obs, preds, gt, mixes, csv_name, pad_logits, trackwise_padding in zip(observations, multi_sampled_predictions, ground_truths,
+                                                   multi_sampled_mixtures, csv_names, padding_logits,np.array(trackwise_padding).transpose()
+):
             graph_number += 1
             # WARNING! If you want more than ten, turn off multithreading. I don't use a queue.
             # The kernel handles all of them, so they will all get memory alloc. Looks to be 200MB each
@@ -605,10 +606,11 @@ class NetworkManager:
 
             if multithread:
                 args_dict = {"obs": obs,
-                             "preds": preds,
+                             "preds": {"RNN": preds},
                              "gt": gt,
                              "mixes": mixes,
                              "pad_logits": pad_logits,
+                             "trackwise_padding": trackwise_padding,
                              "plt_size": self.plt_size,
                              "draw_prediction_track": draw_prediction_track,
                              "plot_directory": self.plot_directory,
@@ -631,9 +633,11 @@ class NetworkManager:
                 self.p_child_list.append(p_child)
             else:
                 import utils_draw_graphs
-                graph_list.append(utils_draw_graphs.draw_png_heatmap_graph(obs, preds, gt, mixes, pad_logits, self.plt_size, draw_prediction_track,
+                graph_list.append(utils_draw_graphs.draw_png_heatmap_graph(obs, {"RNN": preds}, gt, mixes, pad_logits,
+                                                                           trackwise_padding,
+                                                                           self.plt_size, draw_prediction_track,
                                   self.plot_directory, self.log_file_name, multi_sample,
-                                  self.get_global_step(), graph_number, fig_dir, csv_name,self.parameters))
+                                  self.get_global_step(), graph_number, fig_dir, csv_name, self.parameters))
 
         if multithread and final_run:
             self.join_subprocesses()
@@ -842,7 +846,7 @@ class NetworkManager:
             batch_handler.set_distance_threshold(0)
         while not batch_complete:
             #val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_sequential_minibatch()
-            if 'QUICK_VALBATCH' in os.environ or quick or (self.parameters['model_type']=='MDN' and not report_writing):
+            if quick or (self.parameters['model_type']=='MDN' and not report_writing):
                 # Run one regular batch. Debug mode takes longer, and there are ~30,000 val samples
                 mini_batch_frame = batch_handler.get_minibatch()
                 batch_complete = True
@@ -859,7 +863,7 @@ class NetworkManager:
             valid_batch_data = np.logical_not(mini_batch_frame['batchwise_padding'].values)
             val_y = val_labels if self.parameters['model_type'] == 'classifier' else \
                 val_future if self.parameters['model_type'] == 'MDN' else exit(3)
-            acc, loss, outputs, mixtures, padding = \
+            acc, loss, outputs, mixtures, padding_logits = \
                 self.model.step(self.sess, val_x, val_y, val_weights, False, track_padded, summary_writer=summary_writer)
 
             if self.parameters['model_type'] == 'classifier':
@@ -873,10 +877,13 @@ class NetworkManager:
                 mini_batch_frame = mini_batch_frame[valid_batch_data]
                 outputs_a = np.swapaxes(np.array(outputs), 0, 1)
                 # Reject batchwise padding
+                # ERROR it appears this rejection has failed, as there are duplicates in the test data
                 mini_batch_frame = mini_batch_frame.assign(
                     outputs=pd.Series([x for x in outputs_a[valid_batch_data]], dtype=object))
                 mini_batch_frame = mini_batch_frame.assign(
                     mixtures=pd.Series([x for x in mixtures[valid_batch_data]], dtype=object))
+                mini_batch_frame = mini_batch_frame.assign(
+                    padding_logits=pd.Series([x for x in padding_logits[valid_batch_data]], dtype=object))
                 report_list.append(mini_batch_frame)
 
             batch_losses.append(loss)
