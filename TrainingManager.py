@@ -465,7 +465,7 @@ class TrainingManager:
                         type(value) is np.ndarray or
                         type(value) is tuple):
                 best_results[key] = pd.Series([value], dtype=object)
-        best_results = pd.DataFrame(best_results,index=[0])
+        best_results = pd.DataFrame(best_results, index=[0])
         if not test_network_only:
             best_results.to_csv(os.path.join(self.parameter_dict['master_dir'],"best.csv"))
 

@@ -5,6 +5,8 @@ import comparative_works
 import pandas as pd
 import utils_draw_graphs
 import os
+import multiprocessing as mp
+import utils
 
 class ReportWriter:
     def __init__(self,
@@ -99,24 +101,50 @@ class ReportWriter:
         if not os.path.exists(plot_dir):
             os.makedirs(plot_dir)
         print "Reportwriter now plotting test tracks"
-        for track_idx in report_df.track_idx:
-            plt_size = (10, 10)
-            utils_draw_graphs.draw_png_heatmap_graph(report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
-                                                     {"RNN": report_df[report_df.track_idx == track_idx].outputs.iloc[0]},
-                                                     report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
-                                                     report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
-                                                     report_df[report_df.track_idx == track_idx].padding_logits.iloc[0],
-                                                     report_df[report_df.track_idx == track_idx].trackwise_padding.iloc[0],
-                                                     plt_size,
-                                                     False,  # draw_prediction_track,
-                                                     plot_dir,  # self.plot_directory,
-                                                     "best",  # self.log_file_name,
-                                                     False,  # multi_sample,
-                                                     0,  # self.get_global_step(),
-                                                     track_idx,  # graph_number,
-                                                     plot_dir,  # fig_dir,
-                                                     report_df[report_df.track_idx == track_idx].csv_name.iloc[0],
-                                                     parameters)
+
+        plt_size = (10, 10)
+
+        multithread = True
+        if multithread:
+            pool = mp.Pool(processes=2)
+            args = []
+            for track_idx in report_df.track_idx:
+                model_predictions = {"RNN": report_df[report_df.track_idx == track_idx].outputs.iloc[0]}
+                args.append([report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
+                                                         {"RNN": report_df[report_df.track_idx == track_idx].outputs.iloc[0]},
+                                                         report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
+                                                         report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
+                                                         report_df[report_df.track_idx == track_idx].padding_logits.iloc[0],
+                                                         report_df[report_df.track_idx == track_idx].trackwise_padding.iloc[0],
+                                                         plt_size,
+                                                         False,  # draw_prediction_track,
+                                                         plot_dir,  # self.plot_directory,
+                                                         "best",  # self.log_file_name,
+                                                         False,  # multi_sample,
+                                                         0,  # self.get_global_step(),
+                                                         track_idx,  # graph_number,
+                                                         plot_dir,  # fig_dir,
+                                                         report_df[report_df.track_idx == track_idx].csv_name.iloc[0],
+                                                         utils.sanitize_params_dict(parameters)])
+            results = pool.map(utils_draw_graphs.multiprocess_helper, args)
+        else:
+            for track_idx in report_df.track_idx:
+                utils_draw_graphs.draw_png_heatmap_graph(report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
+                                                         {"RNN": report_df[report_df.track_idx == track_idx].outputs.iloc[0]},
+                                                         report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
+                                                         report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
+                                                         report_df[report_df.track_idx == track_idx].padding_logits.iloc[0],
+                                                         report_df[report_df.track_idx == track_idx].trackwise_padding.iloc[0],
+                                                         plt_size,
+                                                         False,  # draw_prediction_track,
+                                                         plot_dir,  # self.plot_directory,
+                                                         "best",  # self.log_file_name,
+                                                         False,  # multi_sample,
+                                                         0,  # self.get_global_step(),
+                                                         track_idx,  # graph_number,
+                                                         plot_dir,  # fig_dir,
+                                                         report_df[report_df.track_idx == track_idx].csv_name.iloc[0],
+                                                         parameters)
         # if multithread:
         #     args_dict = {"obs": obs,
         #                  "preds": preds,

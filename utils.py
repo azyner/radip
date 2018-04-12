@@ -1,4 +1,13 @@
 import hashlib
+import inspect
+
+
+def sanitize_params_dict(params):
+    new_params = {}
+    for key, value in params.iteritems():
+        if not inspect.ismethod(value):
+            new_params[key] = value
+    return new_params
 
 
 def get_library_hash(file_list=None):

@@ -17,9 +17,9 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, padding_logits, trackwise
                            multi_sample, global_step, graph_number, fig_dir, csv_name, parameters):
     ##FIXME
     padding_bool = trackwise_padding
-
+    #
     #padding_bool = np.argmax(padding_logits, axis=1) == 1
-
+    # 'results/20180412-104825/plots_img_final'
     legend_str = []
     fig = plt.figure(figsize=plt_size)
     plt.plot(gt[:, 0], gt[:, 1], 'b-', zorder=3)
@@ -131,6 +131,9 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, padding_logits, trackwise
     fig_data = s.getvalue()
     plt.close()
     return fig_data
+
+def multiprocess_helper(args):
+    return draw_png_heatmap_graph(*args)
 
 if __name__ == "__main__":
     #read args from stdin
