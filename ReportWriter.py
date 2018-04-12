@@ -26,54 +26,41 @@ class ReportWriter:
         
         """
         report_df.reset_index(inplace=True)
-        #print "I CANNOT USE REPORT DF AS IT IS NOT ONLY AT DISTNCE 0"
-        #raise ValueError
-        #self.write_matlab_csv(report_df)
+        # self.write_matlab_csv(report_df)
         compares = comparative_works.comparative_works()
-
-        #class_dist_df = compares.classifierComboDistributionEstimator(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
+        model_df_dict = {}
+        # class_dist_df = compares.classifierComboDistributionEstimator(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
         #                              report_df)
-        CTRA_df = compares.CTRA_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
+        model_df_dict['RNN'] = report_df
+        model_df_dict['CTRA'] = compares.CTRA_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
                                       report_df)
-        CTRV_df = compares.CTRV_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
+        model_df_dict['CTRV'] = compares.CTRV_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
                                       report_df)
-        CV_df = compares.CV_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
+        model_df_dict['CV'] = compares.CV_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
                                       report_df)
-        #HMM_errors = compares.HMMGMM(training_batch_handler,validation_batch_handler,test_batch_handler,parameters,report_df)
-        #VGMM is CATEGORICAL!
-        #VGMM_df = compares.VGMM(training_batch_handler, validation_batch_handler, test_batch_handler,
+        # HMM_errors = compares.HMMGMM(training_batch_handler,validation_batch_handler,test_batch_handler,parameters,report_df)
+        # VGMM is CATEGORICAL!
+        # VGMM_df = compares.VGMM(training_batch_handler, validation_batch_handler, test_batch_handler,
         #                                         parameters, report_df)
-        #GP_df = compares.GaussianProcesses(training_batch_handler, validation_batch_handler, test_batch_handler,
-        #                                         parameters, report_df)
+        model_df_dict['GP'] = compares.GaussianProcesses(training_batch_handler, validation_batch_handler, test_batch_handler,
+                                                 parameters, report_df)
 
+        self.parameters = parameters
 
+        # Score models based on individual directions
         dest_errors_dict = {}
         for relative_destination in report_df.relative_destination.unique():
             errors_dict = {}
-            #errors_dict['class_dist_df' + '-' + relative_destination] = \
-             #   self._score_model_on_metric(class_dist_df[class_dist_df.relative_destination == relative_destination])
-            errors_dict['CTRA' + '-' + relative_destination] = \
-                self._score_model_on_metric(CTRA_df[CTRA_df.relative_destination == relative_destination])
-            errors_dict['CTRV' + '-' + relative_destination] = \
-                self._score_model_on_metric(CTRV_df[CTRV_df.relative_destination == relative_destination])
-            errors_dict['CV' + '-' + relative_destination] = \
-                self._score_model_on_metric(CV_df[CV_df.relative_destination == relative_destination])
-            # errors_dict['VGMM'] = self._score_model_on_metric(VGMM_df)
-            #errors_dict['GP' + '-' + relative_destination] = \
-            #    self._score_model_on_metric(GP_df[GP_df.relative_destination == relative_destination])
-            errors_dict['RNN' + '-' + relative_destination] = \
-                self._score_model_on_metric(report_df[report_df.relative_destination == relative_destination])
+            for model_name, model_df in model_df_dict.iteritems():
+                errors_dict['model_name' + '-' + relative_destination] = \
+                    self._score_model_on_metric(model_df[model_df.relative_destination == relative_destination])
             dest_errors_dict[relative_destination] = errors_dict
 
+        # Score models totally
         errors_dict = {}
         relative_destination = 'all'
-        #errors_dict['class_dist_df' + '-' + relative_destination] = self._score_model_on_metric(class_dist_df)
-        errors_dict['CTRA' + '-' + relative_destination] = self._score_model_on_metric(CTRA_df)
-        errors_dict['CTRV' + '-' + relative_destination] = self._score_model_on_metric(CTRV_df)
-        errors_dict['CV' + '-' + relative_destination] = self._score_model_on_metric(CV_df)
-        # errors_dict['VGMM'] = self._score_model_on_metric(VGMM_df)
-        #errors_dict['GP' + '-' + relative_destination] = self._score_model_on_metric(GP_df)
-        errors_dict['RNN' + '-' + relative_destination] = self._score_model_on_metric(report_df)
+        for model_name, model_df in model_df_dict.iteritems():
+            errors_dict[model_name + '-' + relative_destination] = self._score_model_on_metric(model_df)
         dest_errors_dict['all'] = errors_dict
 
         # Consolidate everything, grouped by direction
@@ -83,20 +70,12 @@ class ReportWriter:
             for name, df in direction_df.iteritems():
                 methodically_consolidated_errors_dict[name] = self._consolidate_errors(df)
             directionally_consolidated_errors_dict[direction] = methodically_consolidated_errors_dict
-            #consolidated_errors_dict[name]['model'] = name
 
-        # for every other model:
-        #   report_df = run_model
-        #   model_errors = self._score...()
-        # collect all scores and write a CSV or HTML or something.
-
-        ### Here I need to collect all the predictions from every model, shove them in a dict, and run the png plotter
         # I needs to guarantee ordering of the index for aligning prediction tracks.
-        assert (CTRA_df.track_idx == report_df.track_idx).all()
+        assert (model_df_dict['CTRA'].track_idx == report_df.track_idx).all()
         # Also asser that every track is unique
         assert len(report_df) == len(report_df.track_idx.unique())
 
-        # Now deal with the plot directory 'results/20180412-120830/plots_img_final'
         plot_dir = os.path.join(parameters['master_dir'], 'test_data_plots')
         if not os.path.exists(plot_dir):
             os.makedirs(plot_dir)
@@ -109,9 +88,11 @@ class ReportWriter:
             pool = mp.Pool(processes=2)
             args = []
             for track_idx in report_df.track_idx:
-                model_predictions = {"RNN": report_df[report_df.track_idx == track_idx].outputs.iloc[0]}
+                model_predictions = {}
+                for model_name, model_df in model_df_dict.iteritems():
+                    model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
                 args.append([report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
-                                                         {"RNN": report_df[report_df.track_idx == track_idx].outputs.iloc[0]},
+                                                         model_predictions,
                                                          report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
                                                          report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
                                                          report_df[report_df.track_idx == track_idx].padding_logits.iloc[0],
@@ -129,8 +110,11 @@ class ReportWriter:
             results = pool.map(utils_draw_graphs.multiprocess_helper, args)
         else:
             for track_idx in report_df.track_idx:
+                model_predictions = {}
+                for model_name, model_df in model_df_dict.iteritems():
+                    model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
                 utils_draw_graphs.draw_png_heatmap_graph(report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
-                                                         {"RNN": report_df[report_df.track_idx == track_idx].outputs.iloc[0]},
+                                                         model_predictions,
                                                          report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
                                                          report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
                                                          report_df[report_df.track_idx == track_idx].padding_logits.iloc[0],
@@ -145,40 +129,6 @@ class ReportWriter:
                                                          plot_dir,  # fig_dir,
                                                          report_df[report_df.track_idx == track_idx].csv_name.iloc[0],
                                                          parameters)
-        # if multithread:
-        #     args_dict = {"obs": obs,
-        #                  "preds": preds,
-        #                  "gt": gt,
-        #                  "mixes": mixes,
-        #                  "pad_logits": pad_logits,
-        #                  "plt_size": self.plt_size,
-        #                  "draw_prediction_track": draw_prediction_track,
-        #                  "plot_directory": self.plot_directory,
-        #                  "log_file_name": self.log_file_name,
-        #                  "multi_sample": multi_sample,
-        #                  "global_step": self.get_global_step(),
-        #                  "graph_number": graph_number,
-        #                  "fig_dir": fig_dir,
-        #                  "csv_name": csv_name,
-        #                  "padding_logits": pad_logits,
-        #                  'parameters': self.parameters}
-        #     # HACK I would prefer a child that then maintains its own children with queued workers. This allows
-        #     # the child process to hand out fresh jobs without interrupting main, but its a lot of work. So instead,
-        #     # to stop starving main, I force these to only be able to use half the cores.
-        #     p_child = subprocess.Popen(["taskset", "-c", "0,1,2,3",
-        #                                 "nice", "-n", "19",
-        #                                 "/usr/bin/python2", "utils_draw_graphs.py"], stdin=subprocess.PIPE)
-        #     p_child.stdin.write(pickle.dumps(args_dict))
-        #     p_child.stdin.close()
-        #     self.p_child_list.append(p_child)
-        # else:
-        #     import utils_draw_graphs
-        #     graph_list.append(utils_draw_graphs.draw_png_heatmap_graph(obs, {"RNN": preds}, gt, mixes, pad_logits,
-        #                                                                self.plt_size, draw_prediction_track,
-        #                                                                self.plot_directory, self.log_file_name,
-        #                                                                multi_sample,
-        #                                                                self.get_global_step(), graph_number, fig_dir,
-        #                                                                csv_name, self.parameters))
 
         self.errors_df_dict = directionally_consolidated_errors_dict
 
@@ -212,14 +162,10 @@ class ReportWriter:
     def _score_model_on_metric(self, report_df, metric=None):
         #scores_list = []
         track_scores = {}
-        horizon_list = [5, 10, 13]#, 25, 38, 50, 63, 75]
-        # horizon_dict = {}
-        # for dist in horizon_list:
-        #     horizon_dict[dist] = []
-
+        horizon_list = [10, 20, 30, 40, 50, 70]
+        horizon_list = [int(h / self.parameters['subsample']) for h in horizon_list]
 
         for track in report_df.iterrows():
-
             track = track[1]
             try:
                 preds = track.outputs[np.logical_not(track.trackwise_padding)]
@@ -247,7 +193,6 @@ class ReportWriter:
 
             # Now horizon_dict is keyed by timestep, and contains lists of distance errors
             # Mean, Median, 5% etc can now be done on those arrays.
-
 
             ### MODIFIED HAUSDORFF DISTANCE
             # Pulled shamelessly from https://github.com/sapphire008/Python/blob/master/generic/HausdorffDistance.py
@@ -277,7 +222,6 @@ class ReportWriter:
             except KeyError:
                 track_scores['euclidean'] = [np.mean(np.array(euclid_error))]
                 track_scores['MHD'] = [MHD]
-
 
             #scores_list.append(track_scores)
         return track_scores

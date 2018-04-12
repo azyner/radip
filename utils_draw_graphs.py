@@ -22,18 +22,34 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, padding_logits, trackwise
     # 'results/20180412-104825/plots_img_final'
     legend_str = []
     fig = plt.figure(figsize=plt_size)
-    plt.plot(gt[:, 0], gt[:, 1], 'b-', zorder=3)
+    plt.plot(gt[:, 0], gt[:, 1], 'b-', zorder=3, label="Ground Truth")
     legend_str.append(['Ground Truth'])
-    plt.plot(obs[:, 0], obs[:, 1], 'g-', zorder=4)
+    plt.plot(obs[:, 0], obs[:, 1], 'g-', zorder=4, label="observations")
     legend_str.append(['Observations'])
-    if draw_prediction_track:
-        for name, preds in preds_dict.iteritems():
+
+    plot_colors = ['r', 'c', 'm', 'y', 'k']
+    plot_colors_idx = 0
+
+    for name, preds in preds_dict.iteritems():
+        # The input is designed for multiple future tracks. If only 1 is produced, the axis is missing. So reproduce it.
+        # This is the most common case (one track)
+        if len(preds.shape) < 3:
+            preds = np.array([preds])
+
+        if name == 'RNN' and not draw_prediction_track:
+            continue
+        else:
             for j in range(preds.shape[0]):
                 # `Real data'
-                plt.plot(preds[j][~padding_bool, 0], preds[j][~padding_bool, 1], 'ro', ms=2, zorder=5, label=name + ' Pred')
+                plt.plot(preds[j][~padding_bool, 0], preds[j][~padding_bool, 1],
+                         plot_colors[plot_colors_idx] + 'o', ms=2, zorder=5, label=name + ' Pred')
+                plt.plot(preds[j][~padding_bool, 0], preds[j][~padding_bool, 1],
+                         plot_colors[plot_colors_idx] + '-', ms=1, zorder=5)
                 # Padding `fake' data
-                plt.plot(preds[j][padding_bool, 0], preds[j][padding_bool, 1], 'rx', ms=2, zorder=5)
-            legend_str.append([name + ' Pred'])
+                plt.plot(preds[j][padding_bool, 0], preds[j][padding_bool, 1],
+                         plot_colors[plot_colors_idx] + 'x', ms=2, zorder=5)
+                plot_colors_idx += 1
+            #legend_str.append([name + ' Pred'])
     plt.legend()
 
     if 'relative' in parameters['ibeo_data_columns'][0]:
