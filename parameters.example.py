@@ -15,6 +15,7 @@ parameters['data_list'] = [
     'oliver-wyndora',
     'orchard-mitchell'
 ]
+parameters['test_csv'] = 'oliver-wyndora'
 
 parameters['embedding_size'] =256 # 512  # 64 for each input
 parameters["num_layers"] = 3
@@ -34,12 +35,12 @@ parameters['l2_lstm_input_decay'] = False
 
 ##### HYPER SEARCH
 parameters['early_stop_cf'] = 6*60  # Time in minutes for training one crossfold
-parameters['hyper_search_folds'] = 30 # Number of hyper searching attempts.
-parameters['hyper_search_step_cutoff'] = 80000
+parameters['hyper_search_folds'] = 0 # Number of hyper searching attempts.
+parameters['hyper_search_step_cutoff'] = 1 # 80000
 
 parameters['loss_decay_cutoff'] = 1e-20
 parameters['long_training_time'] = 48*60  # Final training is for this long (minutes)
-parameters['long_training_steps'] = 100000
+parameters['long_training_steps'] = 1
 
 parameters['hyper_rnn_size_fn'] = random.uniform
 parameters['hyper_rnn_size_args'] = (128, 1025)
@@ -68,18 +69,18 @@ parameters['l2_reg_beta'] = 0.0
 parameters['device'] = 'gpu:0'
 parameters["n_folds"] = 5
 parameters["input_columns"] = ['easting', 'northing', 'heading', 'speed']
-parameters["prediction_steps"] = 20
+parameters["prediction_steps"] = 25
 parameters["feed_future_data"] = False
 parameters["first_loss_only"] = False
 parameters["max_gradient_norm"] = 10.0
 parameters["random_bias"] = 0
-parameters["subsample"] = 1
+parameters["subsample"] = 2
 parameters["random_rotate"] = False
-parameters["num_mixtures"] = 6
+parameters["num_mixtures"] = 7
 parameters["model_type"] = "MDN"
 parameters['train_dir'] = 'train'
 parameters['d_thresh_top_n'] = 1   # How many samples to take that exist immediately before d_thresh
-parameters['steps_per_checkpoint'] = 200
+parameters['steps_per_checkpoint'] = 20
 parameters['decrement_steps'] = 1000
 
 parameters['debug'] = False  # Skip the metric computation to hasten looptime
@@ -94,6 +95,7 @@ parameters["velocity_threshold"] = 2.0
 parameters["track_padding"] = True
 parameters['sample_temperature'] = 1.0
 parameters['padding_loss_weight'] = 0.0
+parameters['no_feedforward'] = True
 
 
 #C hange this to 1 or zero to set the GPU to use

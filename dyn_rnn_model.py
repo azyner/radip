@@ -244,7 +244,10 @@ class DynamicRnnSeq2Seq(object):
                     projected_output = MDN_output_function(cell_output)
                     sampled = MDN.sample(projected_output, temperature=self.parameters['sample_temperature'])
                     upscale_sampled = _upscale_sampled_output(sampled)
-                    if self.parameters['input_mask'][2:4] == [0,0]:
+                    if self.parameters['no_feedforward']:
+                        next_sampled_input = tf.zeros([upscale_sampled.shape[0], scaling_layer[0].shape[0]],
+                                                      dtype=tf.float32)  # Size batch, input width
+                    elif self.parameters['input_mask'][2:4] == [0,0]:
                         next_sampled_input = _pad_missing_output_with_zeros(upscale_sampled)
                     else:
                         next_sampled_input = MDN.compute_derivates(loop_state[2].read(time-1), upscale_sampled,

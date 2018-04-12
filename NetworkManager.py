@@ -591,7 +591,7 @@ class NetworkManager:
         # Only works if the network is non-deterministic in some way.
         graph_list = []
         graph_number = 0
-        graph_max = 2 #20 if final_run else 10
+        graph_max = 20 if final_run else 10
         multithread = False
         if multithread:
             # Wait for any old threads to finish. Not allowed to spawn multiple sets of children, it gets out of hand fast.
