@@ -65,7 +65,7 @@ class comparative_works():
                                validation_batch_handler,
                                test_batch_handler,
                                parameters,
-                               report_df, CV=True, C_TR=True)
+                               report_df, CV=True, Z_TR=True)
 
     def CTRV_model(self,
                    training_batch_handler,
@@ -77,14 +77,14 @@ class comparative_works():
                                validation_batch_handler,
                                test_batch_handler,
                                parameters,
-                               report_df, C_TR=True)
+                               report_df, CV=True)
 
     def CTRA_model(self,
                    training_batch_handler,
                    validation_batch_handler,
                    test_batch_handler,
                    parameters,
-                   report_df, CV=False, C_TR=False):
+                   report_df, CV=False, Z_TR=False):
         if 'angle' not in parameters['ibeo_data_columns'][2] or \
            'Velocity' not in parameters['ibeo_data_columns'][3]:
             raise ValueError('ibeo data columns need to contain speed and heading in positions 3 and 2')
@@ -101,7 +101,8 @@ class comparative_works():
             angle = [a if a > 0 else a + 2*np.pi for a in angle] # This moves the disjoint to
             # move angle back into continuous space
             #find turn rate
-            if C_TR:
+            # Zero turn rate, fix the angle the car travells at
+            if Z_TR:
                 d_angle = 0
             else:
                 d_angle_a = np.diff(angle)
