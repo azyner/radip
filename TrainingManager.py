@@ -474,7 +474,7 @@ class TrainingManager:
                                             self.parameter_dict, report_df ) #'results/20180412-120830/plots_img_final'
         #reports.get_results().to_csv(os.path.join(self.parameter_dict['master_dir'],"metrics.csv"))
         for key, value in reports.get_results().iteritems():
-            pd.DataFrame(value).transpose().to_csv(
+            pd.DataFrame(value).to_csv(
                 os.path.join(self.parameter_dict['master_dir'], key + '-' + "metrics.csv"))
 
         return best_results
