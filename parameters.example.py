@@ -40,7 +40,7 @@ parameters['hyper_search_step_cutoff'] = 1 # 80000
 
 parameters['loss_decay_cutoff'] = 1e-20
 parameters['long_training_time'] = 48*60  # Final training is for this long (minutes)
-parameters['long_training_steps'] = 1
+parameters['long_training_steps'] = 2000
 
 parameters['hyper_rnn_size_fn'] = random.uniform
 parameters['hyper_rnn_size_args'] = (128, 1025)
@@ -80,7 +80,7 @@ parameters["num_mixtures"] = 7
 parameters["model_type"] = "MDN"
 parameters['train_dir'] = 'train'
 parameters['d_thresh_top_n'] = 1   # How many samples to take that exist immediately before d_thresh
-parameters['steps_per_checkpoint'] = 20
+parameters['steps_per_checkpoint'] = 5
 parameters['decrement_steps'] = 1000
 
 parameters['debug'] = False  # Skip the metric computation to hasten looptime
@@ -96,7 +96,9 @@ parameters["track_padding"] = True
 parameters['sample_temperature'] = 1.0
 parameters['padding_loss_weight'] = 0.0
 parameters['no_feedforward'] = True
-
+parameters['reject_stopped_vehicles_before_intersection_enable'] = True
+parameters['reject_stopped_vehicles_before_intersection_speed'] = 1  # meters per second, 1 = 3.6kph, there is sensor noise meaning no true zero
+parameters['reject_stopped_vehicles_before_intersection_duration'] = 1.0  # seconds
 
 #C hange this to 1 or zero to set the GPU to use
 #os.environ["CUDA_VISIBLE_DEVICES"]="0"

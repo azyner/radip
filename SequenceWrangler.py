@@ -380,51 +380,67 @@ class SequenceWrangler:
         data_columns = list(set(data_columns))
 
         # For all tracks
-        discarded_tracks = 0
         for track_raw_idx in range(len(ibeo_track_list)):
             # Lookup the index in the original collection
             # Get data
             #rint "Wrangling track: " + str(track_raw_idx) + " of: " + str(len(ibeo_track_list))
             sys.stdout.write("\rWrangling track:  %04d of %04d " % (track_raw_idx, len(ibeo_track_list)))
             sys.stdout.flush()
-            try:
-                wrangle_time =  time.time()
-                single_track = ibeo_track_list[track_raw_idx]
-                single_track = single_track.iloc[::self.parameters['subsample']]
-                # Pad end of tracks with the last value, and flag it is padding
-                if self.parameters['track_padding']:
-                    single_track = self._pad_single_track(single_track, self.parameters['prediction_steps'])
-                origin = single_track.iloc[0]['origin']
-                destination = single_track.iloc[0]['destination']
-                destination_vec = des_encoder.transform([destination])
-                # Limit the df to only meaningful data
-                data_for_encoders = self._extract_ibeo_data_for_encoders(single_track)
 
-                # Do not scale here. Scaling is to be done as the first network layer.
-                df_template = _generate_ibeo_template(track_raw_idx, origin + "-" + destination, origin, destination,
-                                                      destination_vec)
-                # Instead, I am going to give the new track slicer a list for distance, as I have pre-computed it.
+            wrangle_time = time.time()
+            single_track = ibeo_track_list[track_raw_idx]
 
-                track_pool = self._track_slicer(data_for_encoders,
-                                                self.parameters['observation_steps'],
-                                                self.parameters['prediction_steps'],
-                                                df_template, # Metadata that is static across the whole track
-                                                distance=single_track['distance'],#metadata that changes in the track.
-                                                distance_to_exit=single_track['distance_to_exit'],
-                                                additional_df=single_track[data_columns], #Everything else. Useful for post network analysis
-                                                padding_vec=single_track['trackwise_padding'])
-                master_pool.append(track_pool)
+            # If we want to filter tracks based on whether they came to a complete stop before the intersection, and are
+            # therefore unpredictable. It is an extremely hard problem to predict when a car will start going again,
+            # but a stationary car is a safe car, so we omit these from the data.
+            if self.parameters['reject_stopped_vehicles_before_intersection_enable']:
+                reject_track = False
+                stop_length = int(25 * self.parameters['reject_stopped_vehicles_before_intersection_duration'])
+                stop_speed = self.parameters['reject_stopped_vehicles_before_intersection_speed']
+                track_before_intersection = single_track[single_track.distance < 0]
+                for search_idx in range(len(track_before_intersection) - stop_length):
+                    # if the car has stopped for too long before entering the intersection
+                    if all(track_before_intersection.iloc[search_idx:search_idx + stop_length].AbsVelocity < stop_speed):
+                        # Reject track.
+                        reject_track = True
+                        break
+                if reject_track:
+                    continue
+
+            single_track = single_track.iloc[::self.parameters['subsample']]
+            # Pad end of tracks with the last value, and flag it is padding
+            if self.parameters['track_padding']:
+                single_track = self._pad_single_track(single_track, self.parameters['prediction_steps'])
+            origin = single_track.iloc[0]['origin']
+            destination = single_track.iloc[0]['destination']
+            destination_vec = des_encoder.transform([destination])
+            # Limit the df to only meaningful data
+            data_for_encoders = self._extract_ibeo_data_for_encoders(single_track)
+
+            # Do not scale here. Scaling is to be done as the first network layer.
+            df_template = _generate_ibeo_template(track_raw_idx, origin + "-" + destination, origin, destination,
+                                                  destination_vec)
+            # Instead, I am going to give the new track slicer a list for distance, as I have pre-computed it.
+
+            track_pool = self._track_slicer(data_for_encoders,
+                                            self.parameters['observation_steps'],
+                                            self.parameters['prediction_steps'],
+                                            df_template, # Metadata that is static across the whole track
+                                            distance=single_track['distance'],#metadata that changes in the track.
+                                            distance_to_exit=single_track['distance_to_exit'],
+                                            additional_df=single_track[data_columns], #Everything else. Useful for post network analysis
+                                            padding_vec=single_track['trackwise_padding'])
+            master_pool.append(track_pool)
                 #print "wrangle time: " + str(time.time()-wrangle_time)
-            except ValueError:
-                discarded_tracks += 1
-                print "Warning, track discarded as it was too short. Num discarded: " + str(discarded_tracks)
-                continue
+
         sys.stdout.write("\t\t\t\t%4s" % "[ OK ]")
         sys.stdout.write("\r\n")
         sys.stdout.flush()
-        print "Discarded " + str(discarded_tracks) + " tracks"
 
         self.master_pool = pd.concat(master_pool)
+        discarded_tracks = len(ibeo_track_list) - len(self.master_pool.track_idx.unique())
+        print "Discarded " + str(discarded_tracks) + " tracks"
+        print "Passed " + str(len(self.master_pool.track_idx.unique())) + " tracks"
 
         #TODO save master to pickle
         if not os.path.exists(self.pool_dir):
@@ -517,7 +533,8 @@ class SequenceWrangler:
             -> decoder [[3,4,5], [4,5,6], [5,6,7]]
         """
         if len(track) < encoder_steps + decoder_steps:
-            raise ValueError("length of track is shorter than encoder_steps and decoder_steps.")
+            return []
+            #raise ValueError("length of track is shorter than encoder_steps and decoder_steps.")
 
         # Do this once only.
         if bbox is not None:

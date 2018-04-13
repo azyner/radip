@@ -592,7 +592,7 @@ class NetworkManager:
         graph_list = []
         graph_number = 0
         graph_max = 20 if final_run else 10
-        multithread = True
+        multithread = False
         if multithread:
             # Wait for any old threads to finish. Not allowed to spawn multiple sets of children, it gets out of hand fast.
             self.join_subprocesses()
