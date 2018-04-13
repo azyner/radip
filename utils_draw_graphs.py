@@ -159,7 +159,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, sigint_handler)
 
     data = pickle.loads(sys.stdin.read())
-    fig_return_data = draw_png_heatmap_graph(data['obs'], {"RNN": data['preds']}, data['gt'], data['mixes'], data['padding_logits'],
+    fig_return_data = draw_png_heatmap_graph(data['obs'], data['preds'], data['gt'], data['mixes'], data['padding_logits'],
                                              data['trackwise_padding'],
                                              data['plt_size'],
                                       data['draw_prediction_track'], data['plot_directory'], data['log_file_name'],
