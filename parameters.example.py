@@ -36,7 +36,7 @@ parameters['l2_lstm_input_decay'] = False
 ##### HYPER SEARCH
 parameters['early_stop_cf'] = 6*60  # Time in minutes for training one crossfold
 parameters['hyper_search_folds'] = 0 # Number of hyper searching attempts.
-parameters['hyper_search_step_cutoff'] = 1 # 80000
+parameters['hyper_search_step_cutoff'] = 80000
 
 parameters['loss_decay_cutoff'] = 1e-20
 parameters['long_training_time'] = 48*60  # Final training is for this long (minutes)
@@ -80,7 +80,7 @@ parameters["num_mixtures"] = 7
 parameters["model_type"] = "MDN"
 parameters['train_dir'] = 'train'
 parameters['d_thresh_top_n'] = 1   # How many samples to take that exist immediately before d_thresh
-parameters['steps_per_checkpoint'] = 5
+parameters['steps_per_checkpoint'] = 500
 parameters['decrement_steps'] = 1000
 
 parameters['debug'] = False  # Skip the metric computation to hasten looptime

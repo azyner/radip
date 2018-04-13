@@ -7,6 +7,7 @@ import sys
 import os
 import dill as pickle
 import utils
+import pathos.multiprocessing as mp
 
 #Class to take a list of continuous, contiguous data logs that need to be collated and split for the data feeder
 #Is this different to the batch handler?
@@ -311,7 +312,24 @@ class SequenceWrangler:
 
         return single_track
 
-    def _split_and_slice_tracks(self, single_track, track_raw_idx, des_encoder, _generate_ibeo_template, data_columns):
+    def _split_and_slice_tracks_multiprocess_helper(self, args):
+        return self._split_and_slice_tracks(*args)
+
+    def _split_and_slice_tracks(self, single_track, track_raw_idx, des_encoder, dest_1hot_enc, data_columns):
+
+        # Forces continuity b/w crossfold template and test template
+        def _generate_ibeo_template(track_idx, track_class, origin, destination, destination_vec):
+            return pd.DataFrame({"track_idx": track_idx,
+                                 "track_class": track_class,
+                                 "origin": origin,
+                                 "destination": destination,
+                                 "destination_vec": destination_vec,
+                                 "dest_1_hot":
+                                     pd.Series([dest_1hot_enc.transform(destination_vec.reshape(-1, 1)
+                                                                        ).astype(np.float32).toarray()[0]],
+                                               dtype=object)
+                                 }, index=[0])
+
         # Lookup the index in the original collection
         # Get data
         # rint "Wrangling track: " + str(track_raw_idx) + " of: " + str(len(ibeo_track_list))
@@ -377,18 +395,6 @@ class SequenceWrangler:
         dest_1hot_enc = preprocessing.OneHotEncoder()
         dest_1hot_enc.fit(des_encoder.transform(destinations).reshape(-1, 1))
 
-        # Forces continuity b/w crossfold template and test template
-        def _generate_ibeo_template(track_idx, track_class, origin, destination, destination_vec):
-            return pd.DataFrame({"track_idx": track_idx,
-                                 "track_class": track_class,
-                                 "origin": origin,
-                                 "destination": destination,
-                                 "destination_vec": destination_vec,
-                                 "dest_1_hot":
-                                     pd.Series([dest_1hot_enc.transform(destination_vec.reshape(-1, 1)
-                                                                        ).astype(np.float32).toarray()[0]],
-                                               dtype=object)
-                                 }, index=[0])
 
         """
         The notionally correct way to validate the algorithm is as follows:
@@ -429,13 +435,19 @@ class SequenceWrangler:
         data_columns.extend(self.parameters['ibeo_data_columns'])
         data_columns = list(set(data_columns))
 
+        pool = mp.Pool(processes=4)
+        args = []
         # For all tracks
         for track_raw_idx in range(len(ibeo_track_list)):
-            single_track = ibeo_track_list[track_raw_idx]
-            track_pool = self._split_and_slice_tracks(single_track, track_raw_idx, des_encoder, _generate_ibeo_template, data_columns)
 
-            master_pool.append(track_pool)
+            single_track = ibeo_track_list[track_raw_idx]
+            args.append([single_track, track_raw_idx, des_encoder, dest_1hot_enc, data_columns])
+            #_split_and_slice_tracks_multiprocess_helper
+            #track_pool = self._split_and_slice_tracks(single_track, track_raw_idx, des_encoder, dest_1hot_enc, data_columns)
+
+            #master_pool.append(track_pool)
                 #print "wrangle time: " + str(time.time()-wrangle_time)
+        master_pool = pool.map(self._split_and_slice_tracks_multiprocess_helper, args)
 
         sys.stdout.write("\t\t\t\t%4s" % "[ OK ]")
         sys.stdout.write("\r\n")
