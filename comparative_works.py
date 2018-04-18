@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import os
 
 # This module is the one to run comparative
 # So the input will be important:
@@ -182,6 +183,12 @@ class comparative_works():
         import GPy
         n_samples = 8000 #X_short.shape[0]
         gp_succeeded = False
+        cachename = "GP-" + str(abs(hash(X.tostring()) + hash(y.tostring()) + hash(n_samples))) + ".pkl"
+        pool_dir = 'data_pool'
+        file_path = os.path.join(pool_dir, cachename)
+        file_exists = os.path.isfile(file_path)
+        if file_exists:
+            return pd.read_pickle(file_path)
         while not gp_succeeded:
             try:
                 sample_idxs = np.random.choice(X_short.shape[0], n_samples, replace=False)
@@ -218,6 +225,10 @@ class comparative_works():
             outputs.append(output[0].reshape(len(output[0])/4,4,order='a'))
 
         GP_df = GP_df.assign(outputs=outputs)
+        # save df
+        if not os.path.exists(pool_dir):
+            os.makedirs(pool_dir)
+        GP_df.to_pickle(file_path)
         return GP_df
 
     def classifierComboDistributionEstimator(self, training_batch_handler,
