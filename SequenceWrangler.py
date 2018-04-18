@@ -39,7 +39,11 @@ class SequenceWrangler:
                        ''.join([x[0] + x[-1] + '-' for x in self.parameters['ibeo_data_columns']]) + \
                        "obs-" + str(self.parameters["observation_steps"]) + \
                        "_pred-" + str(self.parameters["prediction_steps"]) + \
-                        str(hash(tuple(self.sourcename)) + utils.get_library_hash()) + \
+                        str(hash(tuple(self.sourcename))
+                            + hash(self.parameters['reject_stopped_vehicles_before_intersection_enable'])
+                            + hash(self.parameters['reject_stopped_vehicles_before_intersection_speed'])
+                            + hash(self.parameters['reject_stopped_vehicles_before_intersection_duration'])
+                            + utils.get_library_hash()) + \
                        ".pkl"
         else:
             filename = "pool_ckpt_" +\
@@ -146,7 +150,8 @@ class SequenceWrangler:
             self.test_idxs = test_idxs
 
         # Cache the test/train/val splits. The concats take forever.
-        cache_name = self.get_pool_filename() + '-' + str(hash(tuple(self.trainval_idxs)) + utils.get_library_hash()) + '.pkl'
+        cache_name = self.get_pool_filename() + '-' + str(abs(hash(tuple(self.trainval_idxs))
+                                                              + utils.get_library_hash())) + '.pkl'
         if not self.load_splits_from_checkpoint(cache_name):
             print "Crossfold cache miss, calculating splits and making sub-pools"
             #cache miss
