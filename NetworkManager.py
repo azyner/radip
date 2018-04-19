@@ -124,6 +124,11 @@ class NetworkManager:
                                                       graph=self.sess.graph)
             self.test_writer = tf.summary.FileWriter(os.path.join(self.summaries_dir, self.log_file_name + 'test'),
                                                      graph=self.sess.graph)
+        else:
+            self.train_writer = None
+            self.val_writer = None
+            self.graph_writer = None
+            self.test_writer = None
 
         return
 

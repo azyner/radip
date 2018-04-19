@@ -37,6 +37,7 @@ import dill as pickle
 #checkpoint_dir = 'writeup/certainty/paper_4/1/20170828-154046/train/best-1503898934.72'
 #checkpoint_dir = 'writeup/certainty/paper_4/2/20170828-154004/train/best-1503898889.02'
 #checkpoint_dir = 'writeup/certainty/paper_4/2/20170828-154038/train/best-1503898933.15'
+checkpoint_dir = 'writeup/generative/22-journal-experiments/20180413-100805/train/best-1523578232.06'
 
 
 if 'checkpoint_dir' in locals():

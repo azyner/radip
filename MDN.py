@@ -154,7 +154,7 @@ def compute_derivates(output_prev, output_current, network_input_columns,
     # ['easting', 'northing', 'heading', 'speed']
     # Assume the first two are x and y
     if 'heading' not in network_input_columns[2] or \
-       network_input_columns[3] is not 'speed':
+            'speed' not in network_input_columns[3]:
         print "not implemented yet"
         exit()
 
