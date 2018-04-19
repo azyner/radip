@@ -888,12 +888,14 @@ class NetworkManager:
                 num_mixtures = len(mixtures[0][0]) / mixture_components
                 mixtures = np.array(mixtures.reshape(mixtures.shape[0], mixtures.shape[1], num_mixtures, mixture_components, order='F'))
                 # Reject batchwise padding multi_sampled_mixtures.append()
-                mini_batch_frame = mini_batch_frame.assign(
-                    outputs=pd.Series([x for x in outputs_a[valid_batch_data]], dtype=object))
-                mini_batch_frame = mini_batch_frame.assign(
-                    mixtures=pd.Series([[x] for x in mixtures[valid_batch_data]], dtype=object))
-                mini_batch_frame = mini_batch_frame.assign(
-                    padding_logits=pd.Series([x for x in padding_logits[valid_batch_data]], dtype=object))
+                outputs_ar = [np.array([x]) for x in outputs_a[valid_batch_data]]
+                # Single item list for multisample compatibility
+                mixtures_ar = [np.array([x]) for x in mixtures[valid_batch_data]]
+                padding_logits_ar = [np.array([x]) for x in padding_logits[valid_batch_data]]
+
+                mini_batch_frame = mini_batch_frame.assign(outputs=outputs_ar)
+                mini_batch_frame = mini_batch_frame.assign(mixtures=mixtures_ar)
+                mini_batch_frame = mini_batch_frame.assign(padding_logits=padding_logits_ar)
 
                 report_list.append(mini_batch_frame)
 
