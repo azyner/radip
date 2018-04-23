@@ -37,7 +37,24 @@ import dill as pickle
 #checkpoint_dir = 'writeup/certainty/paper_4/1/20170828-154046/train/best-1503898934.72'
 #checkpoint_dir = 'writeup/certainty/paper_4/2/20170828-154004/train/best-1503898889.02'
 #checkpoint_dir = 'writeup/certainty/paper_4/2/20170828-154038/train/best-1503898933.15'
-checkpoint_dir = 'writeup/generative/22-journal-experiments/20180413-100805/train/best-1523578232.06'
+
+# Maru jobs
+#checkpoint_dir = 'checkpoints/20180413-100805/train/best-1523578232.06'
+#checkpoint_dir = 'checkpoints/20180414-092645/train/best-1523662205.27'
+#checkpoint_dir = 'checkpoints/20180414-104452/train/best-1523666836.48'
+#checkpoint_dir = 'checkpoints/20180415-083213/train/best-1523745278.92'
+#checkpoint_dir = 'checkpoints/20180415-105645/train/best-1523753987.38'
+#checkpoint_dir = 'checkpoints/20180416-102724/train/best-1523843133.67'
+
+# Alderaan Jobs
+#checkpoint_dir = 'checkpoints/20180416-102727/train/best-1523843138.66'
+#checkpoint_dir = 'checkpoints/20180416-204745/train/best-1523875864.78'
+#checkpoint_dir = 'checkpoints/20180417-130702/train/best-1523934588.18'
+#checkpoint_dir = 'checkpoints/20180417-143411/train/best-1523939785.34'
+#checkpoint_dir = 'checkpoints/20180418-143524/train/best-1524026250.04'
+#checkpoint_dir = 'checkpoints/20180418-160307/train/best-1524031512.7'
+
+
 
 
 if 'checkpoint_dir' in locals():
