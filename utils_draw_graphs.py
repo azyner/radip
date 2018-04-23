@@ -14,7 +14,7 @@ import dill as pickle
 
 
 def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, padding_logits, trackwise_padding, plt_size, draw_prediction_track, plot_directory, log_file_name,
-                           multi_sample, global_step, graph_number, fig_dir, csv_name, parameters):
+                           multi_sample, global_step, graph_number, fig_dir, csv_name, rel_destination, parameters):
     ##FIXME
     padding_bool = trackwise_padding
     #
@@ -23,8 +23,10 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, padding_logits, trackwise
     legend_str = []
     fig = plt.figure(figsize=plt_size)
     plt.plot(gt[:, 0], gt[:, 1], 'b-', zorder=3, label="Ground Truth")
+    plt.plot(gt[:, 0], gt[:, 1], 'bo', zorder=3, ms=2)
     legend_str.append(['Ground Truth'])
     plt.plot(obs[:, 0], obs[:, 1], 'g-', zorder=4, label="observations")
+    plt.plot(obs[:, 0], obs[:, 1], 'go', zorder=4, ms=2)
     legend_str.append(['Observations'])
 
     plot_colors = ['r', 'c', 'm', 'y', 'k']
@@ -130,11 +132,12 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, padding_logits, trackwise
                    extent=[-15.275 - (147.45 / 2), -15.275 + (147.45 / 2), -3.1 - (77 / 2), -3.1 + (77 / 2)])
     plt.imshow(final_heatmap, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent, zorder=1)
     plt.legend()
-    fig_path = os.path.join(fig_dir,
-                            ("no_pred_track-" if draw_prediction_track is False else "")
-                            + str(multi_sample) + "-" + log_file_name + '-' +
-                            str(global_step) + '-' + str(graph_number) + '.png')
+    fig_name = ("no_pred_track-" if draw_prediction_track is False else "") + str(
+                multi_sample) + "-" + log_file_name + '-' + str(global_step) + '-' + str(
+                graph_number) + '-' + rel_destination + '.png'
+    fig_path = os.path.join(fig_dir, fig_name)
     plt.savefig(fig_path, bbox_inches='tight')
+    print "Finished plotting " + fig_name
     # Now inject into tensorboard
     fig.canvas.draw()
     fig_s = fig.canvas.tostring_rgb()
@@ -164,6 +167,6 @@ if __name__ == "__main__":
                                              data['plt_size'],
                                       data['draw_prediction_track'], data['plot_directory'], data['log_file_name'],
                                       data['multi_sample'], data['global_step'], data['graph_number'], data['fig_dir'],
-                                             data['csv_name'], data['parameters'])
+                                             data['csv_name'], data['relative_destination'], data['parameters'])
 
 

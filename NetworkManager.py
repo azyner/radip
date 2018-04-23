@@ -597,13 +597,13 @@ class NetworkManager:
         graph_list = []
         graph_number = 0
         graph_max = 20 if final_run else 10
-        multithread = False
+        multithread = True
         if multithread:
             # Wait for any old threads to finish. Not allowed to spawn multiple sets of children, it gets out of hand fast.
             self.join_subprocesses()
-        for obs, preds, gt, mixes, csv_name, pad_logits, trackwise_padding in zip(
+        for obs, preds, gt, mixes, csv_name, pad_logits, trackwise_padding, rel_destination in zip(
                 observations, multi_sampled_predictions, ground_truths, multi_sampled_mixtures, csv_names,
-                padding_logits, np.array(trackwise_padding).transpose()):
+                padding_logits, np.array(trackwise_padding).transpose(), batch_frame.relative_destination):
             graph_number += 1
             # WARNING! If you want more than ten, turn off multithreading. I don't use a queue.
             # The kernel handles all of them, so they will all get memory alloc. Looks to be 200MB each
@@ -627,6 +627,7 @@ class NetworkManager:
                              "fig_dir": fig_dir,
                              "csv_name": csv_name,
                              "padding_logits": pad_logits,
+                             "relative_destination": rel_destination,
                              'parameters': self.parameters}
                 # HACK I would prefer a child that then maintains its own children with queued workers. This allows
                 # the child process to hand out fresh jobs without interrupting main, but its a lot of work. So instead,
@@ -643,7 +644,7 @@ class NetworkManager:
                                                                            trackwise_padding,
                                                                            self.plt_size, draw_prediction_track,
                                   self.plot_directory, self.log_file_name, multi_sample,
-                                  self.get_global_step(), graph_number, fig_dir, csv_name, self.parameters))
+                                  self.get_global_step(), graph_number, fig_dir, csv_name, rel_destination, self.parameters))
 
         if multithread and final_run:
             self.join_subprocesses()

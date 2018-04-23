@@ -108,6 +108,7 @@ class ReportWriter:
                                                          track_idx,  # graph_number,
                                                          plot_dir,  # fig_dir,
                                                          report_df[report_df.track_idx == track_idx].csv_name.iloc[0],
+                                                         report_df[report_df.track_idx == track_idx].relative_destination.iloc[0],
                                                          utils.sanitize_params_dict(parameters)])
             results = pool.map(utils_draw_graphs.multiprocess_helper, args)
         else:
@@ -130,6 +131,9 @@ class ReportWriter:
                                                          track_idx,  # graph_number,
                                                          plot_dir,  # fig_dir,
                                                          report_df[report_df.track_idx == track_idx].csv_name.iloc[0],
+                                                         report_df[
+                                                             report_df.track_idx == track_idx].relative_destination.iloc[
+                                                             0],
                                                          parameters)
 
         self.errors_df_dict = directionally_consolidated_errors_dict
