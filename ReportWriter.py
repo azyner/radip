@@ -52,6 +52,7 @@ class ReportWriter:
         for relative_destination in report_df.relative_destination.unique():
             errors_dict = {}
             for model_name, model_df in model_df_dict.iteritems():
+                print "Evaluating " + model_name + " for class: " + relative_destination
                 errors_dict['model_name' + '-' + relative_destination] = \
                     self._score_model_on_metric(model_df[model_df.relative_destination == relative_destination])
             dest_errors_dict[relative_destination] = errors_dict
@@ -60,6 +61,7 @@ class ReportWriter:
         errors_dict = {}
         relative_destination = 'all'
         for model_name, model_df in model_df_dict.iteritems():
+            print "Evaluating " + model_name + " for class: " + relative_destination
             errors_dict[model_name + '-' + relative_destination] = self._score_model_on_metric(model_df)
         dest_errors_dict['all'] = errors_dict
 
@@ -167,8 +169,15 @@ class ReportWriter:
 
         for track in report_df.iterrows():
             track = track[1]
+
+
+
             try:
-                preds = track.outputs[np.logical_not(track.trackwise_padding)]
+                if len(track.outputs.shape) == 2:
+                    preds = track.outputs[np.logical_not(track.trackwise_padding)]
+                    # Left in for multi-sample comaptibility, just take the first answer.
+                elif len(track.outputs.shape) == 3:
+                    preds = track.outputs[0, np.logical_not(track.trackwise_padding)]
             except:
                 ideas = None
             gts = track.decoder_sample[np.logical_not(track.trackwise_padding)]
