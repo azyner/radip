@@ -304,7 +304,7 @@ class ibeoCSVImporter:
 
         return new_tracks
 
-    def _disambiguate_df(self,input_df):
+    def _disambiguate_df(self, input_df):
         drop_list = []
         DROP_INDEX = -1
         object_id_list = np.sort(input_df.ObjectId.unique())
@@ -333,10 +333,13 @@ class ibeoCSVImporter:
             # insert/delete used to shift the whole array over by one.
             obj_diff = np.diff(obj_data['Timestamp'])
             obj_diff = np.insert(np.delete(obj_diff, -1), [0], [0])
-            cuts = np.where(obj_diff > 1)[0]
 
+            # Recording is at 25Hz, thus ~0.04 seconds between samples is contiguous,
+            # however, in some recordings there is jitter 0.0285, 0.0515, 0.0285, 0.0515
+            # Who knew noise was such a problem?
+            cuts = np.where(obj_diff > 0.07)[0]
             prev_cut = 0
-            cuts = np.append(cuts, len(obj_data)-1)
+            cuts = np.append(cuts, len(obj_data))
             for cut in cuts:
                 #print obj_data.loc[prev_cut:cut, :]
 
@@ -344,10 +347,10 @@ class ibeoCSVImporter:
                 # Note that the class may begin as `unknown', and later become classified, so do not check only for
                 #  any class > 3, but instead check all class > 3
 
-                if (obj_data.loc[prev_cut:cut].Classification < 4).all():
-                    obj_data.loc[prev_cut:cut, "uniqueId"] = DROP_INDEX
+                if (obj_data.loc[prev_cut:cut-1].Classification < 4).all():
+                    obj_data.loc[prev_cut:cut-1, "uniqueId"] = DROP_INDEX
                 else:
-                    obj_data.loc[prev_cut:cut, "uniqueId"] = self.unique_id_idx
+                    obj_data.loc[prev_cut:cut-1, "uniqueId"] = self.unique_id_idx
                     self.unique_id_idx += 1
 
                 #print("ObjId:" + str(ID) + " UniqueId:" + str(unique_id_idx) +
