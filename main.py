@@ -39,7 +39,7 @@ import dill as pickle
 #checkpoint_dir = 'writeup/certainty/paper_4/2/20170828-154038/train/best-1503898933.15'
 
 # Maru jobs
-#checkpoint_dir = 'checkpoints/20180413-100805/train/best-1523578232.06'
+#checkpoint_dir = 'checkpoints/20180413-100829/train/best-1523578254.85'
 #checkpoint_dir = 'checkpoints/20180414-092645/train/best-1523662205.27'
 #checkpoint_dir = 'checkpoints/20180414-104452/train/best-1523666836.48'
 #checkpoint_dir = 'checkpoints/20180415-083213/train/best-1523745278.92'
