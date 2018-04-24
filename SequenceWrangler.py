@@ -350,7 +350,7 @@ class SequenceWrangler:
         if self.parameters['reject_stopped_vehicles_before_intersection_enable']:
             stop_length = int(25 * self.parameters['reject_stopped_vehicles_before_intersection_duration'])
             stop_speed = self.parameters['reject_stopped_vehicles_before_intersection_speed']
-            track_before_intersection = single_track[single_track.distance < 0]
+            track_before_intersection = single_track[single_track.distance < 0]  # Consider making this 1 or 2 or settable
             for search_idx in range(len(track_before_intersection) - stop_length):
                 # if the car has stopped for too long before entering the intersection
                 if all(track_before_intersection.iloc[search_idx:search_idx + stop_length].AbsVelocity < stop_speed):
