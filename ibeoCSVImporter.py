@@ -91,7 +91,7 @@ class ibeoCSVImporter:
             self.dest_gates = {"north": left_exit, "east": top_exit, "south": right_exit}
             self.origin_gates = {
                 "north": left_enter,
-                #"east": top_enter,
+                #  "east": top_enter,  # Removed the poor visibility entrance from the data, There was a fence next to the parked car.
                 "south": right_enter
             }
             self.relative_ring = ['north', 'east', 'south', 'west']
@@ -263,6 +263,9 @@ class ibeoCSVImporter:
             if entrance == 'south':
                 origin = [-5, -7.8]
                 rotation = [-1, 0]
+            if entrance == 'east':
+                origin = [-13.9, 0.7]
+                rotation = [0, 1]
 
         return origin, rotation
 
