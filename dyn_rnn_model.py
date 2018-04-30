@@ -264,20 +264,30 @@ class DynamicRnnSeq2Seq(object):
                     timewise_track_padding = track_padding_ta.read(time - 1)
                     timewise_track_padding_logits = _padding_bool_to_logits(timewise_track_padding)
                     if track_padding_vec is not None:  # If we have declared padding is being used.
-                        loss = tf.multiply(loss, tf.expand_dims(tf.to_float(tf.logical_not(timewise_track_padding)), axis=-1)) # use padding as binary mask for loss
+                        # use padding as binary mask for mixture based loss
+                        # i.e. if the ground truth says this timestep is padding data, set that timestep's loss to zero
+                        loss = tf.multiply(loss,
+                                           tf.minimum(
+                                               parameters['padding_loss_mixture_weight'],
+                                               tf.expand_dims(
+                                                   tf.to_float(tf.logical_not(timewise_track_padding)),
+                                                   axis=-1), name='mixture_loss')
+                                           )
                         padding_output = pad_output_function(cell_output)  # compute what the network thinks about padding
                         # Normalize the softmax loss w.r.t. number of prediction steps
-                        loss = tf.add(loss,
-                                      tf.expand_dims(tf.multiply(
-                                                tf.divide(tf.nn.softmax_cross_entropy_with_logits(
-                                                                                    logits=padding_output,
-                                                                                    labels=timewise_track_padding_logits
-                                                                                                 ),
-                                                          self.prediction_steps
-                                                          ),
-                                                parameters['padding_loss_weight']
-                                                ), axis=-1) # Without this tf.add( shape(100,), shape(100,1)) becomes (100, 100) for some reason
-                                )  # compare to GT
+                        # If weight is zero, don't bother computing
+                        if abs(parameters['padding_loss_logit_weight']) > 1e-12:
+                            loss = tf.add(loss,
+                                          tf.expand_dims(tf.multiply(
+                                                    tf.divide(  # Normalize by prediction_steps
+                                                              tf.nn.softmax_cross_entropy_with_logits(
+                                                                                        logits=padding_output,
+                                                                                        labels=timewise_track_padding_logits
+                                                                                                     ),
+                                                              self.prediction_steps),
+                                                    parameters['padding_loss_logit_weight']
+                                                    ), axis=-1, name="padding_logit_loss") # Without this tf.add( shape(100,), shape(100,1)) becomes (100, 100) for some reason
+                                    )  # compare to GT
                     else:
                         padding_output = None  # loop_state write needs something at least
 
