@@ -13,10 +13,33 @@ import sys
 import dill as pickle
 
 
-def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, padding_logits, trackwise_padding, plt_size, draw_prediction_track, plot_directory, log_file_name,
-                           multi_sample, global_step, graph_number, fig_dir, csv_name, rel_destination, parameters):
+def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, trackwise_padding, plt_size, draw_prediction_track, plot_directory, log_file_name,
+                           multi_sample, global_step, graph_number, fig_dir, csv_name, rel_destination, parameters, padding_mask='None'):
+
+    """
+
+    :param obs:
+    :param preds_dict:
+    :param gt:
+    :param mixes:
+    :param network_padding_logits:
+    :param trackwise_padding:
+    :param plt_size:
+    :param draw_prediction_track:
+    :param plot_directory:
+    :param log_file_name:
+    :param multi_sample:
+    :param global_step:
+    :param graph_number:
+    :param fig_dir:
+    :param csv_name:
+    :param rel_destination:
+    :param parameters:
+    :param padding_mask: "None", "GT" or "Network"
+    :return:
+    """
     ##FIXME
-    padding_bool = trackwise_padding
+    gt_padding_bool = trackwise_padding
     #
     #padding_bool = np.argmax(padding_logits, axis=1) == 1
     # 'results/20180412-104825/plots_img_final'
@@ -43,12 +66,12 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, padding_logits, trackwise
         else:
             for j in range(preds.shape[0]):
                 # `Real data'
-                plt.plot(preds[j][~padding_bool, 0], preds[j][~padding_bool, 1],
+                plt.plot(preds[j][~gt_padding_bool, 0], preds[j][~gt_padding_bool, 1],
                          plot_colors[plot_colors_idx] + 'o', ms=2, zorder=5, label=name + ' Pred')
-                plt.plot(preds[j][~padding_bool, 0], preds[j][~padding_bool, 1],
+                plt.plot(preds[j][~gt_padding_bool, 0], preds[j][~gt_padding_bool, 1],
                          plot_colors[plot_colors_idx] + '-', ms=1, zorder=5)
                 # Padding `fake' data
-                plt.plot(preds[j][padding_bool, 0], preds[j][padding_bool, 1],
+                plt.plot(preds[j][gt_padding_bool, 0], preds[j][gt_padding_bool, 1],
                          plot_colors[plot_colors_idx] + 'x', ms=2, zorder=5)
                 plot_colors_idx += 1
             #legend_str.append([name + ' Pred'])
@@ -84,13 +107,20 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, padding_logits, trackwise
     heatmaps = None
     plot_time = time.time()
 
-    for sampled_mix in mixes:
+    for sampled_mix, sampled_padding_logits in zip(mixes, network_padding_logits):
         # Sleep in process to improve niceness.
         time.sleep(0.05)
         #print "len sampled_mix: " + str(len(sampled_mix))
         sample_time = time.time()
+
+        network_padding_bools = np.argmax(sampled_padding_logits, axis=1) == 1
+
         timeslot_num = 0
-        for timeslot in sampled_mix:
+        for timeslot, n_padded, gt_padded in zip(sampled_mix, network_padding_bools, gt_padding_bool):
+            if 'Network' in padding_mask and n_padded:
+                continue
+            if 'GT' in padding_mask and gt_padded:
+                continue
             timeslot_num += 1
             #print "timeslot_num " + str(timeslot_num)
             gaussian_heatmaps = []
@@ -132,7 +162,7 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, padding_logits, trackwise
                    extent=[-15.275 - (147.45 / 2), -15.275 + (147.45 / 2), -3.1 - (77 / 2), -3.1 + (77 / 2)])
     plt.imshow(final_heatmap, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent, zorder=1)
     plt.legend()
-    fig_name = ("no_pred_track-" if draw_prediction_track is False else "") + str(
+    fig_name = padding_mask + '-' + ("no_pred_track-" if draw_prediction_track is False else "") + str(
                 multi_sample) + "-" + log_file_name + '-' + str(global_step) + '-' + str(
                 graph_number) + '-' + rel_destination + '.png'
     fig_path = os.path.join(fig_dir, fig_name)
@@ -167,6 +197,6 @@ if __name__ == "__main__":
                                              data['plt_size'],
                                       data['draw_prediction_track'], data['plot_directory'], data['log_file_name'],
                                       data['multi_sample'], data['global_step'], data['graph_number'], data['fig_dir'],
-                                             data['csv_name'], data['relative_destination'], data['parameters'])
+                                             data['csv_name'], data['relative_destination'], data['parameters'], data['padding_mask'])
 
 

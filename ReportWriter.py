@@ -93,7 +93,8 @@ class ReportWriter:
                 model_predictions = {}
                 for model_name, model_df in model_df_dict.iteritems():
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
-                args.append([report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
+                for padding_mask in ['None', 'GT', 'Network']:
+                    args.append([report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
                                                          model_predictions,
                                                          report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
                                                          report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
@@ -109,32 +110,35 @@ class ReportWriter:
                                                          plot_dir,  # fig_dir,
                                                          report_df[report_df.track_idx == track_idx].csv_name.iloc[0],
                                                          report_df[report_df.track_idx == track_idx].relative_destination.iloc[0],
-                                                         utils.sanitize_params_dict(parameters)])
+                                                         utils.sanitize_params_dict(parameters), padding_mask])
             results = pool.map(utils_draw_graphs.multiprocess_helper, args)
         else:
             for track_idx in report_df.track_idx:
                 model_predictions = {}
                 for model_name, model_df in model_df_dict.iteritems():
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
-                utils_draw_graphs.draw_png_heatmap_graph(report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
-                                                         model_predictions,
-                                                         report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
-                                                         report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
-                                                         report_df[report_df.track_idx == track_idx].padding_logits.iloc[0],
-                                                         report_df[report_df.track_idx == track_idx].trackwise_padding.iloc[0],
-                                                         plt_size,
-                                                         False,  # draw_prediction_track,
-                                                         plot_dir,  # self.plot_directory,
-                                                         "best",  # self.log_file_name,
-                                                         False,  # multi_sample,
-                                                         0,  # self.get_global_step(),
-                                                         track_idx,  # graph_number,
-                                                         plot_dir,  # fig_dir,
-                                                         report_df[report_df.track_idx == track_idx].csv_name.iloc[0],
-                                                         report_df[
-                                                             report_df.track_idx == track_idx].relative_destination.iloc[
-                                                             0],
-                                                         parameters)
+                for padding_mask in ['None', 'GT', 'Network']:
+                    utils_draw_graphs.draw_png_heatmap_graph(report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
+                                                             model_predictions,
+                                                             report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
+                                                             report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
+                                                             report_df[report_df.track_idx == track_idx].padding_logits.iloc[0],
+                                                             report_df[report_df.track_idx == track_idx].trackwise_padding.iloc[0],
+                                                             plt_size,
+                                                             False,  # draw_prediction_track,
+                                                             plot_dir,  # self.plot_directory,
+                                                             "best",  # self.log_file_name,
+                                                             False,  # multi_sample,
+                                                             0,  # self.get_global_step(),
+                                                             track_idx,  # graph_number,
+                                                             plot_dir,  # fig_dir,
+                                                             report_df[report_df.track_idx == track_idx].csv_name.iloc[0],
+                                                             report_df[
+                                                                 report_df.track_idx == track_idx].relative_destination.iloc[
+                                                                 0],
+                                                             parameters,
+                                                             padding_mask=padding_mask)
+
 
         self.errors_df_dict = directionally_consolidated_errors_dict
 
@@ -173,8 +177,6 @@ class ReportWriter:
 
         for track in report_df.iterrows():
             track = track[1]
-
-
 
             try:
                 if len(track.outputs.shape) == 2:

@@ -578,6 +578,7 @@ class NetworkManager:
         # Drawing a single mixture sample from the network (the normal operation) results in a list of len 1
         multi_sampled_predictions = []
         multi_sampled_mixtures = []
+        multi_sampled_padding_logits = []
 
         for i in range(multi_sample):
             return_val = self.model.step(self.sess, graph_x, train_y, weights, False, trackwise_padding, summary_writer=None)
@@ -589,9 +590,11 @@ class NetworkManager:
             num_mixtures = len(mixtures[0][0]) / 6
             multi_sampled_mixtures.append(mixtures.reshape(mixtures.shape[0], mixtures.shape[1], num_mixtures, 6, order='F'))
             multi_sampled_predictions.append(np.swapaxes(np.array(model_outputs), 0, 1))
+            multi_sampled_padding_logits.append(np.array(padding_logits))
 
         multi_sampled_predictions = np.swapaxes(np.array(multi_sampled_predictions), 0, 1)
         multi_sampled_mixtures = np.swapaxes(np.array(multi_sampled_mixtures), 0, 1)
+        multi_sampled_padding_logits = np.swapaxes(np.array(multi_sampled_padding_logits), 0, 1)
         # Now the first dimension is whether I wanted to pull multiple outputs from the same input Monte Carlo style
         # Only works if the network is non-deterministic in some way.
         graph_list = []
@@ -603,7 +606,7 @@ class NetworkManager:
             self.join_subprocesses()
         for obs, preds, gt, mixes, csv_name, pad_logits, trackwise_padding, rel_destination in zip(
                 observations, multi_sampled_predictions, ground_truths, multi_sampled_mixtures, csv_names,
-                padding_logits, np.array(trackwise_padding).transpose(), batch_frame.relative_destination):
+                multi_sampled_padding_logits, np.array(trackwise_padding).transpose(), batch_frame.relative_destination):
             graph_number += 1
             # WARNING! If you want more than ten, turn off multithreading. I don't use a queue.
             # The kernel handles all of them, so they will all get memory alloc. Looks to be 200MB each
@@ -626,9 +629,10 @@ class NetworkManager:
                              "graph_number": graph_number,
                              "fig_dir": fig_dir,
                              "csv_name": csv_name,
-                             "padding_logits": pad_logits,
+                             "padding_logits": multi_sampled_padding_logits,
                              "relative_destination": rel_destination,
-                             'parameters': self.parameters}
+                             'parameters': self.parameters,
+                             'padding_mask': 'None'}
                 # HACK I would prefer a child that then maintains its own children with queued workers. This allows
                 # the child process to hand out fresh jobs without interrupting main, but its a lot of work. So instead,
                 # to stop starving main, I force these to only be able to use half the cores.
@@ -644,7 +648,7 @@ class NetworkManager:
                                                                            trackwise_padding,
                                                                            self.plt_size, draw_prediction_track,
                                   self.plot_directory, self.log_file_name, multi_sample,
-                                  self.get_global_step(), graph_number, fig_dir, csv_name, rel_destination, self.parameters))
+                                  self.get_global_step(), graph_number, fig_dir, csv_name, rel_destination, self.parameters, padding_mask='None'))
 
         if multithread and final_run:
             self.join_subprocesses()
