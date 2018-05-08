@@ -146,7 +146,8 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
     #print "Time for gaussian plot of one track: " + str(time.time() - plot_time)
     # Its about 7 seconds per plot
 
-    final_heatmap = sum(heatmaps)
+    final_heatmap = sum(heatmaps) if heatmaps is not None else None
+
     if 'relative' in parameters['ibeo_data_columns'][0]:
         _ = 0  # Blank line to preserve lower logic flow
     elif 'queen-hanks' in csv_name:
@@ -160,7 +161,8 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
         background_img = plt.imread(os.path.join('images', image_filename))
         plt.imshow(background_img, zorder=0,
                    extent=[-15.275 - (147.45 / 2), -15.275 + (147.45 / 2), -3.1 - (77 / 2), -3.1 + (77 / 2)])
-    plt.imshow(final_heatmap, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent, zorder=1)
+    if final_heatmap is not None:
+        plt.imshow(final_heatmap, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent, zorder=1)
     plt.legend()
     fig_name = padding_mask + '-' + ("no_pred_track-" if draw_prediction_track is False else "") + str(
                 multi_sample) + "-" + log_file_name + '-' + str(global_step) + '-' + str(
@@ -182,7 +184,11 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
     return fig_data
 
 def multiprocess_helper(args):
-    return draw_png_heatmap_graph(*args)
+    try:
+        return draw_png_heatmap_graph(*args)
+    except TypeError:
+        print "TypeError Caught!"
+        print args
 
 if __name__ == "__main__":
     #read args from stdin
