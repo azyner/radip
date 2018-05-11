@@ -48,7 +48,7 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
     plt.plot(gt[:, 0], gt[:, 1], 'b-', zorder=3, label="Ground Truth")
     plt.plot(gt[:, 0], gt[:, 1], 'bo', zorder=3, ms=2)
     legend_str.append(['Ground Truth'])
-    plt.plot(obs[:, 0], obs[:, 1], 'g-', zorder=4, label="observations")
+    plt.plot(obs[:, 0], obs[:, 1], 'g-', zorder=4, label="Observations")
     plt.plot(obs[:, 0], obs[:, 1], 'go', zorder=4, ms=2)
     legend_str.append(['Observations'])
 
@@ -67,9 +67,9 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
             for j in range(preds.shape[0]):
                 # `Real data'
                 plt.plot(preds[j][~gt_padding_bool, 0], preds[j][~gt_padding_bool, 1],
-                         plot_colors[plot_colors_idx] + 'o', ms=2, zorder=5, label=name + ' Pred')
+                         plot_colors[plot_colors_idx] + 'o', ms=2, zorder=5)
                 plt.plot(preds[j][~gt_padding_bool, 0], preds[j][~gt_padding_bool, 1],
-                         plot_colors[plot_colors_idx] + '-', ms=1, zorder=5)
+                         plot_colors[plot_colors_idx] + '-', ms=1, zorder=5, label=name + ' Prediction')
                 # Padding `fake' data
                 plt.plot(preds[j][gt_padding_bool, 0], preds[j][gt_padding_bool, 1],
                          plot_colors[plot_colors_idx] + 'x', ms=2, zorder=5)
