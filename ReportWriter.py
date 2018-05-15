@@ -7,6 +7,7 @@ import utils_draw_graphs
 import os
 import multiprocessing as mp
 import utils
+import MDN_clustering
 
 class ReportWriter:
     def __init__(self,
@@ -85,7 +86,7 @@ class ReportWriter:
 
         plt_size = (10, 10)
 
-        multithread = True
+        multithread = False
         if multithread:
             pool = mp.Pool(processes=2)
             args = []
@@ -114,10 +115,14 @@ class ReportWriter:
             results = pool.map(utils_draw_graphs.multiprocess_helper, args)
         else:
             for track_idx in report_df.track_idx:
+                if track_idx != 16377:
+                    print track_idx
+                    continue
                 model_predictions = {}
                 for model_name, model_df in model_df_dict.iteritems():
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
                 for padding_mask in ['None', 'GT', 'Network']:
+                    MDN_clustering.cluster_MDN_into_sets(report_df[report_df.track_idx == track_idx].mixtures.iloc[0])
                     utils_draw_graphs.draw_png_heatmap_graph(report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
                                                              model_predictions,
                                                              report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
