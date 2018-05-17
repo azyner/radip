@@ -121,7 +121,6 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
                 continue
             if 'GT' in padding_mask and gt_padded:
                 continue
-            timeslot_num += 1
             #print "timeslot_num " + str(timeslot_num)
             gaussian_heatmaps = []
             gaus_num = 0
@@ -138,10 +137,24 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
                 gaussian_heatmaps.append(zz)
             gaussian_heatmaps /= np.max(gaussian_heatmaps)  # Normalize such that each timestep has equal weight
             #heatmaps.extend(gaussian_heatmaps) #  This explodes
+            save_each_timestep = True
+            if save_each_timestep:
+                import copy
+                timestep_plt = copy.deepcopy(plt)
+                timestep_plt.imshow(gaussian_heatmaps, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent,
+                               zorder=1)
+                timestep_plt.legend()
+                fig_name = padding_mask + '-' + ("no_pred_track-" if draw_prediction_track is False else "") + str(
+                    multi_sample) + "-" + log_file_name + '-' + str(global_step) + '-' + str(
+                    graph_number) + '-' + rel_destination + 't_' + str(timeslot_num) + '.png'
+                fig_path = os.path.join(fig_dir, fig_name)
+                timestep_plt.savefig(fig_path, bbox_inches='tight')
+
             if heatmaps is None:
                 heatmaps = gaussian_heatmaps
             else:
                 heatmaps += gaussian_heatmaps
+            timeslot_num += 1
             #print "Time for this sample: " + str(time.time() - sample_time)
     #print "Time for gaussian plot of one track: " + str(time.time() - plot_time)
     # Its about 7 seconds per plot
