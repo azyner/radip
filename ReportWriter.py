@@ -116,7 +116,7 @@ class ReportWriter:
         else:
             for track_idx in report_df.track_idx:
                 if track_idx != 16377:
-                    print track_idx
+                    #print track_idx
                     continue
                 model_predictions = {}
                 for model_name, model_df in model_df_dict.iteritems():
