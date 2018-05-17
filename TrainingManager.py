@@ -262,7 +262,9 @@ class TrainingManager:
                                   hyper_reg_embedding_beta,
                                   hyper_reg_l2_beta,
                                   hyper_learning_rate_decay,
-                                  hyper_learning_rate_min):
+                                  hyper_learning_rate_min,
+                                  padding_loss_logit_weight,
+                                  padding_loss_mixture_weight):
             """ 
             Function used to wrap the hyperparameters and settings such that it fits the format used by dlib.
             Some variables need to be side-loaded, mostly reporting values.
@@ -276,17 +278,20 @@ class TrainingManager:
             self.parameter_dict['learning_rate_min'] = \
                 (10 ** hyper_learning_rate_min) * self.parameter_dict['learning_rate']
             self.parameter_dict['embedding_size'] = self.parameter_dict['rnn_size']
-
+            self.parameter_dict['padding_loss_logit_weight'] = padding_loss_logit_weight
+            self.parameter_dict['padding_loss_mixture_weight'] = padding_loss_mixture_weight
 
             # Update Cutoffs
             self.parameter_dict['long_training_time'] = self.parameter_dict['early_stop_cf']
             self.parameter_dict['long_training_steps'] = self.parameter_dict['hyper_search_step_cutoff']
             ######### / PARAMS
-            print 'learning_rate              ' + str(10 ** hyper_learning_rate)
-            print 'rnn_size                   ' + str(hyper_rnn_size)
-            print 'reg_embedding_beta         ' + str(10 ** hyper_reg_embedding_beta)
-            print 'l2_reg_beta                ' + str(10 ** hyper_reg_l2_beta)
-            print 'learning_rate_decay_factor ' + str(hyper_learning_rate_decay)
+            print 'learning_rate               ' + str(10 ** hyper_learning_rate)
+            print 'rnn_size                    ' + str(hyper_rnn_size)
+            print 'reg_embedding_beta          ' + str(10 ** hyper_reg_embedding_beta)
+            print 'l2_reg_beta                 ' + str(10 ** hyper_reg_l2_beta)
+            print 'learning_rate_decay_factor  ' + str(hyper_learning_rate_decay)
+            print 'padding_loss_logit_weight   ' + str(padding_loss_logit_weight)
+            print 'padding_loss_mixture_weight ' + str(padding_loss_mixture_weight)
 
             cf_fold = -1
             # I should call this outside the crossfold, so it occurs once
@@ -356,6 +361,10 @@ class TrainingManager:
                 # FIXME Only do 1 fold per hyperparams. Its not neccessary to continue
                 break
 
+            # Run reportwriter here and return all_tracks..... euclidean loss?
+            val_acc, val_loss, report_df =\
+                self.test_network(netManager, validation_batch_handler)
+
             cf_df = pd.concat(cf_results_list)
             # Condense results from cross fold (Average, best, worst, whatever selection method)
             hyperparam_results = copy.copy(self.parameter_dict)
@@ -367,6 +376,8 @@ class TrainingManager:
             hyperparam_results['validation_accuracy'] = np.average(cf_df['validation_accuracy'])
             hyperparam_results['validation_loss'] =np.average(cf_df['validation_loss'])
 
+            track_scores = ReportWriter.ReportWriter.score_model_on_metric(self.parameter_dict, report_df)
+            hyperparam_results['euclidean_err_sum'] = sum(track_scores['euclidean'])
             hyperparam_results['crossfold_number'] = -1
             #FIXME What is this line doing?
             hyperparam_results['network_chkpt_dir'] = (
@@ -380,8 +391,11 @@ class TrainingManager:
             hyperparam_results_list.append(pd.DataFrame(hyperparam_results, index=[0]))
             hyperparam_results_list.append(cf_df)
             #Write results and hyperparams to hyperparameter_results_dataframe
-            return hyperparam_results['validation_loss'] # VALUE TO BE MINIMIZED.
-################################
+
+
+            return hyperparam_results['euclidean_err_sum']
+
+        ################################
 
         import dlib
         #  http://blog.dlib.net/2017/12/a-global-optimization-algorithm-worth.html
@@ -392,6 +406,8 @@ class TrainingManager:
             min(self.parameter_dict['hyper_reg_l2_beta_args']),
             min(self.parameter_dict['hyper_learning_rate_decay_args']),
             min(self.parameter_dict['hyper_learning_rate_min_args']),
+            min(self.parameter_dict['hyper_padding_loss_logit_weight_args']),
+            min(self.parameter_dict['hyper_padding_loss_mixture_weight_args'])
         ]
         uppers = [
             max(self.parameter_dict['hyper_learning_rate_args']),
@@ -400,9 +416,11 @@ class TrainingManager:
             max(self.parameter_dict['hyper_reg_l2_beta_args']),
             max(self.parameter_dict['hyper_learning_rate_decay_args']),
             max(self.parameter_dict['hyper_learning_rate_min_args']),
+            max(self.parameter_dict['hyper_padding_loss_logit_weight_args']),
+            max(self.parameter_dict['hyper_padding_loss_mixture_weight_args'])
            ]
         x,y = dlib.find_min_global(hyper_training_helper, lowers, uppers,
-                                   [False, True, False, False, False, False],  # Is integer Variable
+                                   [False, True, False, False, False, False, False, False],  # Is integer Variable
                                    self.parameter_dict['hyper_search_folds'])
 
         hyper_df = pd.concat(hyperparam_results_list, ignore_index=True)
@@ -416,7 +434,9 @@ class TrainingManager:
             best_params = summary_df.sort_values('validation_accuracy', ascending=False).iloc[0].to_dict()
         if self.parameter_dict['evaluation_metric_type'] == 'validation_loss': # Lower better
             best_params = summary_df.sort_values('validation_loss', ascending=True).iloc[0].to_dict()
-
+        if self.parameter_dict['evaluation_metric_type'] == 'euclidean_err_sum':  # Lower better
+            best_params = summary_df.sort_values('euclidean_err_sum', ascending=True).iloc[0].to_dict()
+        # TODO eval_metric_type_reportwriter?
         return best_params
 
     def long_train_network(self, params, train_pool, val_pool, test_pool, checkpoint=None, test_network_only=False):

@@ -8,6 +8,7 @@ import os
 import multiprocessing as mp
 import utils
 
+
 class ReportWriter:
     def __init__(self,
                  training_batch_handler,
@@ -54,7 +55,7 @@ class ReportWriter:
             for model_name, model_df in model_df_dict.iteritems():
                 print "Evaluating " + model_name + " for class: " + relative_destination
                 errors_dict['model_name' + '-' + relative_destination] = \
-                    self._score_model_on_metric(model_df[model_df.relative_destination == relative_destination])
+                    self.score_model_on_metric(parameters, model_df[model_df.relative_destination == relative_destination])
             dest_errors_dict[relative_destination] = errors_dict
 
         # Score models totally
@@ -62,7 +63,7 @@ class ReportWriter:
         relative_destination = 'all'
         for model_name, model_df in model_df_dict.iteritems():
             print "Evaluating " + model_name + " for class: " + relative_destination
-            errors_dict[model_name + '-' + relative_destination] = self._score_model_on_metric(model_df)
+            errors_dict[model_name + '-' + relative_destination] = self.score_model_on_metric(parameters, model_df)
         dest_errors_dict['all'] = errors_dict
 
         # Consolidate everything, grouped by direction
@@ -163,17 +164,17 @@ class ReportWriter:
             summarized_metrics[metric + " " + 'worst 1%'] = np.percentile(errors, 99)
         return summarized_metrics
 
-
     # Here, there are many options
     # A) metric variance. LCSS, Hausdorff, etc
     # B) Statistical variance:
         # best mean
         # best worst 5% / 1% / 0.1% <-- It took me ages to get data for a reasonable 0.1% fit!
-    def _score_model_on_metric(self, report_df, metric=None):
+    @staticmethod
+    def score_model_on_metric(parameters, report_df, metric=None):
         #scores_list = []
         track_scores = {}
         horizon_list = [10, 20, 30, 40, 50, 70]
-        horizon_list = [int(h / self.parameters['subsample']) for h in horizon_list]
+        horizon_list = [int(h / parameters['subsample']) for h in horizon_list]
 
         for track in report_df.iterrows():
             track = track[1]
