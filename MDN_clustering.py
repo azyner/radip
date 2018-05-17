@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 import sklearn.cluster
 import pandas as pd
-
+import copy
 
 def KL_divergence():
     return None
@@ -55,6 +55,16 @@ def cluster_MDN_into_sets(MDN_model_output):
                             # figure out which group it matches from the previous clusters
                             # Use min euclid distance to any of the mixes in the group
                             # Then copy that track's history.
+                            closest_idx = None
+                            closest_val = 999999
+                            for group_idx in range(len(MDN_groups)):
+                                for gauss in MDN_groups[group_idx]:
+                                    if euclid_distance(gauss, mdn[t][mdn_output_idx]) < closest_val:
+                                        closest_val = euclid_distance(gauss, mdn[t][mdn_output_idx])
+                                        closest_idx = group_idx
+                            # Copy all the history from group_idx t-- to new group
+                            # Do I have to deepcopy this? Appending an element of an array to the same array is unkwn
+                            MDN_groups.append(copy.deepcopy(MDN_groups[closest_idx]))
 
         # I then either have to figure out how the new clusters map to the old clusters,
         # Or run the clustering algorithm again individually.
