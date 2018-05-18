@@ -54,6 +54,7 @@ import dill as pickle
 #checkpoint_dir = 'checkpoints/20180418-143524/train/best-1524026250.04'
 #checkpoint_dir = 'checkpoints/20180418-160307/train/best-1524031512.7'
 
+#checkpoint_dir = 'checkpoints/20180503-084323/train/best-1525301195.27'
 
 
 
