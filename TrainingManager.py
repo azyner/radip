@@ -477,7 +477,7 @@ class TrainingManager:
             netManager.draw_categorical_html_graphs(test_batch_handler)
         else:
             netManager.draw_generative_html_graphs(test_batch_handler, multi_sample=1)
-            netManager.draw_generative_html_graphs(test_batch_handler, multi_sample=20)
+            #netManager.draw_generative_html_graphs(test_batch_handler, multi_sample=20)
 
         # FIXME maybe this needs its own function?
         for key, value in best_results.iteritems():
