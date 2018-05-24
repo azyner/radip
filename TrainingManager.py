@@ -271,7 +271,7 @@ class TrainingManager:
             """
             ############# SELECT NEW PARAMS
             self.parameter_dict['learning_rate'] = 10 ** hyper_learning_rate
-            self.parameter_dict['rnn_size'] = hyper_rnn_size
+            self.parameter_dict['rnn_size'] = int(hyper_rnn_size)
             self.parameter_dict['reg_embedding_beta'] = 10 ** hyper_reg_embedding_beta
             self.parameter_dict['l2_reg_beta'] = 10 ** hyper_reg_l2_beta
             self.parameter_dict['learning_rate_decay_factor'] = hyper_learning_rate_decay
