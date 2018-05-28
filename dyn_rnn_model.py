@@ -268,9 +268,9 @@ class DynamicRnnSeq2Seq(object):
                         # i.e. if the ground truth says this timestep is padding data, set that timestep's loss to zero
                         loss = tf.multiply(loss,
                                            tf.minimum(
-                                               parameters['padding_loss_mixture_weight'],
+                                               tf.to_float(parameters['padding_loss_mixture_weight']),
                                                tf.expand_dims(
-                                                   tf.to_float(tf.logical_not(timewise_track_padding)),
+                                                   tf.to_float(tf.logical_not(timewise_track_padding)), # Hyperparam search sometimes makes this a float64
                                                    axis=-1), name='mixture_loss')
                                            )
                         padding_output = pad_output_function(cell_output)  # compute what the network thinks about padding
@@ -285,7 +285,7 @@ class DynamicRnnSeq2Seq(object):
                                                                                         labels=timewise_track_padding_logits
                                                                                                      ),
                                                               self.prediction_steps),
-                                                    parameters['padding_loss_logit_weight']
+                                                    tf.to_float(parameters['padding_loss_logit_weight'])
                                                     ), axis=-1, name="padding_logit_loss") # Without this tf.add( shape(100,), shape(100,1)) becomes (100, 100) for some reason
                                     )  # compare to GT
                     else:
@@ -312,12 +312,12 @@ class DynamicRnnSeq2Seq(object):
                 MDN_output = _transpose_batch_time(loop_state_ta[3].stack())
                 track_padding_output = _transpose_batch_time(loop_state_ta[4].stack())
 
-            return output_sampled,\
-                   tf.reduce_sum(losses,axis=1)/len(self.decoder_inputs),\
-                   final_state, \
-                   MDN_output,\
-                   track_padding_output
 
+            return (output_sampled,
+                    losses, # tf.reduce_sum(losses,axis=1)/len(self.decoder_inputs),\
+                    final_state,
+                    MDN_output,
+                    track_padding_output)
 
         ################# FEEDS SECTION #######################
         # Feeds for inputs.
@@ -390,9 +390,9 @@ class DynamicRnnSeq2Seq(object):
         # There's this corner alg that Social LSTM refernces, but I haven't looked into it.
         # NOTE - there is a good cost function for the MDN (MLE), this is different to the track accuracy metric (above)
         if self.model_type == 'MDN':
-            self.full_losses = tf.reduce_sum(self.losses) / self.batch_size
-            self.first_loss_losses = tf.reduce_sum(self.losses[0])
-
+            # tf.reduce_sum(losses,axis=1)/len(self.decoder_inputs)
+            self.full_losses = tf.reduce_sum(self.losses) / (self.batch_size * len(self.decoder_inputs))
+            self.first_loss_losses = tf.reduce_sum(self.losses[:, 0])  # reduce_sum over batch dim, only take step 1
             self.full_accuracy = -self.full_losses #TODO placeholder, use MSE or something visually intuitive
             self.first_loss_accuracy = -self.first_loss_losses
         if self.model_type == 'classifier':
