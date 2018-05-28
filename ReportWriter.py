@@ -116,7 +116,7 @@ class ReportWriter:
             results = pool.map(utils_draw_graphs.multiprocess_helper, args)
         else:
             for track_idx in report_df.track_idx:
-                if track_idx != 16377:
+                if track_idx != 677:
                     print track_idx
                     continue
                 model_predictions = {}
