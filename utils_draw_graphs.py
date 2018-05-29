@@ -108,7 +108,7 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
         x_range = (-32, -5)
         y_range = (-23, 5)
 
-    dx, dy = 0.1, 0.1
+    dx, dy = 0.5, 0.5
     x = np.arange(min(x_range), max(x_range), dx)
     y = np.flip(np.arange(min(y_range), max(y_range), dy), axis=0)  # Image Y axes are down positive, map axes are up positive.
     xx, yy = np.meshgrid(x, y)
