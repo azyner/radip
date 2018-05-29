@@ -96,7 +96,7 @@ class ReportWriter:
                 for model_name, model_df in model_df_dict.iteritems():
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
 
-                MDN_clusters, centroids = MDN_clustering.cluster_MDN_into_sets(
+                MDN_clusters, centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(
                     report_df[report_df.track_idx == track_idx].mixtures.iloc[0])
                 for centroid_idx in range(len(centroids)):
                     model_predictions['multipath_' + str(centroid_idx)] = np.array(centroids[centroid_idx])
@@ -129,7 +129,7 @@ class ReportWriter:
                 for model_name, model_df in model_df_dict.iteritems():
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
 
-                MDN_clusters, centroids = MDN_clustering.cluster_MDN_into_sets(report_df[report_df.track_idx
+                MDN_clusters, centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(report_df[report_df.track_idx
                                                                                          == track_idx].mixtures.iloc[0])
                 for centroid_idx in range(len(centroids)):
                     model_predictions['multipath_' + str(centroid_idx)] = np.array(centroids[centroid_idx])
