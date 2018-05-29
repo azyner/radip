@@ -65,15 +65,27 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
             continue
         else:
             for j in range(preds.shape[0]):
+                prediction = preds[j]
                 # `Real data'
-                plt.plot(preds[j][~gt_padding_bool, 0], preds[j][~gt_padding_bool, 1],
-                         plot_colors[plot_colors_idx] + 'o', ms=2, zorder=5)
-                plt.plot(preds[j][~gt_padding_bool, 0], preds[j][~gt_padding_bool, 1],
-                         plot_colors[plot_colors_idx] + '-', ms=1, zorder=5, label=name + ' Prediction')
+                if 'multipath' in name:
+                    plot_color = 'w'
+                else:
+                    plot_color = plot_colors[plot_colors_idx]
+                    plot_colors_idx += 1
+                if len(prediction) is not len(gt_padding_bool):
+                    padding_amount = len(gt_padding_bool) - len(prediction)
+                    if padding_amount < 0:
+                        prediction = prediction[:len(gt_padding_bool), :]
+                    else:
+                        prediction = np.pad(prediction, [[0, padding_amount], [0, 0]], 'edge')
+                plt.plot(prediction[~gt_padding_bool, 0], prediction[~gt_padding_bool, 1],
+                         plot_color + 'o', ms=2, zorder=5)
+                plt.plot(prediction[~gt_padding_bool, 0], prediction[~gt_padding_bool, 1],
+                         plot_color + '-', ms=1, zorder=5, label=name + ' Prediction')
                 # Padding `fake' data
-                plt.plot(preds[j][gt_padding_bool, 0], preds[j][gt_padding_bool, 1],
-                         plot_colors[plot_colors_idx] + 'x', ms=2, zorder=5)
-                plot_colors_idx += 1
+                plt.plot(prediction[gt_padding_bool, 0], prediction[gt_padding_bool, 1],
+                         plot_color + 'x', ms=2, zorder=5)
+
             #legend_str.append([name + ' Pred'])
     plt.legend()
 

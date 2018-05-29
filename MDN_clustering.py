@@ -17,9 +17,11 @@ def euclid_distance(a, b):
 
 
 def cluster_MDN_into_sets(MDN_model_output):
+
+    # In hindsight this should have been done via a tree structure. I mean, it is, just the representation is poor
     mdn = MDN_model_output[0]
     old_clusterer = None
-    clusterer = sklearn.cluster.DBSCAN(eps=3, min_samples=0, metric=euclid_distance, algorithm='brute')
+    clusterer = sklearn.cluster.DBSCAN(eps=1, min_samples=1, metric=euclid_distance, algorithm='brute')
     cluster_centroids = []  # Dims: groups, timestep, [x, y]
     MDN_groups = []         # Dims: groups, timesteps, [MDN PARAMS]
     MDN_group_padding = []
@@ -46,7 +48,6 @@ def cluster_MDN_into_sets(MDN_model_output):
             for mdn_output_group_idx in range(max(groupings + 1)):
                 # Collect all groups at that idx
                 this_group_idxs = np.array(range(len(groupings)))[groupings == mdn_output_group_idx]
-                # FIXME Assumption groupings are in the same order.
                 temp_groups_this_timestep.append(mdn[t][this_group_idxs])
 
             # Now I have this timestep grouped, I need to find their closest group from t-1 (MDN_groups)
@@ -80,24 +81,30 @@ def cluster_MDN_into_sets(MDN_model_output):
                 temp_groups_distances.append(closest_distance)
 
             temp_groups_closest = np.array(temp_groups_closest)
-            temp_groups_distances = np.array( temp_groups_distances)
+            temp_groups_distances = np.array(temp_groups_distances)
+
+            # We now have the map of the closest parent to these children. But only 1 child per parent, unless a new
+            # track has spawned.
+
             used_idxs = []
-            live_idxs_to_remove = []
-            for MDN_group_idx in live_MDN_groups:
-                temp_group_idxs_that_match = np.array(range(len(temp_groups_closest)))[temp_groups_closest == MDN_group_idx]
+            live_idx_vals_to_remove = []
+            for idx in range(len(live_MDN_groups)):
+                temp_group_idxs_that_match = np.array(range(len(temp_groups_closest)))[temp_groups_closest == live_MDN_groups[idx]]
                 # Because I used the index to remap to a limited range of idxs, I have to un map it again
                 if len(temp_groups_distances[temp_group_idxs_that_match]) < 1:
                     # If a track dies
-                    live_idxs_to_remove.append(MDN_group_idx)
+                    live_idx_vals_to_remove.append(live_MDN_groups[idx])
                     continue
                 closest_group_idx = temp_group_idxs_that_match[np.argmin(temp_groups_distances[temp_group_idxs_that_match])]
                 # Now that I have found the closest group, I can assign it
-                timestep_groups[MDN_group_idx] = temp_groups_this_timestep[closest_group_idx]
+                timestep_groups[idx] = temp_groups_this_timestep[closest_group_idx]
                 used_idxs.append(closest_group_idx)
 
             # It is undefined to remove when iterating over a list
-            for idx in live_idxs_to_remove:
-                live_MDN_groups.remove(idx)
+            for idx_val in live_idx_vals_to_remove:
+                idx = live_MDN_groups.index(idx_val)  # First, find the mapping_idx in the live_MDN_groups list (NOT a regular idx)
+                del(live_MDN_groups[idx])             # Then delete those from the list
+                del(timestep_groups[idx])             # As a group is deleted in the master tree, the addition tree must also be deleted
 
             unused_idxs = np.delete(np.array(range(len(temp_groups_closest))), used_idxs)
             if len(unused_idxs) > 0:
@@ -109,13 +116,15 @@ def cluster_MDN_into_sets(MDN_model_output):
 
 
             #timestep_groups[mdn_output_group_idx] = mdn[t][this_group_idxs]
-            # TODO This is wrong. The assumption that the gourps are linear no longher hold
+            # TODO This is wrong. The assumption that the groups are linear no longer hold
             # Groups lengths are not equal?
-            if len(timestep_groups) is not len(live_MDN_groups):
-                help = None
+            # if len(timestep_groups) is not len(live_MDN_groups):
+            #     help = None
             for i in range(len(timestep_groups)):
-                if len(timestep_groups[i]) == 0:
-                    continue
+                # if i not in live_MDN_groups:
+                #     continue
+                # if len(timestep_groups[i]) == 0:
+                #     continue
                 try:
                     MDN_groups[live_MDN_groups[i]].append(np.array(timestep_groups[i]))
                 except IndexError:
@@ -180,4 +189,12 @@ def cluster_MDN_into_sets(MDN_model_output):
         #
         #     ideas = None
 
-    return {}
+    # Return 2 things: The raw MDNS and centroid clusters for simplicity
+    centroid_groups = []
+    for path in MDN_groups:
+        simple_path = []
+        for vals_at_timestep in path:
+            simple_path.append(np.average(vals_at_timestep[:, 1:3], weights=vals_at_timestep[:, 0], axis=0))
+        centroid_groups.append(simple_path)
+
+    return MDN_groups, centroid_groups
