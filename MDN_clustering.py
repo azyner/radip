@@ -16,39 +16,43 @@ def euclid_distance(a, b):
     return np.sqrt(np.square(a[1]-b[1]) + np.square(a[2]-b[2]))
 
 
-def cluster_MDN_into_sets(MDN_model_output):
-
+def cluster_MDN_into_sets(MDN_model_output, mix_weight_threshold=0.5, eps=1.0, min_samples=1):
+    np.set_printoptions(precision=1)
     # In hindsight this should have been done via a tree structure. I mean, it is, just the representation is poor
     mdn = MDN_model_output[0]
     old_clusterer = None
-    clusterer = sklearn.cluster.DBSCAN(eps=1, min_samples=1, metric=euclid_distance, algorithm='brute')
+    clusterer = sklearn.cluster.DBSCAN(eps=eps, min_samples=min_samples, metric=euclid_distance, algorithm='brute')
     cluster_centroids = []  # Dims: groups, timestep, [x, y]
     MDN_groups = []         # Dims: groups, timesteps, [MDN PARAMS]
     MDN_group_padding = []
     live_MDN_groups = []
     for t in range(len(mdn)):
+        model_out_this_timestep = mdn[t]
+        # Delete all mixtures that have a weight smaller than threshhold * (1/num_mixes)
+        strong_mixes = model_out_this_timestep[:, 0] > ((mix_weight_threshold) / model_out_this_timestep.shape[0])
+        model_out_this_timestep = model_out_this_timestep[strong_mixes, :]
         if t == 0:
-            groupings = clusterer.fit_predict(mdn[t])
+            groupings = clusterer.fit_predict(model_out_this_timestep)
             timestep_groups = []
             for group_idx in range(max(groupings) + 1):
                 # Create a list that only contains the Mixes for group number IDX
                 # Add them to the timetep set.
-                timestep_groups.append(mdn[t][groupings==group_idx])
-            MDN_groups.append(timestep_groups)
-            live_MDN_groups = [0]
+                timestep_groups.append(model_out_this_timestep[groupings==group_idx])
+            MDN_groups = [[g] for g in timestep_groups]
+            live_MDN_groups = range(len(timestep_groups))
         else:
             # We run the grouper again, and then match each group to its closest in t-1. If there are two matches, the
             # tree has split, and so we must copy out history.
             timestep_groups = [[] for i in live_MDN_groups] #range(len(MDN_groups))]
 
-            groupings = clusterer.fit_predict(mdn[t])
+            groupings = clusterer.fit_predict(model_out_this_timestep)
             if max(groupings) > 0:
                 ideas = None
             temp_groups_this_timestep = []
             for mdn_output_group_idx in range(max(groupings + 1)):
                 # Collect all groups at that idx
                 this_group_idxs = np.array(range(len(groupings)))[groupings == mdn_output_group_idx]
-                temp_groups_this_timestep.append(mdn[t][this_group_idxs])
+                temp_groups_this_timestep.append(model_out_this_timestep[this_group_idxs])
 
             # Now I have this timestep grouped, I need to find their closest group from t-1 (MDN_groups)
             # If there are two with the same group, the closer wins, and the further spawns a new group, copying
@@ -86,40 +90,37 @@ def cluster_MDN_into_sets(MDN_model_output):
             # We now have the map of the closest parent to these children. But only 1 child per parent, unless a new
             # track has spawned.
 
-            used_idxs = []
+            used_parent_idxs = []
             live_idx_vals_to_remove = []
             for idx in range(len(live_MDN_groups)):
-                temp_group_idxs_that_match = np.array(range(len(temp_groups_closest)))[temp_groups_closest == live_MDN_groups[idx]]
+                temp_group_idxs_that_match_parent = np.array(range(len(temp_groups_closest)))[temp_groups_closest == live_MDN_groups[idx]]
                 # Because I used the index to remap to a limited range of idxs, I have to un map it again
-                if len(temp_groups_distances[temp_group_idxs_that_match]) < 1:
+                if len(temp_groups_distances[temp_group_idxs_that_match_parent]) < 1:
                     # If a track dies
                     live_idx_vals_to_remove.append(live_MDN_groups[idx])
                     continue
-                closest_group_idx = temp_group_idxs_that_match[np.argmin(temp_groups_distances[temp_group_idxs_that_match])]
+                closest_parent_group_idx = temp_group_idxs_that_match_parent[np.argmin(temp_groups_distances[temp_group_idxs_that_match_parent])]
                 # Now that I have found the closest group, I can assign it
-                timestep_groups[idx] = temp_groups_this_timestep[closest_group_idx]
-                used_idxs.append(closest_group_idx)
+                timestep_groups[idx] = temp_groups_this_timestep[closest_parent_group_idx]
+                used_parent_idxs.append(closest_parent_group_idx)
 
+            ################ PATH DIES
             # It is undefined to remove when iterating over a list
             for idx_val in live_idx_vals_to_remove:
                 idx = live_MDN_groups.index(idx_val)  # First, find the mapping_idx in the live_MDN_groups list (NOT a regular idx)
                 del(live_MDN_groups[idx])             # Then delete those from the list
                 del(timestep_groups[idx])             # As a group is deleted in the master tree, the addition tree must also be deleted
+            ################ /PATH DIES
 
-            unused_idxs = np.delete(np.array(range(len(temp_groups_closest))), used_idxs)
-            if len(unused_idxs) > 0:
-                for unused_idx in unused_idxs:
+            unused_temp_group_idxs = np.delete(np.array(range(len(temp_groups_closest))), used_parent_idxs)
+            if len(unused_temp_group_idxs) > 0:
+                ######## PATH SPAWNS
+                for unused_temp_group_idx in unused_temp_group_idxs:
                     MDN_group_idx += 1
-                    MDN_groups.append(copy.deepcopy(MDN_groups[temp_groups_closest[unused_idx]]))
-                    timestep_groups.append(temp_groups_this_timestep[unused_idx])
+                    MDN_groups.append(copy.deepcopy(MDN_groups[temp_groups_closest[unused_temp_group_idx]]))
+                    timestep_groups.append(temp_groups_this_timestep[unused_temp_group_idx])
                     live_MDN_groups.append(len(MDN_groups)-1)
 
-
-            #timestep_groups[mdn_output_group_idx] = mdn[t][this_group_idxs]
-            # TODO This is wrong. The assumption that the groups are linear no longer hold
-            # Groups lengths are not equal?
-            # if len(timestep_groups) is not len(live_MDN_groups):
-            #     help = None
             for i in range(len(timestep_groups)):
                 # if i not in live_MDN_groups:
                 #     continue
@@ -129,65 +130,12 @@ def cluster_MDN_into_sets(MDN_model_output):
                     MDN_groups[live_MDN_groups[i]].append(np.array(timestep_groups[i]))
                 except IndexError:
                     ideas = None
+            if len(MDN_groups) > 6:
+                WTFisGOINGon = None
+            if len(MDN_groups[0]) > t+1:
+                ohno = None
 
 
-
-
-
-
-            # for mdn_output_idx in range(len(mdn[t])):
-            #     for mdn_group_idx in range(len(MDN_groups)):
-            #         # If the mix from current timestep does not match to
-            #         groupings = clusterer.fit_predict(np.append(MDN_groups[mdn_group_idx][t-1],
-            #                                                     [mdn[t][mdn_output_idx]], axis=0))
-            #         if max(groupings) == 0:
-            #             # There is only one group, we have a match
-            #             timestep_groups[mdn_group_idx].append(mdn[t][mdn_output_idx])
-            #             break
-            #         else:
-            #             ideas = None
-            #     else:
-            #         # if it does not match any existing group (i.e. two Mixes formed a new group)
-            #         for timestep_group_idx in range(len(timestep_groups)):
-            #             groupings = clusterer.fit_predict(np.append(timestep_groups[timestep_group_idx],
-            #                                                         [mdn[t][mdn_output_idx]], axis=0))
-            #             if max(groupings) == 0:
-            #                 timestep_groups[timestep_group_idx].append(mdn[t][mdn_output_idx])
-            #                 break
-            #             else:
-            #                 ideas = None
-            #         else:
-            #             # make a new group
-            #             timestep_groups.append([mdn[t][mdn_output_idx]])
-            #             # figure out which group it matches from the previous clusters
-            #             # Use min euclid distance to any of the mixes in the group
-            #             # Then copy that track's history.
-            #             closest_idx = None
-            #             closest_val = 999999
-            #             for group_idx in range(len(MDN_groups)):
-            #                 for gauss in MDN_groups[group_idx]:
-            #                     if euclid_distance(gauss, mdn[t][mdn_output_idx]) < closest_val:
-            #                         closest_val = euclid_distance(gauss, mdn[t][mdn_output_idx])
-            #                         closest_idx = group_idx
-            #             # Copy all the history from group_idx t-- to new group
-            #             # Do I have to deepcopy this? Appending an element of an array to the same array is unkwn
-            #             MDN_groups.append(copy.deepcopy(MDN_groups[closest_idx])) #TODO What aobut timestep groups
-            # #MDN_groups.append(timestep_groups)
-            # for i in range(len(timestep_groups)):
-            #     MDN_groups[i].append(np.array(timestep_groups[i]))
-
-        # I then either have to figure out how the new clusters map to the old clusters,
-        # Or run the clustering algorithm again individually.
-        # I have to run them individually. If I don't, the new data might `join' the old together,
-        # That's easier then, for each Mix, see if it groups with any t-1 group.
-
-        #    for group_idx in range(max(groupings)):
-        # If they split, the cluster gets copied such that they have the same history
-        # new_clusterer = sklearn.cluster.DBSCAN(min_samples=1, metric=euclid_distance)
-        # groupings = new_clusterer.fit_predict(mdn[t])
-        # for group_idx in range(max(groupings)):
-        #
-        #     ideas = None
 
     # Return 2 things: The raw MDNS and centroid clusters for simplicity
     centroid_groups = []
