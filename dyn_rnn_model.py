@@ -268,9 +268,9 @@ class DynamicRnnSeq2Seq(object):
                         # i.e. if the ground truth says this timestep is padding data, set that timestep's loss to zero
                         loss = tf.multiply(loss,
                                            tf.minimum(
-                                               parameters['padding_loss_mixture_weight'],
+                                               tf.to_float(parameters['padding_loss_mixture_weight']),
                                                tf.expand_dims(
-                                                   tf.to_float(tf.logical_not(timewise_track_padding)),
+                                                   tf.to_float(tf.logical_not(timewise_track_padding)), # Hyperparam search sometimes makes this a float64
                                                    axis=-1), name='mixture_loss')
                                            )
                         padding_output = pad_output_function(cell_output)  # compute what the network thinks about padding
@@ -285,7 +285,7 @@ class DynamicRnnSeq2Seq(object):
                                                                                         labels=timewise_track_padding_logits
                                                                                                      ),
                                                               self.prediction_steps),
-                                                    parameters['padding_loss_logit_weight']
+                                                    tf.to_float(parameters['padding_loss_logit_weight'])
                                                     ), axis=-1, name="padding_logit_loss") # Without this tf.add( shape(100,), shape(100,1)) becomes (100, 100) for some reason
                                     )  # compare to GT
                     else:

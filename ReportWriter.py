@@ -9,6 +9,7 @@ import multiprocessing as mp
 import utils
 import MDN_clustering
 
+
 class ReportWriter:
     def __init__(self,
                  training_batch_handler,
@@ -55,7 +56,7 @@ class ReportWriter:
             for model_name, model_df in model_df_dict.iteritems():
                 print "Evaluating " + model_name + " for class: " + relative_destination
                 errors_dict['model_name' + '-' + relative_destination] = \
-                    self._score_model_on_metric(model_df[model_df.relative_destination == relative_destination])
+                    self.score_model_on_metric(parameters, model_df[model_df.relative_destination == relative_destination])
             dest_errors_dict[relative_destination] = errors_dict
 
         # Score models totally
@@ -63,7 +64,7 @@ class ReportWriter:
         relative_destination = 'all'
         for model_name, model_df in model_df_dict.iteritems():
             print "Evaluating " + model_name + " for class: " + relative_destination
-            errors_dict[model_name + '-' + relative_destination] = self._score_model_on_metric(model_df)
+            errors_dict[model_name + '-' + relative_destination] = self.score_model_on_metric(parameters, model_df)
         dest_errors_dict['all'] = errors_dict
 
         # Consolidate everything, grouped by direction
@@ -94,6 +95,12 @@ class ReportWriter:
                 model_predictions = {}
                 for model_name, model_df in model_df_dict.iteritems():
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
+
+                MDN_clusters, centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(
+                    report_df[report_df.track_idx == track_idx].mixtures.iloc[0])
+                for centroid_idx in range(len(centroids)):
+                    model_predictions['multipath_' + str(centroid_idx)] = np.array(centroids[centroid_idx])
+
                 for padding_mask in ['None', 'GT', 'Network']:
                     args.append([report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
                                                          model_predictions,
@@ -115,14 +122,19 @@ class ReportWriter:
             results = pool.map(utils_draw_graphs.multiprocess_helper, args)
         else:
             for track_idx in report_df.track_idx:
-                if track_idx != 16377:
-                    #print track_idx
-                    continue
+                # if track_idx != 623:
+                #     print track_idx
+                #     continue
                 model_predictions = {}
                 for model_name, model_df in model_df_dict.iteritems():
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
-                for padding_mask in ['None', 'GT', 'Network']:
-                    MDN_clustering.cluster_MDN_into_sets(report_df[report_df.track_idx == track_idx].mixtures.iloc[0])
+
+                MDN_clusters, centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(report_df[report_df.track_idx
+                                                                                         == track_idx].mixtures.iloc[0])
+                for centroid_idx in range(len(centroids)):
+                    model_predictions['multipath_' + str(centroid_idx)] = np.array(centroids[centroid_idx])
+
+                for padding_mask in ['None']: #'['None', 'GT', 'Network']:
                     utils_draw_graphs.draw_png_heatmap_graph(report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
                                                              model_predictions,
                                                              report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
@@ -168,17 +180,17 @@ class ReportWriter:
             summarized_metrics[metric + " " + 'worst 1%'] = np.percentile(errors, 99)
         return summarized_metrics
 
-
     # Here, there are many options
     # A) metric variance. LCSS, Hausdorff, etc
     # B) Statistical variance:
         # best mean
         # best worst 5% / 1% / 0.1% <-- It took me ages to get data for a reasonable 0.1% fit!
-    def _score_model_on_metric(self, report_df, metric=None):
+    @staticmethod
+    def score_model_on_metric(parameters, report_df, metric=None):
         #scores_list = []
         track_scores = {}
         horizon_list = [10, 20, 30, 40, 50, 70]
-        horizon_list = [int(h / self.parameters['subsample']) for h in horizon_list]
+        horizon_list = [int(h / parameters['subsample']) for h in horizon_list]
 
         for track in report_df.iterrows():
             track = track[1]

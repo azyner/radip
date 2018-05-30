@@ -226,10 +226,10 @@ class ibeoCSVImporter:
     def _lookup_intersection_origin_per_entrance(self, csv_name, entrance):
         if 'oliver-wyndora' in csv_name:
             if entrance == 'north':
-                origin = [-10.3, -5.3]
+                origin = [-9.3, -5.3]
                 rotation = [-1, 0]
             if entrance == 'south':
-                origin = [-26.7, -5.3]
+                origin = [-27.7, -5.3]
                 rotation = [1, 0]
 
         if 'roslyn-crieff' in csv_name:

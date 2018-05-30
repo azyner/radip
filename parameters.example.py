@@ -48,7 +48,7 @@ parameters['hyper_learning_rate_fn'] = random.uniform
 parameters['hyper_learning_rate_args'] = (-10, -3)
 parameters['aug_function'] = random.uniform
 parameters['aug_range'] = (-3, 3) 
-parameters['evaluation_metric_type'] = 'validation_loss'  # "perfect_distance" / validation_accuracy
+parameters['evaluation_metric_type'] = 'euclidean_err_sum'  # "perfect_distance" / validation_accuracy
 
 parameters['hyper_reg_embedding_beta_fn'] = random.uniform
 parameters['hyper_reg_embedding_beta_args'] = (-10, -1)  # 10^X # OR None
@@ -56,6 +56,10 @@ parameters['hyper_reg_l2_beta_fn'] = random.uniform
 parameters['hyper_reg_l2_beta_args'] = (-30, -8)  # 10^X # OR None
 parameters['hyper_learning_rate_decay_args'] = (0.9, 1.0)
 parameters['hyper_learning_rate_min_args'] = (-10, -2)
+parameters['hyper_padding_loss_logit_weight_args'] = (10, 0.0001)
+parameters['hyper_padding_loss_mixture_weight_args'] = (10, 0.0001)
+parameters['hyper_padding_loss_logit_weight_fn'] = random.uniform
+parameters['hyper_padding_loss_mixture_weight_fn'] = random.uniform
 
 ##### SINGLE RUN
 parameters["learning_rate"] = 0.0005
