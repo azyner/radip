@@ -149,7 +149,8 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
                 gaussian_heatmaps.append(zz)
             gaussian_heatmaps /= np.max(gaussian_heatmaps)  # Normalize such that each timestep has equal weight
             #heatmaps.extend(gaussian_heatmaps) #  This explodes
-            save_each_timestep = True
+            #TODO Does not work!
+            save_each_timestep = False
             if save_each_timestep:
                 import copy
                 timestep_plt = copy.deepcopy(plt)
