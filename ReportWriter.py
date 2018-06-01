@@ -33,7 +33,6 @@ class ReportWriter:
         model_df_dict = {}
         # class_dist_df = compares.classifierComboDistributionEstimator(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
         #                              report_df)
-        model_df_dict['RNN'] = report_df
         model_df_dict['CTRA'] = compares.CTRA_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
                                       report_df)
         model_df_dict['CTRV'] = compares.CTRV_model(training_batch_handler, validation_batch_handler, test_batch_handler, parameters,
@@ -47,6 +46,22 @@ class ReportWriter:
         model_df_dict['GP'] = compares.GaussianProcesses(training_batch_handler, validation_batch_handler, test_batch_handler,
                                                  parameters, report_df)
 
+        # Cluster all the RNN track outputs
+        path_MDN_clusters_arr = []
+        path_centroids_arr = []
+        path_weights_arr = []
+        for track_idx in report_df.track_idx:
+            path_MDN_clusters, path_centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(
+                report_df[report_df.track_idx == track_idx].mixtures.iloc[0])
+            path_MDN_clusters_arr.append(path_MDN_clusters)
+            path_centroids_arr.append(path_centroids)
+            path_weights_arr.append(path_weights)
+        report_df = report_df.assign(path_MDN_clusters=path_MDN_clusters_arr)
+        report_df = report_df.assign(path_centroids=path_centroids_arr)
+        report_df = report_df.assign(path_weights=path_weights_arr)
+
+        model_df_dict['RNN'] = report_df
+
         self.parameters = parameters
 
         # Score models based on individual directions
@@ -55,8 +70,16 @@ class ReportWriter:
             errors_dict = {}
             for model_name, model_df in model_df_dict.iteritems():
                 print "Evaluating " + model_name + " for class: " + relative_destination
-                errors_dict['model_name' + '-' + relative_destination] = \
-                    self.score_model_on_metric(parameters, model_df[model_df.relative_destination == relative_destination])
+                if 'RNN' in model_name:
+                    multihypothesis_list = ['best', 'most_confident']
+                else:
+                    multihypothesis_list = ['']
+                for multihyp_mode in multihypothesis_list:
+                    errors_dict[model_name + '-' + multihyp_mode + '-' + relative_destination] = \
+                        self.score_model_on_metric(parameters,
+                                                   model_df[model_df.relative_destination == relative_destination],
+                                                   multihypothesis=multihyp_mode)
+                    ideas = None
             dest_errors_dict[relative_destination] = errors_dict
 
         # Score models totally
@@ -64,7 +87,15 @@ class ReportWriter:
         relative_destination = 'all'
         for model_name, model_df in model_df_dict.iteritems():
             print "Evaluating " + model_name + " for class: " + relative_destination
-            errors_dict[model_name + '-' + relative_destination] = self.score_model_on_metric(parameters, model_df)
+            if 'RNN' in model_name:
+                multihypothesis_list = ['best', 'most_confident']
+            else:
+                multihypothesis_list = ['']
+            for multihyp_mode in multihypothesis_list:
+                errors_dict[model_name + '-' + multihyp_mode + '-' + relative_destination] = \
+                    self.score_model_on_metric(parameters,
+                                               model_df,
+                                               multihypothesis=multihyp_mode)
         dest_errors_dict['all'] = errors_dict
 
         # Consolidate everything, grouped by direction
@@ -96,10 +127,10 @@ class ReportWriter:
                 for model_name, model_df in model_df_dict.iteritems():
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
 
-                MDN_clusters, centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(
+                path_MDN_clusters, path_centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(
                     report_df[report_df.track_idx == track_idx].mixtures.iloc[0])
-                for centroid_idx in range(len(centroids)):
-                    model_predictions['multipath_' + str(centroid_idx)] = np.array(centroids[centroid_idx])
+                for centroid_idx in range(len(path_centroids)):
+                    model_predictions['multipath_' + str(centroid_idx)] = np.array(path_centroids[centroid_idx])
 
                 for padding_mask in ['None', 'GT', 'Network']:
                     args.append([report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
@@ -129,10 +160,10 @@ class ReportWriter:
                 for model_name, model_df in model_df_dict.iteritems():
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
 
-                MDN_clusters, centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(report_df[report_df.track_idx
+                path_MDN_clusters, path_centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(report_df[report_df.track_idx
                                                                                          == track_idx].mixtures.iloc[0])
-                for centroid_idx in range(len(centroids)):
-                    model_predictions['multipath_' + str(centroid_idx)] = np.array(centroids[centroid_idx])
+                for centroid_idx in range(len(path_centroids)):
+                    model_predictions['multipath_' + str(centroid_idx)] = np.array(path_centroids[centroid_idx])
 
                 for padding_mask in ['None']: #'['None', 'GT', 'Network']:
                     utils_draw_graphs.draw_png_heatmap_graph(report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
@@ -186,76 +217,106 @@ class ReportWriter:
         # best mean
         # best worst 5% / 1% / 0.1% <-- It took me ages to get data for a reasonable 0.1% fit!
     @staticmethod
-    def score_model_on_metric(parameters, report_df, metric=None):
+    def score_model_on_metric(parameters, report_df, multihypothesis=''):
         #scores_list = []
         track_scores = {}
         horizon_list = [10, 20, 30, 40, 50, 70]
         horizon_list = [int(h / parameters['subsample']) for h in horizon_list]
 
         for track in report_df.iterrows():
+            pathwise_track_scores = {}
             track = track[1]
 
-            try:
-                if len(track.outputs.shape) == 2:
-                    preds = track.outputs[np.logical_not(track.trackwise_padding)]
-                    # Left in for multi-sample comaptibility, just take the first answer.
-                elif len(track.outputs.shape) == 3:
-                    preds = track.outputs[0, np.logical_not(track.trackwise_padding)]
-            except:
-                ideas = None
-            gts = track.decoder_sample[np.logical_not(track.trackwise_padding)]
+            if 'best' in multihypothesis:
+                multi_track = track.path_centroids
+            elif 'most_confident' in multihypothesis:
+                multi_track = track.path_centroids
+            else:
+                multi_track = [track.outputs]
 
-            ### EUCLIDEAN ERROR -- Average
-            euclid_error = []
-            for pred, gt in zip(preds[:,0:2], gts[:,0:2]):
-                # Iterates over each time-step
-                euclid_error.append(distance.euclidean(pred, gt))
-            ### /EUCLIDEAN
+            for path in multi_track:
+                path = np.array(path)
 
-            ### HORIZON METRICS
-            for dist in horizon_list:
-                if dist >= len(preds):
-                    continue
-                euclid_error = distance.euclidean(preds[dist, 0:2], gts[dist,0:2])
-                #horizon_dict[dist].append(euclid_error)
+                # Left in for multi-sample comaptibility, just take the first answer.
+                if len(path.shape) == 3:
+                    path = path[0]
+
+                # TRACK ALIGNMENT
+                # if the track is shorter than the decoder length, pad it with its last values.
+                # It is then trimmed to the length of ground truth, as described by trackwise_padding
+                if path.shape[0] < len(track.trackwise_padding):
+                    path = np.pad(path, [[len(track.trackwise_padding) - path.shape[0], 0], [0, 0]], mode='edge')
+                preds = path[np.logical_not(track.trackwise_padding)]
+
+                gts = track.decoder_sample[np.logical_not(track.trackwise_padding)]
+
+                ### EUCLIDEAN ERROR -- Average
+                euclid_error = []
+                for pred, gt in zip(preds[:,0:2], gts[:,0:2]):
+                    # Iterates over each time-step
+                    euclid_error.append(distance.euclidean(pred, gt))
+                ### /EUCLIDEAN
+
+                ### HORIZON METRICS
+                for dist in horizon_list:
+                    if dist >= len(preds):
+                        continue
+                    euclid_error = distance.euclidean(preds[dist, 0:2], gts[dist,0:2])
+                    try:
+                        pathwise_track_scores["horizon_steps_" + str(dist)].append(euclid_error)
+                    except KeyError:
+                        pathwise_track_scores["horizon_steps_" + str(dist)] = [euclid_error]
+
+                # Now horizon_dict is keyed by timestep, and contains lists of distance errors
+                # Mean, Median, 5% etc can now be done on those arrays.
+
+                ### MODIFIED HAUSDORFF DISTANCE
+                # Pulled shamelessly from https://github.com/sapphire008/Python/blob/master/generic/HausdorffDistance.py
+                # Thanks sapphire008!
+
+                (A, B) = (preds[:, 0:2], gts[:, 0:2])
+
+                # Find pairwise distance
+                # Very occasionally due to rounding errors it D_mat can be a small neg num, resulting in NaN
+                D_mat = np.nan_to_num(np.sqrt(inner1d(A, A)[np.newaxis].T +
+                                inner1d(B, B) - 2 * (np.dot(A, B.T))))
+                # Calculating the forward HD: mean(min(each col))
                 try:
-                    track_scores["horizon_steps_" + str(dist)].append(euclid_error)
+                    FHD = np.mean(np.min(D_mat, axis=1))
+                # Calculating the reverse HD: mean(min(each row))
+                    RHD = np.mean(np.min(D_mat, axis=0))
+                    # Calculating mhd
+                    MHD = np.max(np.array([FHD, RHD]))
+                except:
+                    MHD=999999 # Sometimes the test data doesnt contain any of this particular class.
+                            # Should not happen in prod
+                ### /MHD
+
+                try:
+                    pathwise_track_scores['euclidean'].append(np.mean(np.array(euclid_error)))
+                    pathwise_track_scores['MHD'].append(MHD)
                 except KeyError:
-                    track_scores["horizon_steps_" + str(dist)] = [euclid_error]
-
-            # Now horizon_dict is keyed by timestep, and contains lists of distance errors
-            # Mean, Median, 5% etc can now be done on those arrays.
-
-            ### MODIFIED HAUSDORFF DISTANCE
-            # Pulled shamelessly from https://github.com/sapphire008/Python/blob/master/generic/HausdorffDistance.py
-            # Thanks sapphire008!
-            #TODO Untested. I think it needs to be trackwise, as above
-            (A, B) = (preds[:, 0:2], gts[:, 0:2])
-
-            # Find pairwise distance
-            # Very occasionally due to rounding errors it D_mat can be a small neg num, resulting in NaN
-            D_mat = np.nan_to_num(np.sqrt(inner1d(A, A)[np.newaxis].T +
-                            inner1d(B, B) - 2 * (np.dot(A, B.T))))
-            # Calculating the forward HD: mean(min(each col))
-            try:
-                FHD = np.mean(np.min(D_mat, axis=1))
-            # Calculating the reverse HD: mean(min(each row))
-                RHD = np.mean(np.min(D_mat, axis=0))
-                # Calculating mhd
-                MHD = np.max(np.array([FHD, RHD]))
-            except:
-                MHD=999999 # Sometimes the test data doesnt contain any of this particular class.
-                        # Should not happen in prod
-            ### /MHD
-
-            try:
-                track_scores['euclidean'].append(np.mean(np.array(euclid_error)))
-                track_scores['MHD'].append(MHD)
-            except KeyError:
-                track_scores['euclidean'] = [np.mean(np.array(euclid_error))]
-                track_scores['MHD'] = [MHD]
+                    pathwise_track_scores['euclidean'] = [np.mean(np.array(euclid_error))]
+                    pathwise_track_scores['MHD'] = [MHD]
 
             #scores_list.append(track_scores)
+
+            # Resolve track scores from pathwise track scores based on `best' or most confident
+            if 'most_confident' in multihypothesis:
+                for key, value in pathwise_track_scores.iteritems():
+                    pathwise_track_scores[key] = pathwise_track_scores[key][np.argmax(track.path_weights)]
+            else:
+                for key, value in pathwise_track_scores.iteritems():
+                    # If it is of length 1, min is the only member, else it returns the 'best'
+                    pathwise_track_scores[key] = np.min(pathwise_track_scores[key])
+
+            for key, value in pathwise_track_scores.iteritems():
+                try:
+                    track_scores[key].append(value)
+                except KeyError:
+                    track_scores[key] = [value]
+
+            # Now add them to track_scores
         return track_scores
 
 #TODO Make a report_df.pkl for the results, and add a if name is main here to load said cached results.
