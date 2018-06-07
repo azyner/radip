@@ -76,7 +76,11 @@ class SequenceWrangler:
             return False
         print "Reading cached crossfold pool data..."
         with open(file_path, 'rb') as pkl_file:
-            from_pickle = pickle.load(pkl_file)
+            try:
+                from_pickle = pickle.load(pkl_file)
+            except ImportError:
+                print "Cache miss due to incompatable pandas version between saving and loading"
+                return False
             self.crossfold_pool = from_pickle['crossfold_pool']
             self.test_pool = from_pickle['test_pool']
             return True
