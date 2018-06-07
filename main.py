@@ -22,41 +22,18 @@ import subprocess
 import shutil
 import ibeoCSVImporter
 import dill as pickle
+import argparse
 
-# I want the logger and the crossfold here
-# This is where the hyperparameter searcher goes
-
-# ibeoCSV = ibeoCSVImporter.ibeoCSVImporter(parameters,'data/20170601-stationary-3-leith-croydon.csv')
-# checkpoint_dir = "network_plots/20170718-164817/train/best-1500360501.23"
-#checkpoint_dir='network_plots/20170718-192827/train/best-1500370111.66'
-#checkpoint_dir = None
-#checkpoint_dir = 'results/20170814-121457/train/best-1502676987.0'
-#checkpoint_dir = 'writeup/certainty/paper_4/0/20170828-153955/train/best-1503898884.55'
-#checkpoint_dir = 'writeup/certainty/paper_4/0/20170828-154119/train/best-1503898976.91'
-#checkpoint_dir = 'writeup/certainty/paper_4/1/20170828-154008/train/best-1503898893.34'
-#checkpoint_dir = 'writeup/certainty/paper_4/1/20170828-154046/train/best-1503898934.72'
-#checkpoint_dir = 'writeup/certainty/paper_4/2/20170828-154004/train/best-1503898889.02'
-#checkpoint_dir = 'writeup/certainty/paper_4/2/20170828-154038/train/best-1503898933.15'
-
-# Maru jobs
-#checkpoint_dir = 'checkpoints/20180413-100829/train/best-1523578254.85'
-#checkpoint_dir = 'checkpoints/20180414-092645/train/best-1523662205.27'
-#checkpoint_dir = 'checkpoints/20180414-104452/train/best-1523666836.48'
-#checkpoint_dir = 'checkpoints/20180415-083213/train/best-1523745278.92'
-#checkpoint_dir = 'checkpoints/20180415-105645/train/best-1523753987.38'
-#checkpoint_dir = 'checkpoints/20180416-102724/train/best-1523843133.67'
-
-# Alderaan Jobs
-#checkpoint_dir = 'checkpoints/20180416-102727/train/best-1523843138.66'
-#checkpoint_dir = 'checkpoints/20180416-204745/train/best-1523875864.78'
-#checkpoint_dir = 'checkpoints/20180417-130702/train/best-1523934588.18'
-#checkpoint_dir = 'checkpoints/20180417-143411/train/best-1523939785.34'
-#checkpoint_dir = 'checkpoints/20180418-143524/train/best-1524026250.04'
-#checkpoint_dir = 'checkpoints/20180418-160307/train/best-1524031512.7'
-
-#checkpoint_dir = 'checkpoints/20180503-084323/train/best-1525301195.27'
-
-
+parser = argparse.ArgumentParser(description="The main program to run training of a RNN based tracjectory estimation "
+                                             "algorithm. It may also load data from a checkpoint given here in "
+                                             "arguments")
+parser.add_argument('-c', '--checkpoint', action="store", dest='checkpoint_dir',  help="The directory containing the checkpoint files for a neural "
+                                                          "network.")
+args = parser.parse_args()
+if args.checkpoint_dir is not None:
+    checkpoint_dir = args.checkpoint_dir
+    if '/' in checkpoint_dir[-1]:
+        checkpoint_dir = checkpoint_dir[:-1]
 
 if 'checkpoint_dir' in locals():
     test_network_only = True
