@@ -91,8 +91,11 @@ source_list = []
 # sourcename = '20170601-stationary-3-leith-croydon.csv'
 # source_list = sourcename
 #
+try:
+    short_wrangle = parameters.parameters['short_wrangle']
+except KeyError:
+    short_wrangle = False
 
-short_wrangle = False
 if short_wrangle:
     range_max = 1
 else:
