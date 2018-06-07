@@ -118,7 +118,7 @@ class ReportWriter:
 
         plt_size = (10, 10)
 
-        multithread = False
+        multithread = True
         if multithread:
             pool = mp.Pool(processes=2)
             args = []
