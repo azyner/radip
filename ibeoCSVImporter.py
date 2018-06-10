@@ -24,7 +24,21 @@ class ibeoCSVImporter:
         # name it after the last csv in csv_name
         cache_name = abs(hash(tuple(csv_name)) + utils.get_library_hash(['ibeoCSVImporter.py']))
         file_path = 'data/' + str(cache_name) + ".pkl"
-        if not os.path.isfile(file_path):
+
+        imported = False
+        if os.path.isfile(file_path):
+            try:
+                with open(file_path, 'rb') as pkl_file:
+                    self.labelled_track_list = pickle.load(pkl_file)
+                    imported = True
+                    # Grab some labels for the summary printer
+                    for csv in csv_name:
+                        self.lookup_intersection_extent(csv)
+
+            except ImportError:
+                imported = False
+
+        if not imported:
             for csv_file in csv_name:
                 print "Reading CSV " + csv_file
                 input_df = pd.read_csv('data/' + csv_file)
@@ -48,12 +62,6 @@ class ibeoCSVImporter:
                 # write pkl
             with open(file_path, 'wb') as pkl_file:
                 pickle.dump(self.labelled_track_list, pkl_file)
-        else:
-            with open(file_path, 'rb') as pkl_file:
-                self.labelled_track_list = pickle.load(pkl_file)
-            # Grab some labels for the summary printer
-            for csv in csv_name:
-                self.lookup_intersection_extent(csv)
 
         self._print_collection_summary()
         self._print_collection_summary(relative=True)
