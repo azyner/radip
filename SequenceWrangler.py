@@ -572,8 +572,8 @@ class SequenceWrangler:
             sample_dataframe["decoder_sample"] = pd.Series([track[i + encoder_steps:i + (encoder_steps + decoder_steps)]],
                                                            dtype=object)
             if padding_vec is not None:
-                # .as_matrix() --> Pandas tries to be smart later, and it just breaks my indexing
-                sample_dataframe["trackwise_padding"] = pd.Series([padding_vec.as_matrix()[i + encoder_steps:i + (encoder_steps + decoder_steps)]],
+                # .values --> Pandas tries to be smart later, and it just breaks my indexing
+                sample_dataframe["trackwise_padding"] = pd.Series([padding_vec.values[i + encoder_steps:i + (encoder_steps + decoder_steps)]],
                                                            dtype=object)
             if bbox is not None:
                 sample_dataframe["distance"] = dis[i+encoder_steps-1]  # distance for the last element given to encoder

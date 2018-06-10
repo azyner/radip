@@ -162,8 +162,8 @@ class comparative_works():
         from sklearn.gaussian_process.kernels import (RBF, Matern, RationalQuadratic,
                                                       ExpSineSquared, DotProduct,
                                                       ConstantKernel, WhiteKernel)
-        training_encoder_data = training_batch_handler.data_pool.encoder_sample.as_matrix()
-        training_decoder_data = training_batch_handler.data_pool.decoder_sample.as_matrix()
+        training_encoder_data = training_batch_handler.data_pool.encoder_sample.values
+        training_decoder_data = training_batch_handler.data_pool.decoder_sample.values
         # Now I want to reshape this such that n_samples is n_tracks, and features is unrolled track data
         X = []
         X_short = []
@@ -265,8 +265,8 @@ class comparative_works():
 
         ##########################################################################################
         # WARNING -- This assumes the order in encoder and decoder sample are the same (pandas says yes)
-        training_encoder_data = training_batch_handler.data_pool.encoder_sample.as_matrix()
-        training_decoder_data = training_batch_handler.data_pool.decoder_sample.as_matrix()
+        training_encoder_data = training_batch_handler.data_pool.encoder_sample.values
+        training_decoder_data = training_batch_handler.data_pool.decoder_sample.values
 
         # Data pre-processing
         # Here the data is flattened as most classifiers want a 1d vector, not a 2d vector
@@ -384,8 +384,8 @@ class comparative_works():
                    test_batch_handler,
                    parameters,
                    report_df):
-        training_encoder_data = training_batch_handler.data_pool.encoder_sample.as_matrix()
-        training_decoder_data = training_batch_handler.data_pool.decoder_sample.as_matrix()
+        training_encoder_data = training_batch_handler.data_pool.encoder_sample.values
+        training_decoder_data = training_batch_handler.data_pool.decoder_sample.values
         # Now I want to reshape this such that n_samples is n_tracks, and features is unrolled track data
         X = []
         X_short = []
@@ -442,7 +442,7 @@ class comparative_works():
                    parameters,
                    report_df):
         import hmmlearn
-        training_data = training_batch_handler.data_pool.encoder_sample.as_matrix()
+        training_data = training_batch_handler.data_pool.encoder_sample.values
         # This gives me an object dtype array of shape (len,) containing arrays of (sequence_len, n_params)
         # and there is no good way of getting to (len, sequence_len, n_params). Which is frustrating
 

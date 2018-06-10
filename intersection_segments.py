@@ -173,7 +173,7 @@ def load_filtered_position_messages(fname=None):
         df.columns = [name.strip() for name in list(df.columns.values)]
 
         # Force heading to be [-pi, pi].
-        heading = np.pi * df['heading'].as_matrix() / 180.0
+        heading = np.pi * df['heading'].values / 180.0
         heading = np.arctan2(np.sin(heading), np.cos(heading)) * 180.0 / np.pi
         df.heading = heading
         df['dataset'] = filename

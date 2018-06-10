@@ -461,9 +461,9 @@ class NetworkManager:
         train_y = graph_future
 
         multi_sampled_predictions = []
-        observations = batch_frame['encoder_sample'].as_matrix()
-        ground_truths = batch_frame['decoder_sample'].as_matrix()
-        csv_names = batch_frame['csv_name'].as_matrix()
+        observations = batch_frame['encoder_sample'].values
+        ground_truths = batch_frame['decoder_sample'].values
+        csv_names = batch_frame['csv_name'].values
 
         for i in range(multi_sample):
             # BEGIN Run this step 100 times and dimensionalize results.
@@ -571,9 +571,9 @@ class NetworkManager:
                 batch_frame['decoder_sample'],
                 batch_frame['batchwise_padding'],
                 batch_frame['trackwise_padding'] if self.parameters['track_padding'] else None)
-        observations = batch_frame['encoder_sample'].as_matrix()
-        ground_truths = batch_frame['decoder_sample'].as_matrix()
-        csv_names = batch_frame['csv_name'].as_matrix()
+        observations = batch_frame['encoder_sample'].values
+        ground_truths = batch_frame['decoder_sample'].values
+        csv_names = batch_frame['csv_name'].values
         train_y = graph_future
         # Drawing a single mixture sample from the network (the normal operation) results in a list of len 1
         multi_sampled_predictions = []
