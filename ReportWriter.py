@@ -209,6 +209,11 @@ class ReportWriter:
             summarized_metrics[metric + " " + 'mean'] = np.mean(errors)
             summarized_metrics[metric + " " + 'worst 5%'] = np.percentile(errors, 95)
             summarized_metrics[metric + " " + 'worst 1%'] = np.percentile(errors, 99)
+            if 'euclidean' in metric:
+                # This is a measure of whether the RNN covered this particular ground truth
+                # as defined as an average error of less than 1 meter. This is an aggressive measure, I'd prefer
+                # a measure on MHD as it is less senstive to time, only location.
+                summarized_metrics["hit_rate_1m"] = float(len(np.where(np.array(errors) < 1))) / len(errors)
         return summarized_metrics
 
     # Here, there are many options
