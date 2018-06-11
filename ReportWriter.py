@@ -46,6 +46,20 @@ class ReportWriter:
         model_df_dict['GP'] = compares.GaussianProcesses(training_batch_handler, validation_batch_handler, test_batch_handler,
                                                  parameters, report_df)
 
+        try:
+            cluster_mix_weight_threshold = parameters['cluster_mix_weight_threhold']
+        except KeyError:
+            cluster_mix_weight_threshold = 0.5
+        try:
+            cluster_eps = float(parameters['cluster_eps'])
+        except KeyError:
+            cluster_eps = 1.0
+        try:
+            cluster_min_samples = parameters['cluster_min_samples']
+        except KeyError:
+            cluster_min_samples = 1
+            
+
         # Cluster all the RNN track outputs
         path_MDN_clusters_arr = []
         path_centroids_arr = []
@@ -132,7 +146,7 @@ class ReportWriter:
                 for centroid_idx in range(len(path_centroids)):
                     model_predictions['multipath_' + str(centroid_idx)] = np.array(path_centroids[centroid_idx])
 
-                for padding_mask in ['None', 'GT', 'Network']:
+                for padding_mask in ['None']: #, 'GT', 'Network']:
                     args.append([report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
                                                          model_predictions,
                                                          report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
