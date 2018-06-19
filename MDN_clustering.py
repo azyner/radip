@@ -144,6 +144,10 @@ def cluster_MDN_into_sets(MDN_model_output, mix_weight_threshold=0.5, eps=1.0, m
         for vals_at_timestep in path:
             simple_path.append(np.average(vals_at_timestep[:, 1:3], weights=vals_at_timestep[:, 0], axis=0))
             path_weights += np.sum(vals_at_timestep[:, 0])
+
+        # Normalize according to length of path
+        # This avoid bias where longer paths sum more weight and are therefore more important
+        path_weights /= len(path)
         centroid_weights.append(path_weights)
         centroid_groups.append(simple_path)
     #Normalize
