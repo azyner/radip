@@ -85,7 +85,7 @@ class ReportWriter:
             for model_name, model_df in model_df_dict.iteritems():
                 print "Evaluating " + model_name + " for class: " + relative_destination
                 if 'RNN' in model_name:
-                    multihypothesis_list = ['best', 'most_confident']
+                    multihypothesis_list = ['most_confident', 'best']
                 else:
                     multihypothesis_list = ['']
                 for multihyp_mode in multihypothesis_list:
@@ -102,7 +102,7 @@ class ReportWriter:
         for model_name, model_df in model_df_dict.iteritems():
             print "Evaluating " + model_name + " for class: " + relative_destination
             if 'RNN' in model_name:
-                multihypothesis_list = ['best', 'most_confident']
+                multihypothesis_list = ['most_confident', 'best']
             else:
                 multihypothesis_list = ['']
             for multihyp_mode in multihypothesis_list:
@@ -134,9 +134,10 @@ class ReportWriter:
 
         multithread = True
         if multithread:
-            pool = mp.Pool(processes=2)
+            pool = mp.Pool(processes=7)
             args = []
             for track_idx in report_df.track_idx:
+                continue
                 model_predictions = {}
                 for model_name, model_df in model_df_dict.iteritems():
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
@@ -146,7 +147,7 @@ class ReportWriter:
                 for centroid_idx in range(len(path_centroids)):
                     model_predictions['multipath_' + str(centroid_idx)] = np.array(path_centroids[centroid_idx])
 
-                for padding_mask in ['None']: #, 'GT', 'Network']:
+                for padding_mask in ['None', 'GT', 'Network']:
                     args.append([report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
                                                          model_predictions,
                                                          report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
@@ -223,11 +224,11 @@ class ReportWriter:
             summarized_metrics[metric + " " + 'mean'] = np.mean(errors)
             summarized_metrics[metric + " " + 'worst 5%'] = np.percentile(errors, 95)
             summarized_metrics[metric + " " + 'worst 1%'] = np.percentile(errors, 99)
-            if 'euclidean' in metric:
+            if 'horizon' in metric:
                 # This is a measure of whether the RNN covered this particular ground truth
                 # as defined as an average error of less than 1 meter. This is an aggressive measure, I'd prefer
                 # a measure on MHD as it is less senstive to time, only location.
-                summarized_metrics["hit_rate_1m"] = float(len(np.where(np.array(errors) < 1))) / len(errors)
+                summarized_metrics[metric + " hit_rate_1m"] = float(len(np.where(np.array(errors) < 1))) / len(errors)
         return summarized_metrics
 
     # Here, there are many options
@@ -239,7 +240,7 @@ class ReportWriter:
     def score_model_on_metric(parameters, report_df, multihypothesis=''):
         #scores_list = []
         track_scores = {}
-        horizon_list = [10, 20, 30, 40, 50, 70]
+        horizon_list = [30, 70]  # 95th percentile lengths: left 55, straight 91, right 208
         horizon_list = [int(h / parameters['subsample']) for h in horizon_list]
 
         for track in report_df.iterrows():
