@@ -257,7 +257,7 @@ class ReportWriter:
             for path in multi_track:
                 path = np.array(path)
 
-                # Left in for multi-sample comaptibility, just take the first answer.
+                # Left in for multi-sample compatibility, just take the first answer.
                 if len(path.shape) == 3:
                     path = path[0]
 
@@ -281,11 +281,11 @@ class ReportWriter:
                 for dist in horizon_list:
                     if dist >= len(preds):
                         continue
-                    euclid_error = distance.euclidean(preds[dist, 0:2], gts[dist,0:2])
+                    horizon_euclid_error = euclid_error[dist]  # distance.euclidean(preds[dist, 0:2], gts[dist,0:2])
                     try:
-                        pathwise_track_scores["horizon_steps_" + str(dist)].append(euclid_error)
+                        pathwise_track_scores["horizon_steps_" + str(dist)].append(horizon_euclid_error)
                     except KeyError:
-                        pathwise_track_scores["horizon_steps_" + str(dist)] = [euclid_error]
+                        pathwise_track_scores["horizon_steps_" + str(dist)] = [horizon_euclid_error]
 
                 # Now horizon_dict is keyed by timestep, and contains lists of distance errors
                 # Mean, Median, 5% etc can now be done on those arrays.
