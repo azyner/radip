@@ -47,4 +47,4 @@ for model_dir in models:
         score = model_score
 
 print "The best model is:"
-print metric_file_name
+print best_model
