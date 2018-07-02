@@ -42,9 +42,10 @@ for model_dir in models:
     r = row[row == row_name].index[0]
 
     model_score = df[c][r]
+    print str(model_score) + " --- " + metric_file_name
     if model_score < score:
         best_model = metric_file_name
         score = model_score
 
 print "The best model is:"
-print best_model
+print str(score) + " --- " + best_model
