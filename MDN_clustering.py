@@ -157,7 +157,7 @@ def cluster_MDN_into_sets(MDN_model_output, mix_weight_threshold=0.5, eps=1.0, m
             centroid_groups.append(simple_path)
         #Normalize
         centroid_weights = np.array(centroid_weights) / np.sum(centroid_weights)
-    except AssertionError:
+    except (AssertionError, ValueError) as e:
         # Oh no! At least one timestep had no groupings! This could be because threshold or min points is set too high
         # The only thing to do now is return the strongest single track as a sort of placeholder solution
         print "Warning: The clustering algorithm failed to find a solution. Either threshold or min_samples is too high"
