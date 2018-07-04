@@ -47,7 +47,7 @@ class ReportWriter:
                                                  parameters, report_df)
 
         try:
-            cluster_mix_weight_threshold = parameters['cluster_mix_weight_threhold']
+            cluster_mix_weight_threshold = parameters['cluster_mix_weight_threshold']
         except KeyError:
             cluster_mix_weight_threshold = 0.5
         try:
@@ -66,7 +66,9 @@ class ReportWriter:
         path_weights_arr = []
         for track_idx in report_df.track_idx:
             path_MDN_clusters, path_centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(
-                report_df[report_df.track_idx == track_idx].mixtures.iloc[0])
+                report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
+                mix_weight_threshold=cluster_mix_weight_threshold,
+                eps=cluster_eps, min_samples=cluster_min_samples)
             path_MDN_clusters_arr.append(path_MDN_clusters)
             path_centroids_arr.append(path_centroids)
             path_weights_arr.append(path_weights)
@@ -143,7 +145,8 @@ class ReportWriter:
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
 
                 path_MDN_clusters, path_centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(
-                    report_df[report_df.track_idx == track_idx].mixtures.iloc[0])
+                    report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
+                    mix_weight_threshold=cluster_mix_weight_threshold, eps=cluster_eps, min_samples=cluster_min_samples)
                 for centroid_idx in range(len(path_centroids)):
                     model_predictions['multipath_' + str(centroid_idx)] = np.array(path_centroids[centroid_idx])
 
@@ -175,8 +178,10 @@ class ReportWriter:
                 for model_name, model_df in model_df_dict.iteritems():
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
 
-                path_MDN_clusters, path_centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(report_df[report_df.track_idx
-                                                                                         == track_idx].mixtures.iloc[0])
+                path_MDN_clusters, path_centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(
+                    report_df[report_df.track_idx
+                              == track_idx].mixtures.iloc[0],
+                    mix_weight_threshold=cluster_mix_weight_threshold, eps=cluster_eps, min_samples=cluster_min_samples)
                 for centroid_idx in range(len(path_centroids)):
                     model_predictions['multipath_' + str(centroid_idx)] = np.array(path_centroids[centroid_idx])
 

@@ -167,6 +167,14 @@ if (parameters.parameters['hyper_search_folds'] > 0) and not test_network_only:
 elif test_network_only:
     best_params = from_pickle['best_params']
     best_params['master_dir'] = master_dir
+    # TOTAL HACK - this is because the hyperparameter search will store the parameters as a dict within 'best_params'pkl
+    # I don't want to directly load from checkpoint, as this will not find the parameters the hyper-search did
+    # But if I want to do experiments based on the output graph, I need them to be placed into the parameter dict.
+    # So I search for that here. In reality, the best solution should be: take RNN hyperparameters from the pkl, and
+    # and all other values from the parameters dict.
+    for key, value in parameters.parameters.iteritems():
+        if 'cluster' in key:
+            best_params[key] = value
 else:
     best_params = parameters.parameters
 
@@ -177,7 +185,8 @@ with open(os.path.join(parameters.parameters['master_dir'],'data.pkl'),'wb') as 
 print "Crossfolding finished, now training with the best parameters"
 
 full_cf_pool = pd.concat([cf_pool[0][0], cf_pool[0][1]])
-trainingManager.long_train_network(best_params, cf_pool[0][0], cf_pool[0][1], test_pool,checkpoint=checkpoint_dir,test_network_only=test_network_only)
+trainingManager.long_train_network(best_params, cf_pool[0][0], cf_pool[0][1], test_pool, checkpoint=checkpoint_dir,
+                                   test_network_only=test_network_only)
 #Dumb statement for breakpoint before system finishes
 ideas = None
 
