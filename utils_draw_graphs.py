@@ -92,6 +92,8 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
     if 'relative' in parameters['ibeo_data_columns'][0]:
         x_range = (-20, 20)
         y_range = (-10, 30)
+        x_range = (-18, 18)
+        y_range = (-8, 28)
     elif 'queen-hanks' in csv_name:
         x_range = (3, 47)
         y_range = (-17, 11)
@@ -176,6 +178,11 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
 
     if 'relative' in parameters['ibeo_data_columns'][0]:
         _ = 0  # Blank line to preserve lower logic flow
+        image_filename = 'intersection_diagram_background.png'
+        background_img = plt.imread(os.path.join('images', image_filename))
+        plt.imshow(background_img, zorder=0,    #     x_range = (-20, 20)      y_range = (-10, 30)
+                   extent=extent)#[-20, 20, -10, 30])
+
     elif 'queen-hanks' in csv_name:
         x_range = (3, 47)
         y_range = (-17, 11)
