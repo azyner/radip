@@ -846,7 +846,7 @@ class NetworkManager:
 
     # Function that passes the entire validation dataset through the network once and only once.
     # Return cumulative accuracy, loss
-    def run_validation(self, batch_handler, summary_writer=None, quick=False, report_writing=False):
+    def run_validation(self, batch_handler, summary_writer=None, quick=False, report_writing=False, distance_threshold=0):
         batch_complete = False
         batch_losses = []
         total_correct = 0
@@ -854,7 +854,7 @@ class NetworkManager:
         all_averages = []
         report_list = []
         if report_writing:
-            batch_handler.set_distance_threshold(0)
+            batch_handler.set_distance_threshold(distance_threshold)
         while not batch_complete:
             #val_x, val_y, val_weights, pad_vector, batch_complete = batch_handler.get_sequential_minibatch()
             if quick or (self.parameters['model_type']=='MDN' and not report_writing):

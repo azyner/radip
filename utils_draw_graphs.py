@@ -14,7 +14,7 @@ import dill as pickle
 
 
 def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, trackwise_padding, plt_size, draw_prediction_track, plot_directory, log_file_name,
-                           multi_sample, global_step, graph_number, fig_dir, csv_name, rel_destination, parameters, padding_mask='None'):
+                           multi_sample, global_step, graph_number, fig_dir, csv_name, rel_destination, parameters, padding_mask='None', distance=0):
 
     """
 
@@ -54,6 +54,7 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
 
     plot_colors = ['r', 'c', 'm', 'y', 'k']
     plot_colors_idx = 0
+    first_RNN = True
 
     for name, preds in preds_dict.iteritems():
         # The input is designed for multiple future tracks. If only 1 is produced, the axis is missing. So reproduce it.
@@ -69,9 +70,15 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
                 # `Real data'
                 if 'multipath' in name:
                     plot_color = 'w'
+                    if first_RNN:
+                        first_RNN = False
+                        label_name = "RNN Proposed"
+                    else:
+                        label_name = None
                 else:
                     plot_color = plot_colors[plot_colors_idx]
                     plot_colors_idx += 1
+                    label_name = name
                 if len(prediction) is not len(gt_padding_bool):
                     padding_amount = len(gt_padding_bool) - len(prediction)
                     if padding_amount < 0:
@@ -81,7 +88,7 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
                 plt.plot(prediction[~gt_padding_bool, 0], prediction[~gt_padding_bool, 1],
                          plot_color + 'o', ms=2, zorder=5)
                 plt.plot(prediction[~gt_padding_bool, 0], prediction[~gt_padding_bool, 1],
-                         plot_color + '-', ms=1, zorder=5, label=name + ' Prediction')
+                         plot_color + '-', ms=1, zorder=5, label=label_name)
                 # Padding `fake' data
                 plt.plot(prediction[gt_padding_bool, 0], prediction[gt_padding_bool, 1],
                          plot_color + 'x', ms=2, zorder=5)
@@ -159,9 +166,10 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
                 timestep_plt.imshow(gaussian_heatmaps, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent,
                                zorder=1)
                 timestep_plt.legend()
-                fig_name = padding_mask + '-' + ("no_pred_track-" if draw_prediction_track is False else "") + str(
-                    multi_sample) + "-" + log_file_name + '-' + str(global_step) + '-' + str(
-                    graph_number) + '-' + rel_destination + 't_' + str(timeslot_num) + '.png'
+                distance_str = 'n' if distance < 0 else 'p'
+                distance_str += str(abs(distance))
+                fig_name = padding_mask + '-' + str(graph_number) + '-' + distance_str + '-' + ("no_pred_track-" if draw_prediction_track is False else "") + str(
+                    multi_sample) + "-" + log_file_name + '-' + str(global_step) + '-' + rel_destination + 't_' + str(timeslot_num) + '.png'
                 fig_path = os.path.join(fig_dir, fig_name)
                 timestep_plt.savefig(fig_path, bbox_inches='tight')
 
@@ -175,7 +183,6 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
     # Its about 7 seconds per plot
 
     final_heatmap = sum(heatmaps) if heatmaps is not None else None
-
     if 'relative' in parameters['ibeo_data_columns'][0]:
         _ = 0  # Blank line to preserve lower logic flow
         image_filename = 'intersection_diagram_background.png'
@@ -197,9 +204,12 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
     if final_heatmap is not None:
         plt.imshow(final_heatmap, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent, zorder=1)
     plt.legend()
-    fig_name = padding_mask + '-' + ("no_pred_track-" if draw_prediction_track is False else "") + str(
-                multi_sample) + "-" + log_file_name + '-' + str(global_step) + '-' + str(
-                graph_number) + '-' + rel_destination + '.png'
+    plt.xlabel("x (metres)")
+    plt.ylabel("y (metres)")
+    distance_str = 'n' if distance < 0 else 'p'
+    distance_str += str(abs(distance))
+    fig_name = padding_mask + '-' + str(graph_number) + '-' + distance_str + '-' + ("no_pred_track-" if draw_prediction_track is False else "") + str(
+                multi_sample) + "-" + log_file_name + '-' + str(global_step) + '-' + rel_destination + '.png'
     fig_path = os.path.join(fig_dir, fig_name)
     plt.savefig(fig_path, bbox_inches='tight')
     print "Finished plotting " + fig_name
