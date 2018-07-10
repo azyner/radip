@@ -224,7 +224,7 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
     plt.imsave(s, fig_data, format='png')
     fig_data = s.getvalue()
     plt.close()
-    return fig_data
+    return None  # fig_data  # I don't use it, and it fills memory
 
 def multiprocess_helper(args):
     try:
