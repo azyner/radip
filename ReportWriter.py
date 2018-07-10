@@ -130,13 +130,14 @@ class ReportWriter:
         plot_dir = os.path.join(parameters['master_dir'], 'test_data_plots')
         if not os.path.exists(plot_dir):
             os.makedirs(plot_dir)
+
         print "Reportwriter now plotting test tracks"
 
         plt_size = (10, 10)
 
         multithread = True
         if multithread:
-            pool = mp.Pool(processes=7)
+            pool = mp.Pool(processes=7, maxtasksperchild=1)
             args = []
             for track_idx in report_df.track_idx:
                 continue

@@ -529,7 +529,7 @@ class TrainingManager:
             except KeyError:
                 cluster_min_samples = 1
 
-            pool = mp.Pool(processes=7)
+            pool = mp.Pool(processes=7, maxtasksperchild=1)
             args = []
             plt_size = (10, 10)
             plot_dir = os.path.join(self.parameter_dict['master_dir'], 'sequential_test_data_plots')
