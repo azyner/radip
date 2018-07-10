@@ -90,8 +90,8 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
                 plt.plot(prediction[~gt_padding_bool, 0], prediction[~gt_padding_bool, 1],
                          plot_color + '-', ms=1, zorder=5, label=label_name)
                 # Padding `fake' data
-                plt.plot(prediction[gt_padding_bool, 0], prediction[gt_padding_bool, 1],
-                         plot_color + 'x', ms=2, zorder=5)
+                #plt.plot(prediction[gt_padding_bool, 0], prediction[gt_padding_bool, 1],
+                #         plot_color + 'x', ms=2, zorder=5)
 
             #legend_str.append([name + ' Pred'])
     plt.legend()
@@ -166,8 +166,7 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
                 timestep_plt.imshow(gaussian_heatmaps, cmap=plt.cm.viridis, alpha=.7, interpolation='bilinear', extent=extent,
                                zorder=1)
                 timestep_plt.legend()
-                distance_str = 'n' if distance < 0 else 'p'
-                distance_str += str(abs(distance))
+                distance_str = ('n' if distance < 0 else 'p') + "%02i" % abs(distance+50)
                 fig_name = padding_mask + '-' + str(graph_number) + '-' + distance_str + '-' + ("no_pred_track-" if draw_prediction_track is False else "") + str(
                     multi_sample) + "-" + log_file_name + '-' + str(global_step) + '-' + rel_destination + 't_' + str(timeslot_num) + '.png'
                 fig_path = os.path.join(fig_dir, fig_name)
@@ -206,8 +205,7 @@ def draw_png_heatmap_graph(obs, preds_dict, gt, mixes, network_padding_logits, t
     plt.legend()
     plt.xlabel("x (metres)")
     plt.ylabel("y (metres)")
-    distance_str = 'n' if distance < 0 else 'p'
-    distance_str += str(abs(distance))
+    distance_str = ('n' if distance < 0 else 'p') + "%02i" % abs(distance+50)
     fig_name = padding_mask + '-' + str(graph_number) + '-' + distance_str + '-' + ("no_pred_track-" if draw_prediction_track is False else "") + str(
                 multi_sample) + "-" + log_file_name + '-' + str(global_step) + '-' + rel_destination + '.png'
     fig_path = os.path.join(fig_dir, fig_name)
