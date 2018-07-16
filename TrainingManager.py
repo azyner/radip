@@ -507,7 +507,7 @@ class TrainingManager:
         # it will plot the output graphs for several distance horizons, to create an effective animation
         #return best_results
 
-        for d in [-15, -10, -5, 0, 5, 10, 15, 20]:
+        for d in [-5, 0, 5, 10, 20]: #np.arange(-16,22,2): #[-15, -10, -5, 0, 5, 10, 15, 20]:
             print "Now running report for distance: " + str(d) + " meters"
             try:
                 _, _, report_df = self.test_network(netManager, test_batch_handler, distance=d)
@@ -531,7 +531,7 @@ class TrainingManager:
 
             pool = mp.Pool(processes=7, maxtasksperchild=1)
             args = []
-            plt_size = (10, 10)
+            plt_size = (6, 6)  # (10, 10)
             plot_dir = os.path.join(self.parameter_dict['master_dir'], 'sequential_test_data_plots')
             if not os.path.exists(plot_dir):
                 os.makedirs(plot_dir)
@@ -540,9 +540,11 @@ class TrainingManager:
                 model_predictions = {}
                 track_df = report_df[report_df.track_idx == track_idx]
                 if 'right' not in track_df.relative_destination.iloc[0]:
-                    continue
-                #model_predictions["RNN-FL"] = track_df.outputs.iloc[0]
+                   continue
+                #if track_df.track_idx.iloc[0] not in [16780]:
+                #   continue
 
+                #model_predictions["RNN-FL"] = track_df.outputs.iloc[0]
                 path_MDN_clusters, path_centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(
                     report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
                     mix_weight_threshold=cluster_mix_weight_threshold, eps=cluster_eps, min_samples=cluster_min_samples)

@@ -140,7 +140,7 @@ class ReportWriter:
             pool = mp.Pool(processes=7, maxtasksperchild=1)
             args = []
             for track_idx in report_df.track_idx:
-                continue
+                #continue
                 model_predictions = {}
                 for model_name, model_df in model_df_dict.iteritems():
                     model_predictions[model_name] = model_df[model_df.track_idx == track_idx].outputs.iloc[0]
@@ -151,7 +151,7 @@ class ReportWriter:
                 for centroid_idx in range(len(path_centroids)):
                     model_predictions['multipath_' + str(centroid_idx)] = np.array(path_centroids[centroid_idx])
 
-                for padding_mask in ['None', 'GT', 'Network']:
+                for padding_mask in ['Network']: # :'['None', 'GT', 'Network']:
                     args.append([report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
                                                          model_predictions,
                                                          report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
