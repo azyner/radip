@@ -21,8 +21,11 @@ class ibeoCSVImporter:
         self._cumulative_dest_list = []
         self._cumulative_origin_list = []
         # Check if I have cached this already
-        # name it after the last csv in csv_name
-        cache_name = abs(hash(tuple(csv_name)) + utils.get_library_hash(['ibeoCSVImporter.py']))
+        # name it after a hash of the csv_names and the file data. Or read from the given filename
+        try:
+            cache_name = parameters.parameters['data_filename']
+        except KeyError:
+            cache_name = abs(hash(tuple(csv_name)) + utils.get_library_hash(['ibeoCSVImporter.py']))
         file_path = 'data/' + str(cache_name) + ".pkl"
 
         imported = False
@@ -40,6 +43,7 @@ class ibeoCSVImporter:
 
         if not imported:
             for csv_file in csv_name:
+                print "No cached csv data found. Double check the parameters file if you do not have CSV's present"
                 print "Reading CSV " + csv_file
                 input_df = pd.read_csv('data/' + csv_file)
                 input_df['csv_name'] = [csv_file]*len(input_df)
