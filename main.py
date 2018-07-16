@@ -1,16 +1,8 @@
 #!/usr/bin/env python
 # Main, the highest level instance.
-# In here, hyperparameter selection, the cross fold section, and the final testing loops should be declared and run
-
-# This file should hold the tf.session, inside the cross folder?
-
-# read params
-# read data
-# instantiate sequence wrangler
-#
-# start cross fold loops
-#   instance batch handler
-#
+# This is the function to call for training and running the RNN from a checkpoint
+# It will either read the local parameters.py file or the parameters pkl inside the checkpoint folder.
+# If
 import TrainingManager
 import intersection_segments
 import SequenceWrangler
@@ -60,6 +52,8 @@ if checkpoint_dir is not None:
     parameters = importlib.import_module(import_name.replace('/','.'))
     parameters.parameters['master_dir'] = master_dir
 
+# If we are not loading from checkpoint, create a results directory and copy the parameters file,
+#  save the git hash and diff
 if checkpoint_dir is None:
     import parameters
     results_dir = 'results'

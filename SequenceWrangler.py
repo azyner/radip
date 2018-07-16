@@ -9,10 +9,9 @@ import dill as pickle
 import utils
 import pathos.multiprocessing as mp
 
-#Class to take a list of continuous, contiguous data logs that need to be collated and split for the data feeder
-#Is this different to the batch handler?
-#The SequenceWrangler is aware of the three data pools, training, test and val
-#
+# Class to take a list of continuous, contiguous data logs that need to be collated and split for the batch handler
+# This generates sequences of proper lengths (history track and ground truth prediction track) in the parameters file
+# WARNING - ANY change to this file (including comments) invalidates the hash and the Wrangler runs again.
 
 
 class SequenceWrangler:
