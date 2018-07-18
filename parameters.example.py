@@ -18,7 +18,7 @@ parameters['data_list'] = [
     'orchard-mitchell'
 ]
 parameters['test_csv'] = 'oliver-wyndora'
-parameters['data_filename'] = 'short-debug'  # comment out if reading directly from csvs
+parameters['data_filename'] = 'short-debug'  # or 'intersections-dataset' # comment out if reading directly from csvs
 parameters['short_wrangle'] = True
 
 # Preprocessing
