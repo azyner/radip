@@ -1,14 +1,6 @@
 #!/usr/bin/env python
 import os
-import subprocess
-import time
-import signal
 import pandas as pd
-
-# Script to run N number of main.py clients, and N tensorboard observers
-# Starts at port 6006, and will increase by one per tensorboard instance
-# Will complain in the following conditions:
-#   results is not empty. Experiments should run in a clean results folder
 
 import argparse
 

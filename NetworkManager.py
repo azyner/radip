@@ -11,12 +11,11 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from seq2seq_model import Seq2SeqModel
 import os
 import numpy as np
 import pandas as pd
-from bokeh.plotting import figure, output_file, show, gridplot, save
-from bokeh.models.widgets import Button, Paragraph, PreText
+from bokeh.plotting import figure, output_file, save
+from bokeh.models.widgets import PreText
 from bokeh.layouts import widgetbox
 from bokeh.layouts import layout
 import StringIO
@@ -28,7 +27,7 @@ from bokeh.models import ColumnDataSource, HoverTool, Div
 import shutil
 import dill as pickle
 from dyn_rnn_model import DynamicRnnSeq2Seq
-import scipy
+
 import subprocess
 
 

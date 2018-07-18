@@ -1,21 +1,16 @@
 import tensorflow as tf
 import numpy as np
-import random
 import MDN
 from tensorflow.python.ops import nn_ops
-#from TF_mods import basic_rnn_seq2seq_with_loop_function
-from tensorflow.contrib.legacy_seq2seq.python.ops import seq2seq
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import clip_ops
-import tensorflow.contrib.layers
 from recurrent_batchnorm_tensorflow.BN_LSTMCell import BN_LSTMCell
-import tensorflow.contrib.seq2seq
 import rnn as sketch_rnn
 
 
 class DynamicRnnSeq2Seq(object):
 
-    def __init__(self, parameters,hyper_search=False):
+    def __init__(self, parameters, hyper_search=False):
         #feed_future_data, train, num_observation_steps, num_prediction_steps, batch_size,
         #         rnn_size, num_layers, learning_rate, learning_rate_decay_factor, input_size, max_gradient_norm,
         #        dropout_prob,random_bias,subsample,random_rotate,num_mixtures,model_type):
@@ -39,7 +34,6 @@ class DynamicRnnSeq2Seq(object):
         #
         # This MDN format is then either used for the loss, or is sampled to get a real value
 
-        #TODO Reorganise code using namespace for better readability
         self.parameters = parameters
         self.max_gradient_norm = parameters['max_gradient_norm']
         self.rnn_size = parameters['rnn_size']
@@ -154,7 +148,6 @@ class DynamicRnnSeq2Seq(object):
                     )
 
         def _pad_missing_output_with_zeros(MDN_samples):
-            # TODO Should not be needed, as it will occur later outside tensorflow - not anymore! I'm using raw_rnn now
             # Simple hack for now as I cannot get t-1 data for t_0 derivatives easily due to scoping problems.
             # sampled has shape 256,2 - it needs 256,4
             # No longer used unless is set input mask as 1100
@@ -226,6 +219,8 @@ class DynamicRnnSeq2Seq(object):
                                                                     inputs=reordered_encoder_inputs,
                                                                     dtype=tf.float32)
 
+            """RNN loop function, the heart of this network. """
+
             def loop_fn(time, cell_output, cell_state, loop_state):
                 emit_output = cell_output
 
@@ -242,19 +237,29 @@ class DynamicRnnSeq2Seq(object):
                 else:
                     next_cell_state = cell_state
                     projected_output = MDN_output_function(cell_output)
+
+                    # Take a single sample of the MDN. This may be ignored later, depending on the use-case.
                     sampled = MDN.sample(projected_output, temperature=self.parameters['sample_temperature'])
                     upscale_sampled = _upscale_sampled_output(sampled)
+
+                    # If the no feedforward flag, just give the next time-step of the network zeros.
+                    # This is the equivalent of the RNN-ZF (zero feed) network in the paper.
                     if self.parameters['no_feedforward']:
                         next_sampled_input = tf.zeros([upscale_sampled.shape[0], scaling_layer[0].shape[0]],
                                                       dtype=tf.float32)  # Size batch, input width
+
                     elif self.parameters['input_mask'][2:4] == [0,0]:
                         next_sampled_input = _pad_missing_output_with_zeros(upscale_sampled)
+
+                    # Else take a sample, and feed this as the next input for the next sequence.
+                    # All of this is done within tensorflow, as it allows it to run INSIDE the GPU.
+                    # This section is often done sampled once outside of tensorflow using Numpy to resolve the MDN
+                    # and performing it this way does not allow
                     else:
                         next_sampled_input = MDN.compute_derivates(loop_state[2].read(time-1), upscale_sampled,
                                                                    self.parameters['input_columns'],
                                                                    self.parameters['velocity_threshold'],
                                                                    subsample_rate=self.parameters['subsample'])
-                    #next_sampled_input = _upscale_sampled_output(next_sampled_input)
                     target_ta = target_input_ta.read(time - 1) # Only allowed to call read() once. Dunno why.
                     next_datapoint = next_sampled_input # tf.cond(feed_forward, lambda: target_ta, lambda: next_sampled_input)
                     next_input = _apply_scaling_and_input_layer(next_datapoint)
@@ -312,9 +317,8 @@ class DynamicRnnSeq2Seq(object):
                 MDN_output = _transpose_batch_time(loop_state_ta[3].stack())
                 track_padding_output = _transpose_batch_time(loop_state_ta[4].stack())
 
-
             return (output_sampled,
-                    losses, # tf.reduce_sum(losses,axis=1)/len(self.decoder_inputs),\
+                    losses,  # tf.reduce_sum(losses,axis=1)/len(self.decoder_inputs),\
                     final_state,
                     MDN_output,
                     track_padding_output)
@@ -344,7 +348,7 @@ class DynamicRnnSeq2Seq(object):
                 self.trackwise_padding_input.append(tf.placeholder(tf.bool,
                                                                    shape=[self.batch_size],
                                                                    name="trackwise_padding{0}".format(i)))
-            #targets are just the future data
+            # targets are just the future data
             # Rescale gt data x1 and x2 such that the MDN is judged in smaller unit scale dimensions
             # This is because I do not expect the network to figure out the scaling, and so the Mixture is in unit size scale
             # So the GT must be brought down to meet it.
@@ -354,7 +358,7 @@ class DynamicRnnSeq2Seq(object):
 
         #Hook for the input_feed
         self.target_inputs = targets
-############## IO and LAYER ASSIGNMENT ##############################
+        ############## IO and LAYER ASSIGNMENT ##############################
 
         #Leave the last observation as the first input to the decoder
         #self.encoder_inputs = self.observation_inputs[0:-1]
@@ -371,7 +375,6 @@ class DynamicRnnSeq2Seq(object):
             # The length is checked, though.
             self.decoder_inputs.extend([_apply_scaling_and_input_layer(self.future_inputs[i])
                                         for i in xrange(len(self.future_inputs) - 1)])
-        #
 
         #### SEQ2SEQ function HERE
 
@@ -384,7 +387,7 @@ class DynamicRnnSeq2Seq(object):
                 seq2seq_f(self.encoder_inputs, self.decoder_inputs, self.target_inputs, self.observation_inputs[-1],
                           self.trackwise_padding_input)
 
-########### EVALUATOR / LOSS SECTION ###################
+        ########### EVALUATOR / LOSS SECTION ###################
         # TODO There are several types of cost functions to compare tracks. Implement many
         # Mainly, average MSE over the whole track, or just at a horizon time (t+10 or something)
         # There's this corner alg that Social LSTM refernces, but I haven't looked into it.
@@ -398,7 +401,7 @@ class DynamicRnnSeq2Seq(object):
         if self.model_type == 'classifier':
           raise Exception # This model is MDN only
 
-############# OPTIMIZER SECTION ########################
+        ############# OPTIMIZER SECTION ########################
         # Gradients and SGD update operation for training the model.
         # Here we split the model into training and validation/testing (inference)
         # This allows for slightly different loss functions.
@@ -429,7 +432,7 @@ class DynamicRnnSeq2Seq(object):
         full_gradients = zip(clipped_full_gradients, tvars)
         self.full_updates.append(opt.apply_gradients(full_gradients, global_step=self.global_step))
 
-############# LOGGING SECTION ###########################
+        ############# LOGGING SECTION ###########################
         for gradient, variable in full_gradients:  #plot the gradient of each trainable variable
             if variable.name.find("seq_rnn/combined_tied_rnn_seq2seq/tied_rnn_seq2seq/MultiRNNCell") == 0:
                 var_log_name = variable.name[64:] #Make the thing readable in Tensorboard

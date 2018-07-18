@@ -122,7 +122,7 @@ class TrainingManager:
                         and self.parameter_dict['model_type'] == 'classifier':
                     # Compute Distance Metric
                     dist_results = netManager.compute_result_per_dis(validation_batch_handler, plot=False)
-                    #f1_scores = netManager.compute_distance_f1_report(dist_results)
+                    # f1_scores = netManager.compute_distance_f1_report(dist_results)
                     metric_results, metric_labels = netManager.evaluate_pdis_metric(dist_results)
 
                     metric_string = " "
@@ -132,17 +132,17 @@ class TrainingManager:
                     # DOn't log hyper search graphs, it explodes the log directory.
                     if not hyper_search:
                         graphs = netManager.draw_categorical_png_graphs_perf_dist(dist_results)
-                        #netManager.log_graphs_to_tensorboard(graphs)
+                        # netManager.log_graphs_to_tensorboard(graphs)
                     netManager.log_metric_to_tensorboard(metric_results)
                     sys.stdout.write("p_dis" + metric_string)
                 elif (((not self.parameter_dict['debug']) and current_step % (steps_per_checkpoint*10) == 0) or final_run)\
                     and self.parameter_dict['model_type'] == 'MDN':
-                    #print "Write PNG graphing functions here."
+                    # print "Write PNG graphing functions here."
                     netManager.draw_generative_png_graphs(validation_batch_handler,multi_sample=1, final_run=final_run)
-                    #netManager.draw_generative_png_graphs(validation_batch_handler, multi_sample=20,
+                    # netManager.draw_generative_png_graphs(validation_batch_handler, multi_sample=20,
                     #                                      draw_prediction_track=False, final_run=final_run)
                     # I rarely use this, and now the multithreader cannot return a value if it is backgrounded.
-                    #netManager.log_graphs_to_tensorboard(graphs)
+                    # netManager.log_graphs_to_tensorboard(graphs)
                     metric_results = -999
                 sys.stdout.write("\r\n")
                 sys.stdout.flush()
@@ -150,12 +150,12 @@ class TrainingManager:
                 netManager.checkpoint_model()
 
                 # Log all things
-                results_dict = {'g_step':netManager.get_global_step(),
-                                'training_loss':np.mean(loss_a),
-                                'training_acc':np.mean(accuracy_a),
-                                'validation_loss':np.mean(val_step_loss_a),
-                                'validation_acc':np.mean(val_accuracy_a)}
-                training_log_df = training_log_df.append(results_dict,ignore_index=True)
+                results_dict = {'g_step': netManager.get_global_step(),
+                                'training_loss': np.mean(loss_a),
+                                'training_acc': np.mean(accuracy_a),
+                                'validation_loss': np.mean(val_step_loss_a),
+                                'validation_acc': np.mean(val_accuracy_a)}
+                training_log_df = training_log_df.append(results_dict, ignore_index=True)
 
                 ### Decay learning rate checks
 

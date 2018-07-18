@@ -158,10 +158,6 @@ class comparative_works():
                    test_batch_handler,
                    parameters,
                    report_df):
-        from sklearn.gaussian_process import GaussianProcessRegressor
-        from sklearn.gaussian_process.kernels import (RBF, Matern, RationalQuadratic,
-                                                      ExpSineSquared, DotProduct,
-                                                      ConstantKernel, WhiteKernel)
         training_encoder_data = training_batch_handler.data_pool.encoder_sample.values
         training_decoder_data = training_batch_handler.data_pool.decoder_sample.values
         # Now I want to reshape this such that n_samples is n_tracks, and features is unrolled track data
@@ -205,14 +201,6 @@ class comparative_works():
                 n_samples *= 0.9
                 print "GP ran out of memory, number of samples reduced to: " + str(n_samples)
 
-
-        # import pyGPs
-        # model = pyGPs.GPR_FITC()
-        # model.setData(X_short[0:1000], y_short[0:1000])
-        # gp_kernel = ExpSineSquared(1.0, 5.0, periodicity_bounds=(1e-2, 1e1)) + WhiteKernel(1e-1)
-        # gpr = GaussianProcessRegressor()#kernel=gp_kernel)
-        # gpr.fit(X[0:100], y[0:100])
-        # t = gpr.sample_y(X[0:1]).reshape(20,4, order='a')
         outputs = []
         ideas = None
         test_batch_handler.set_distance_threshold(0)
@@ -231,15 +219,13 @@ class comparative_works():
         GP_df.to_pickle(file_path)
         return GP_df
 
+    # Unused function that combines a classifier with a dist. estimator.
+    # Does not work very well because the clusterer does not cluster according to how similar the pred. dist. is.
     def classifierComboDistributionEstimator(self, training_batch_handler,
                                                    validation_batch_handler,
                                                    test_batch_handler,
                                                    parameters,
                                                    report_df):
-        # This is a reproduction of the work of Nachiket Deo from UC San Diego
-        # And "Probabilistic Trajectory Prediction with GMM's" Weist et. al.
-
-        # The main flow of these papers is as follows:
 
         # Training:
         # Given the historical and future track data of each track snippet:
@@ -375,7 +361,6 @@ class comparative_works():
             outputs.append(prediction)
 
         classEst_df = classEst_df.assign(outputs=outputs)
-
 
         return classEst_df
 

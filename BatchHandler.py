@@ -63,7 +63,6 @@ class BatchHandler:
         return len(self.data_pool['destination'].unique())
 
     def set_distance_threshold(self, d_thresh=None):
-        # TODO Cache these.
         self.d_thresh = d_thresh
         # for every track_idx, find the sample that is max(d<thresh)
 
@@ -73,13 +72,12 @@ class BatchHandler:
 
         rp = []
         for track_idx in self.data_pool['track_idx'].unique():
-            pool = self.data_pool[self.data_pool['track_idx']==track_idx]
-            tp = pool[pool['distance']<d_thresh] # thresholded pool - everything that came before d_thresh
+            pool = self.data_pool[self.data_pool['track_idx'] == track_idx]
+            tp = pool[pool['distance'] < d_thresh]  # thresholded pool - everything that came before d_thresh
             # Sort by distance, pick closest
             try:
-                record = tp.sort_values('distance',ascending=False).iloc[range(self.parameters['d_thresh_top_n'])] #
+                record = tp.sort_values('distance', ascending=False).iloc[range(self.parameters['d_thresh_top_n'])]
             except IndexError:
-                # TODO Change p_dis range values.
                 continue
 
             # Double list as it will return a Series of type object otherwise, ruining all labels, breaking the data
@@ -97,12 +95,9 @@ class BatchHandler:
         self.d_thresh_range = d_thresh_range
         return
 
-
-
-    #Function that gets the data as a list of sequences, (which are time length lists of features)
+    # Function that gets the data as a list of sequences, (which are time length lists of features)
     # i.e. a list of length batch size, containing [time, input_size] elements
     # and converts it to a list of length time, containing [batch input_size] elements
-
     def format_minibatch_data(self, X, Y, batchwise_padding, trackwise_padding=None):
         if type(X) is not list:
             X = list(X)
@@ -134,7 +129,7 @@ class BatchHandler:
             if trackwise_padding is not None:
                 formatted_trackwise_padding.append(
                         np.array([trackwise_padding[batch_idx][length_idx]
-                        for batch_idx in xrange(self.batch_size)], dtype=np.bool))
+                                 for batch_idx in xrange(self.batch_size)], dtype=np.bool))
 
         # Encapsulate the label data in a list of size 1 to mimic a decoder seq of len 1
         if self.parameters['prediction_steps'] == 0:

@@ -15,7 +15,8 @@ def bhattacharyya_distance():
 def euclid_distance(a, b):
     return np.sqrt(np.square(a[1]-b[1]) + np.square(a[2]-b[2]))
 
-
+# This implementation is done as a BFS search. That is, for each depth in the tree, it will cluster those mixtures,
+# add them to a path, and kill / split paths as necessary.
 def cluster_MDN_into_sets(MDN_model_output, mix_weight_threshold=0.5, eps=1.0, min_samples=1):
     np.set_printoptions(precision=1)
     # In hindsight this should have been done via a tree structure. I mean, it is, just the representation is poor

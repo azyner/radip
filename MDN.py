@@ -2,6 +2,8 @@ import tensorflow as tf
 import numpy as np
 
 # Library that implements Alex Graves 2014 paper
+# Modified such that all the computations can be performed within tensorflow, allowing for the network to produce a full
+# prediciton at training time, significantly increasing results.
 
 def tf_2d_normal(x1, x2, mu1, mu2, s1, s2, rho):
     # eq # 24 and 25 of http://arxiv.org/abs/1308.0850
@@ -85,7 +87,8 @@ def sample(output, temperature=1.0):
         print 'error with sampling ensemble'
         return -1
 
-    #There is a random_normal
+    # This is a strict 2d multinomial distribution with temperature scaling
+    # TODO this should probably be replaced with MultivariateNormalFullCovariance at some point.
     def sample_gaussian_2d(mu1, mu2, s1, s2, rho, temp=1.0):
         # mean = [mu1, mu2]
         #cov = [[s1 * s1, rho * s1 * s2], [rho * s1 * s2, s2 * s2]]
@@ -105,17 +108,10 @@ def sample(output, temperature=1.0):
         covL = tf.expand_dims(tf.concat(axis=1, values=[covLL, covLR]), 2)
         cov = tf.concat(axis=2, values=[covU, covL])
 
-        # #tf.random_normal? its not multivariate, but it will have to do.
-        # #tf.self_adjoint_eigvals can be used on the cov matrix
-        #
-        # x = np.random.multivariate_normal(mean, cov, 1)
-        # return x[0][0], x[0][1]
-
-        #See https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Drawing_values_from_the_distribution
+        # See https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Drawing_values_from_the_distribution
         #step 2
 
         batch_size = tf.shape(mu1)
-        #batch_size = mu1.get_shape()
         convar = tf.constant([2])
         random_shape = tf.concat(axis=0, values=[convar, batch_size])
 
@@ -133,22 +129,19 @@ def sample(output, temperature=1.0):
     # tf multinomial wants the `unnormalized log probabilities', which explains the extra tf.log
     idx = tf.to_int32(tf.multinomial(tf.log(o_pi), 1))
 
-    #TODO - gather_nd does not have a gradient function. Replace with:
-    # 1 - convert batch_idx to 1 hot vector
-    # 2 - multiply
-    # 3 - reduce-sum
     #Because the documentation for gather_nd is easier to read than tf.gather
-    batch_range = tf.expand_dims(tf.range(0,idx.get_shape()[0]),1) # make the first idx for batch_idx a self refencing idx
-    batch_idx = tf.concat(values=[batch_range,idx],axis=1)         # then add the MDN idx.
-    next = sample_gaussian_2d(tf.gather_nd(o_mu1,batch_idx),
-                              tf.gather_nd(o_mu2,batch_idx),
-                              tf.gather_nd(o_sigma1,batch_idx),
-                              tf.gather_nd(o_sigma2,batch_idx),
-                              tf.gather_nd(o_corr,batch_idx), temp=temperature)
+    batch_range = tf.expand_dims(tf.range(0, idx.get_shape()[0]), 1)  # make the first idx for batch_idx a self refencing idx
+    batch_idx = tf.concat(values=[batch_range, idx], axis=1)  # then add the MDN idx.
+    next = sample_gaussian_2d(tf.gather_nd(o_mu1, batch_idx),
+                              tf.gather_nd(o_mu2, batch_idx),
+                              tf.gather_nd(o_sigma1, batch_idx),
+                              tf.gather_nd(o_sigma2, batch_idx),
+                              tf.gather_nd(o_corr, batch_idx), temp=temperature)
 
     return next
 
 
+# This allows a speed and velocity to be produced for the next timstep, by comparing t and t_-1
 def compute_derivates(output_prev, output_current, network_input_columns,
                       velocity_threshold=tf.constant(2.0, dtype=tf.float32), subsample_rate=1):
     # ['easting', 'northing', 'heading', 'speed']
