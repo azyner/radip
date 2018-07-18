@@ -99,10 +99,10 @@ class TrainingManager:
                 val_step_loss_a.append(val_step_loss)
                 accuracy_a.append(accuracy)
                 val_accuracy_a.append(val_accuracy)
-                sys.stdout.write("\rg_step %06d lr %.1e step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f "
+                sys.stdout.write("\rg_step %06d lr %.1e step %.4f avTL %.4f VL %.4f "
                        % (netManager.get_global_step(),
                           netManager.get_learning_rate(),
-                          step_time, np.mean(loss_a), np.mean(val_step_loss_a), np.mean(accuracy_a), np.mean(val_accuracy_a)))
+                          step_time, np.mean(loss_a), np.mean(val_step_loss_a)))
                 sys.stdout.flush()
 
                 #print "valbatch Time: " + str(time.time()-val_time)
@@ -111,10 +111,10 @@ class TrainingManager:
             sys.stdout.write("\rg_step %06d " % (current_step))
             sys.stdout.flush()
             if (current_step % steps_per_checkpoint == 0) or final_run:
-                sys.stdout.write("\rg_step %06d lr %.1e step %.4f avTL %.4f VL %.4f Acc %.3f v_acc %.3f "
+                sys.stdout.write("\rg_step %06d lr %.1e step %.4f avTL %.4f VL %.4f "
                        % (netManager.get_global_step(),
                           netManager.get_learning_rate(),
-                          step_time, np.mean(loss_a), np.mean(val_step_loss_a), np.mean(accuracy_a), np.mean(val_accuracy_a)))
+                          step_time, np.mean(loss_a), np.mean(val_step_loss_a)))
                 sys.stdout.flush()
 
                 # TODO make this run every n minutes, not a multiple of steps. Also add duration reporting to console
