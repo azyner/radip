@@ -127,13 +127,13 @@ Wrangler = SequenceWrangler.SequenceWrangler(parameters,source_list,n_folds=para
 
 if ibeo:
     if not Wrangler.load_from_checkpoint():
-        print "reading data and splitting into data pool, this will take some time (3? hours). Go outside"
+        print "Reading raw data from csv's and splitting into data pool, this will take some time (10+ hours)."
         ibeoCSV = ibeoCSVImporter.ibeoCSVImporter(parameters,source_list)
         Wrangler.generate_master_pool_ibeo(ibeoCSV.get_track_list())
 
 else:
     if not Wrangler.load_from_checkpoint():
-        print "reading data and splitting into data pool, this will take some time (3? hours). Go outside"
+        print "Reading data and splitting into data pool, this will take some time (3? hours)."
         raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(parameters.parameters['input_columns'])
         Wrangler.generate_master_pool_naturalistic_2015(raw_sequences, raw_classes)
 if checkpoint_dir is not None:
