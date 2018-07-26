@@ -443,7 +443,7 @@ class SequenceWrangler:
         data_columns.extend(self.parameters['ibeo_data_columns'])
         data_columns = list(set(data_columns))
 
-        pool = mp.Pool(processes=4)
+        pool = mp.Pool(processes=7)
         args = []
         # For all tracks
         for track_raw_idx in range(len(ibeo_track_list)):
