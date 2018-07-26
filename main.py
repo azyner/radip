@@ -4,9 +4,7 @@
 # It will either read the local parameters.py file or the parameters pkl inside the checkpoint folder.
 # If
 import TrainingManager
-import intersection_segments
 import SequenceWrangler
-
 import datetime
 import os
 import pandas as pd
@@ -127,7 +125,7 @@ Wrangler = SequenceWrangler.SequenceWrangler(parameters,source_list,n_folds=para
 
 if ibeo:
     if not Wrangler.load_from_checkpoint():
-        print "Reading raw data from csv's and splitting into data pool, this will take some time (10+ hours)."
+        print "Reading raw data from csv's / checkpoint and splitting into data pool, this will take some time"
         ibeoCSV = ibeoCSVImporter.ibeoCSVImporter(parameters,source_list)
         Wrangler.generate_master_pool_ibeo(ibeoCSV.get_track_list())
 

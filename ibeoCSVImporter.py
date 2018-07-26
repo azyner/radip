@@ -24,13 +24,25 @@ class ibeoCSVImporter:
         # name it after a hash of the csv_names and the file data. Or read from the given filename
         try:
             cache_name = parameters.parameters['data_filename']
+            print "loading data from: " + cache_name
         except KeyError:
             cache_name = abs(hash(tuple(csv_name)) + utils.get_library_hash(['ibeoCSVImporter.py']))
+            print "Loading from raw CSV's, 10+hours."
+
+        # Try to load a pkl as this was the original file format, and will be the format the data takes if
+        # parsing from the original csv's
         file_path = 'data/' + str(cache_name) + ".pkl"
+        csv_filetype = False
+        # Else try for a csv which was the downloaded dataset
+        if not os.path.isfile(file_path):
+            csv_filetype = True
+            file_path = 'data/' + str(cache_name) + ".csv"
 
         imported = False
         if os.path.isfile(file_path):
             try:
+                if csv_filetype:
+                    raise ImportError
                 with open(file_path, 'rb') as pkl_file:
                     self.labelled_track_list = pickle.load(pkl_file)
                     imported = True
@@ -39,13 +51,34 @@ class ibeoCSVImporter:
                         self.lookup_intersection_extent(csv)
 
             except ImportError:
-                imported = False
+                # Either the pkl failed to load, or it doesn't exist. Try a CSV
+                file_path = 'data/' + str(cache_name) + ".csv"
+                try:
+                    csv_df = pd.read_csv(file_path)
+                    self.labelled_track_list = []
+                    # The original data inthe pkl is a list of each track. Split it up to match formats.
+                    for uid in csv_df.uniqueId.unique():
+                        sub_df = csv_df[csv_df.uniqueId==uid]
+                        self.labelled_track_list.append(sub_df)
+
+                    imported = True
+                    # Grab some labels for the summary printer
+                    for csv in csv_name:
+                        self.lookup_intersection_extent(csv)
+                except ImportError:
+                    imported = False
 
         if not imported:
             for csv_file in csv_name:
                 print "No cached csv data found. Double check the parameters file if you do not have CSV's present"
+                print "If you have not downloaded the dataset from http://its.acfr.usyd.edu.au/datasets/ do so now"
                 print "Reading CSV " + csv_file
-                input_df = pd.read_csv('data/' + csv_file)
+                try:
+                    input_df = pd.read_csv('data/' + csv_file)
+                except IOError:
+                    print "Went looking for the original CSVs files (~250GiB worth). Files not found. Did you mean to"
+                    print "use the dataset available at http://its.acfr.usyd.edu.au/datasets/ ?"
+                    exit(1)
                 input_df['csv_name'] = [csv_file]*len(input_df)
                 self.lookup_intersection_extent(csv_file)
                 parsed_df = self._parse_ibeo_df(input_df)
