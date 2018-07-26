@@ -186,7 +186,7 @@ class ReportWriter:
                 for centroid_idx in range(len(path_centroids)):
                     model_predictions['multipath_' + str(centroid_idx)] = np.array(path_centroids[centroid_idx])
 
-                for padding_mask in ['None']: #'['None', 'GT', 'Network']:
+                for padding_mask in ['Network']: #'['None', 'GT', 'Network']:
                     utils_draw_graphs.draw_png_heatmap_graph(report_df[report_df.track_idx == track_idx].encoder_sample.iloc[0],
                                                              model_predictions,
                                                              report_df[report_df.track_idx == track_idx].decoder_sample.iloc[0],  # Ground Truth
