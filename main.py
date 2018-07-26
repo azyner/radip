@@ -131,9 +131,10 @@ if ibeo:
 
 else:
     if not Wrangler.load_from_checkpoint():
-        print "Reading data and splitting into data pool, this will take some time (3? hours)."
-        raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(parameters.parameters['input_columns'])
-        Wrangler.generate_master_pool_naturalistic_2015(raw_sequences, raw_classes)
+        print "deprecated. Please use ibeo=true in the parametes file"
+        #"Reading data and splitting into data pool, this will take some time (3? hours)."
+        #raw_sequences, raw_classes = intersection_segments.get_manouvre_sequences(parameters.parameters['input_columns'])
+        #Wrangler.generate_master_pool_naturalistic_2015(raw_sequences, raw_classes)
 if checkpoint_dir is not None:
     # Guarantee that the tracks used for testing are the same as during training
     with open(os.path.join(parameters.parameters['master_dir'], 'data.pkl'), 'rb') as pkl_file:
@@ -181,11 +182,3 @@ trainingManager.long_train_network(best_params, cf_pool[0][0], cf_pool[0][1], te
                                    test_network_only=test_network_only)
 #Dumb statement for breakpoint before system finishes
 ideas = None
-
-#Anything else to pickle?
-# I need the track idx's for test train split for the visualiser
-
-# Select best model based on hyper parameters
-# Train on all training/val data
-# Run on test data
-# Also run checkpointed model on test data
