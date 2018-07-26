@@ -505,71 +505,72 @@ class TrainingManager:
         # SPAGHETTI WARNING
         # This was done in a rush for a journal plot
         # it will plot the output graphs for several distance horizons, to create an effective animation
-        #return best_results
+        # return best_results
+        plot_tracks_at_distances = True
+        if plot_tracks_at_distances:
+            for d in [-5, 0, 5, 10, 20]: #np.arange(-16,22,2): #[-15, -10, -5, 0, 5, 10, 15, 20]:
+                print "Now running report for distance: " + str(d) + " meters"
+                try:
+                    _, _, report_df = self.test_network(netManager, test_batch_handler, distance=d)
+                    print "Number of tracks is: " + str(len(report_df.track_idx.unique()))
+                except ValueError:
+                    # No data for this distance
+                    continue
 
-        for d in [-5, 0, 5, 10, 20]: #np.arange(-16,22,2): #[-15, -10, -5, 0, 5, 10, 15, 20]:
-            print "Now running report for distance: " + str(d) + " meters"
-            try:
-                _, _, report_df = self.test_network(netManager, test_batch_handler, distance=d)
-                print "Number of tracks is: " + str(len(report_df.track_idx.unique()))
-            except ValueError:
-                # No data for this distance
-                continue
+                try:
+                    cluster_mix_weight_threshold = self.parameter_dict['cluster_mix_weight_threshold']
+                except KeyError:
+                    cluster_mix_weight_threshold = 0.5
+                try:
+                    cluster_eps = float(self.parameter_dict['cluster_eps'])
+                except KeyError:
+                    cluster_eps = 1.0
+                try:
+                    cluster_min_samples = self.parameter_dict['cluster_min_samples']
+                except KeyError:
+                    cluster_min_samples = 1
 
-            try:
-                cluster_mix_weight_threshold = self.parameter_dict['cluster_mix_weight_threshold']
-            except KeyError:
-                cluster_mix_weight_threshold = 0.5
-            try:
-                cluster_eps = float(self.parameter_dict['cluster_eps'])
-            except KeyError:
-                cluster_eps = 1.0
-            try:
-                cluster_min_samples = self.parameter_dict['cluster_min_samples']
-            except KeyError:
-                cluster_min_samples = 1
+                pool = mp.Pool(processes=7, maxtasksperchild=1)
+                args = []
+                plt_size = (6, 6)  # (10, 10)
+                plot_dir = os.path.join(self.parameter_dict['master_dir'], 'sequential_test_data_plots')
+                if not os.path.exists(plot_dir):
+                    os.makedirs(plot_dir)
 
-            pool = mp.Pool(processes=7, maxtasksperchild=1)
-            args = []
-            plt_size = (6, 6)  # (10, 10)
-            plot_dir = os.path.join(self.parameter_dict['master_dir'], 'sequential_test_data_plots')
-            if not os.path.exists(plot_dir):
-                os.makedirs(plot_dir)
+                for track_idx in report_df.track_idx:
+                    model_predictions = {}
+                    track_df = report_df[report_df.track_idx == track_idx]
+                    if 'right' not in track_df.relative_destination.iloc[0]:
+                       continue
+                    #if track_df.track_idx.iloc[0] not in [16780]:
+                    #   continue
 
-            for track_idx in report_df.track_idx:
-                model_predictions = {}
-                track_df = report_df[report_df.track_idx == track_idx]
-                if 'right' not in track_df.relative_destination.iloc[0]:
-                   continue
-                #if track_df.track_idx.iloc[0] not in [16780]:
-                #   continue
+                    #model_predictions["RNN-FL"] = track_df.outputs.iloc[0]
+                    path_MDN_clusters, path_centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(
+                        report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
+                        mix_weight_threshold=cluster_mix_weight_threshold, eps=cluster_eps, min_samples=cluster_min_samples)
+                    for centroid_idx in range(len(path_centroids)):
+                        model_predictions['multipath_' + str(centroid_idx)] = np.array(path_centroids[centroid_idx])
 
-                #model_predictions["RNN-FL"] = track_df.outputs.iloc[0]
-                path_MDN_clusters, path_centroids, path_weights = MDN_clustering.cluster_MDN_into_sets(
-                    report_df[report_df.track_idx == track_idx].mixtures.iloc[0],
-                    mix_weight_threshold=cluster_mix_weight_threshold, eps=cluster_eps, min_samples=cluster_min_samples)
-                for centroid_idx in range(len(path_centroids)):
-                    model_predictions['multipath_' + str(centroid_idx)] = np.array(path_centroids[centroid_idx])
-
-                for padding_mask in ['Network']:
-                    args.append([track_df.encoder_sample.iloc[0],
-                                 model_predictions,
-                                 track_df.decoder_sample.iloc[0],  # Ground Truth
-                                 track_df.mixtures.iloc[0],
-                                 track_df.padding_logits.iloc[0],
-                                 track_df.trackwise_padding.iloc[0],
-                                 plt_size,
-                                 False,  # draw_prediction_track,
-                                 plot_dir,  # self.plot_directory,
-                                 "best",  # self.log_file_name,
-                                 False,  # multi_sample,
-                                 0,  # self.get_global_step(),
-                                 track_idx,  # graph_number,
-                                 plot_dir,  # fig_dir,
-                                 track_df.csv_name.iloc[0],
-                                 track_df.relative_destination.iloc[0],
-                                 utils.sanitize_params_dict(self.parameter_dict), padding_mask, d])
-            results = pool.map(utils_draw_graphs.multiprocess_helper, args)
+                    for padding_mask in ['Network']:
+                        args.append([track_df.encoder_sample.iloc[0],
+                                     model_predictions,
+                                     track_df.decoder_sample.iloc[0],  # Ground Truth
+                                     track_df.mixtures.iloc[0],
+                                     track_df.padding_logits.iloc[0],
+                                     track_df.trackwise_padding.iloc[0],
+                                     plt_size,
+                                     False,  # draw_prediction_track,
+                                     plot_dir,  # self.plot_directory,
+                                     "best",  # self.log_file_name,
+                                     False,  # multi_sample,
+                                     0,  # self.get_global_step(),
+                                     track_idx,  # graph_number,
+                                     plot_dir,  # fig_dir,
+                                     track_df.csv_name.iloc[0],
+                                     track_df.relative_destination.iloc[0],
+                                     utils.sanitize_params_dict(self.parameter_dict), padding_mask, d])
+                results = pool.map(utils_draw_graphs.multiprocess_helper, args)
 
         return best_results
 
