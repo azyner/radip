@@ -11,5 +11,5 @@ all_tracks_data_plot
 network_plots/split*
 plot_collate/*.html
 checkpoints/*
-journal_*
+journal_jo*
 plot_collate
