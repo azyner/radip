@@ -476,12 +476,12 @@ class TrainingManager:
         best_results['test_accuracy'], best_results['test_loss'], report_df = self.test_network(netManager,
                                                                                                 test_batch_handler)
 
-        print "Drawing html graph"
+        #print "Drawing html graph" # I don't read these graphs anymore
         #netManager.draw_html_graphs(netManager.compute_result_per_dis(test_batch_handler))
-        if self.parameter_dict['model_type'] == 'categorical':
-            netManager.draw_categorical_html_graphs(test_batch_handler)
-        else:
-            netManager.draw_generative_html_graphs(test_batch_handler, multi_sample=1)
+        #if self.parameter_dict['model_type'] == 'categorical':
+        #    netManager.draw_categorical_html_graphs(test_batch_handler)
+        #else:
+        #    netManager.draw_generative_html_graphs(test_batch_handler, multi_sample=1)
             #netManager.draw_generative_html_graphs(test_batch_handler, multi_sample=20)
 
         # FIXME maybe this needs its own function?
