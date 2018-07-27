@@ -1,4 +1,4 @@
-Recurrent Array for Driver Intention Prediciton (RADIP)
+###Recurrent Array for Driver Intention Prediciton (RADIP)
 
 Code to accompany paper:
 
@@ -7,7 +7,7 @@ Naturalistic Driver Intention and Path Prediction using Recurrent Neural Network
 https://arxiv.org/abs/1807.09995
 
 
-Installation deps
+#Installation deps
 
 sudo apt-get install python-pip
 
@@ -16,7 +16,7 @@ sudo -H pip install --upgrade pip
 sudo -H pip install tensorflow scipy pandas dill numpy bokeh matplotlib sklearn imblearn pathos GPy
 
 
-Dataset:
+# Dataset:
 
 This needs to be downloaded.
 
@@ -25,10 +25,10 @@ Either find it in http://its.acfr.usyd.edu.au/datasets/ or email the author if h
 Place the dataset into radip/data/
 
 
-Uses:
+##Uses:
 
 
-Inference
+#Inference
 
 To perform inference, run the model loaded from a checkpoint with:
 
@@ -41,7 +41,7 @@ The results are then presented as a plot for each track in test data plots.
 Plots of a sequence will also be output (05m, 0m, 5m, 10m, 20m) in the sequential_test_data_plots folder
 
 
-Training
+#Training
 
 To train a model, copy parameters.example.py to parameters.py and change any desired params. Run main.py with no args.
 The program will then create a directory named after the current date and time in results.
@@ -55,9 +55,9 @@ The training can be stopped early with Ctrl-C. It will then train to the next ch
 and plots.
 
 
-Tools:
+#Tools:
 
-**run_dispatcher.py
+$ ./run_dispatcher.py
 
 To use this tool, place several parameters.py files (named as anything) into a radip/jobs folder, and optionally delete
 the local parameters.py file, else it is run first. Then run run_dispatcher. For each job it will move the parameters
@@ -67,13 +67,16 @@ for jobs to be run simultaneously on different GPUs without duplicating jobs. Th
 job dispatcher. Ctrl-C stops training early and moves on to the next job. Use ctrl-z and kill -9 %1 to kill worker.
 
 
-** run_checkpoints_dir.py -c folder/that/contains/several_results
+$ ./run_checkpoints_dir.py -c folder/that/contains/several_results
+
 Will run from checkpoint all saved results in a directory. Useful for edits to the output functions. Or just to run
 all the output figures because they are not shared with the network checkpoints.
 
-** csv_results_consolidate.py -c folder/that/contains/several_results
+$ ./csv_results_consolidate.py -c folder/that/contains/several_results
+
 Find the best network as defined by the performance on a single metric. Change the metric with arguments.
 Use -h for args list.
 
-** python2 plot_all_tracks
+python2 plot_all_tracks
+
 Plots all vehicle tracks in the dataset, in an all_tracks_plot folder. Creates over 23000 images.
