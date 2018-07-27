@@ -1,6 +1,8 @@
 Recurrent Array for Driver Intention Prediciton (RADIP)
 
-Licence to be added before public release. No warranties assumed or implied, yadda yadda
+Code to acompany paper:
+Naturalistic Driver Intention and Path Prediction using Recurrent Neural Networks
+https://arxiv.org/abs/1807.09995
 
 Installation deps
 
