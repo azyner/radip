@@ -1,22 +1,35 @@
 Recurrent Array for Driver Intention Prediciton (RADIP)
 
-Code to acompany paper:
+Code to accompany paper:
+
 Naturalistic Driver Intention and Path Prediction using Recurrent Neural Networks
+
 https://arxiv.org/abs/1807.09995
+
 
 Installation deps
 
 sudo apt-get install python-pip
+
 sudo -H pip install --upgrade pip
+
 sudo -H pip install tensorflow scipy pandas dill numpy bokeh matplotlib sklearn imblearn pathos GPy
 
+
 Dataset:
+
 This needs to be downloaded.
+
 Either find it in http://its.acfr.usyd.edu.au/datasets/ or email the author if he hasn't uploaded it yet.
+
 Place the dataset into radip/data/
 
+
 Uses:
+
+
 Inference
+
 To perform inference, run the model loaded from a checkpoint with:
 
 $ ./main.py -c journal_models/RNN-FF/train/best-1529969240.38/
@@ -27,7 +40,9 @@ This will run all of the test tracks through the model, and then cluster them ag
 The results are then presented as a plot for each track in test data plots.
 Plots of a sequence will also be output (05m, 0m, 5m, 10m, 20m) in the sequential_test_data_plots folder
 
+
 Training
+
 To train a model, copy parameters.example.py to parameters.py and change any desired params. Run main.py with no args.
 The program will then create a directory named after the current date and time in results.
 It will then copy the parameters file and a git log into this folder.
@@ -41,6 +56,7 @@ and plots.
 
 
 Tools:
+
 **run_dispatcher.py
 
 To use this tool, place several parameters.py files (named as anything) into a radip/jobs folder, and optionally delete
